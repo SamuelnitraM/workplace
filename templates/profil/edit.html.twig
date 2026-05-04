@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modifier mon profil{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto">
+
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-8">
+        <h1 class="text-2xl font-bold text-white mb-6">✏️ Modifier mon profil</h1>
+
+        {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
+
+            <div class="space-y-5">
+
+                <div>
+                    {{ form_label(form.username, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
+                    {{ form_widget(form.username, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500'}}) }}
+                    {{ form_errors(form.username) }}
+                </div>
+
+                <div>
+                    {{ form_label(form.bio, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
+                    {{ form_widget(form.bio, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500'}}) }}
+                    {{ form_errors(form.bio) }}
+                </div>
+
+                <div>
+                    {{ form_label(form.avatarFile, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
+                    {% if user.avatar %}
+                        <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" 
+                             alt="Avatar actuel" 
+                             class="w-16 h-16 rounded-full object-cover mb-2">
+                    {% endif %}
+                    {{ form_widget(form.avatarFile, {'attr': {'class': 'w-full text-gray-400 text-sm'}}) }}
+                    {{ form_errors(form.avatarFile) }}
+                </div>
+
+            </div>
+
+            <div class="flex gap-3 mt-8">
+                <button type="submit" 
+                        class="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
+                    💾 Sauvegarder
+                </button>
+                <a href="{{ path('app_profil_index') }}" 
+                   class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition">
+                    Annuler
+                </a>
+            </div>
+
+        {{ form_end(form) }}
+    </div>
+
+</div>
+{% endblock %}

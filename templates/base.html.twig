@@ -1,24 +1,74 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-        {% block stylesheets %}
-        {% endblock %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}HighlightForge{% endblock %}</title>
+    {% block stylesheets %}
+        {{ encore_entry_link_tags('app') }}
+    {% endblock %}
+    {% block javascripts %}
+        {{ importmap('app') }}
+    {% endblock %}
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
 
-        {% block javascripts %}
-            {% block importmap %}{{ importmap('app') }}{% endblock %}
-        {% endblock %}
+    {# NAVBAR #}
+    <nav class="bg-gray-800 border-b border-gray-700 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="{{ path('app_home') }}" class="text-xl font-bold text-indigo-400">
+                ⚔️ HighlightForge
+            </a>
+            <div class="flex gap-4 items-center">
+                {% if app.user %}
+                    <a href="{{ path('app_profil_index') }}" 
+                    class="text-gray-300 hover:text-white transition text-sm flex">
+                        <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}" class="w-6 h-6 rounded-full mr-2" alt=""> {{ app.user.username }}
+                    </a>
+                    <a href="{{ path('app_logout') }}" 
+                    class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm transition">
+                        Déconnexion
+                    </a>
+                {% else %}
+                    <a href="{{ path('app_login') }}" 
+                       class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded text-sm transition">
+                        Connexion
+                    </a>
+                    <a href="{{ path('app_register') }}" 
+                       class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition">
+                        Inscription
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
 
-        {% set frankenphpHotReload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
-        {% if frankenphpHotReload %}
-        <meta name="frankenphp-hot-reload:url" content="{{ frankenphpHotReload }}">
-        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
-        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
-        {% endif %}
-    </head>
-    <body>
+{# FLASH MESSAGES #}
+{% set flashes = app.flashes %}
+{% if flashes is not empty %}
+    <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-6">
+        {% for type, messages in flashes %}
+            {% for message in messages %}
+                <div class="mb-2 px-4 py-3 rounded shadow-lg
+                    {% if type == 'success' %}bg-green-700
+                    {% elseif type == 'error' %}bg-red-700
+                    {% else %}bg-blue-700{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+{% endif %}
+
+    {# CONTENU PRINCIPAL #}
+    <main class="flex-1 max-w-7xl mx-auto w-full px-6">
         {% block body %}{% endblock %}
-    </body>
+    </main>
+
+    {# FOOTER #}
+    <footer class="bg-gray-800 border-t border-gray-700 text-center text-gray-500 text-sm py-4">
+        © {{ "now"|date("Y") }} HighlightForge — Communauté Miniaturiste
+    </footer>
+
+</body>
 </html>
