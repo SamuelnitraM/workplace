@@ -29,6 +29,7 @@ class ProfilController extends AbstractController
     #[Route('/edit', name: 'edit')]
     public function edit(Request $request, EntityManagerInterface $em, SluggerInterface $slugger): Response
     {
+        /** @var \App\Entity\User $user */
         $user = $this->getUser();
         $form = $this->createForm(UserProfileFormType::class, $user);
         $form->handleRequest($request);
@@ -70,6 +71,7 @@ class ProfilController extends AbstractController
         UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $em
     ): Response {
+        /** @var \App\Entity\User $user */
         $user = $this->getUser();
         $form = $this->createForm(ChangePasswordFormType::class);
         $form->handleRequest($request);
