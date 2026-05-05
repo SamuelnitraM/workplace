@@ -30,7 +30,7 @@
             <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 flex gap-5">
 
                 {# AVATAR AUTEUR #}
-                <a class="shrink-0 group" href="{{ path('app_profil_index', {username: post.author.username}) }}" >
+                <a class="shrink-0 group" href="{{ path('app_profil_show', {username: post.author.username}) }}" >
                     <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-lg group-hover:ring-2 group-hover:ring-indigo-400 transition">
                         {% if post.author.avatar %}
                             <img src="{{ asset('uploads/avatars/' ~ post.author.avatar) }}"

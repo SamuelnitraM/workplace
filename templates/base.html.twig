@@ -27,9 +27,16 @@
             <div class="flex gap-4 items-center">
 
                 {% if app.user %}
-                    <a href="{{ path('app_profil_index') }}" 
+                    <a href="{{ path('app_profil_show', {username: app.user.username}) }}" 
                     class="text-gray-300 hover:text-white transition text-sm flex">
-                        <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}" class="w-6 h-6 rounded-full mr-2" alt=""> {{ app.user.username }}
+                        {% if app.user.avatar %}
+                        <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}" class="w-6 h-6 rounded-full mr-2" alt=""> 
+                        {% else %}
+                        <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center font-bold shrink-0 mr-2">
+                            {{ user.username|first|upper }}
+                        </div>
+                        {% endif %}
+                        {{ app.user.username }}
                     </a>
                     <a href="{{ path('app_logout') }}" 
                     class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm transition">

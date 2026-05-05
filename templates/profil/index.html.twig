@@ -34,14 +34,23 @@
 
         {# BOUTON MODIFIER #}
         <div class="mt-6 flex gap-3">
-            <a href="{{ path('app_profil_edit') }}" 
-               class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
-                ✏️ Modifier le profil
-            </a>
-            <a href="{{ path('app_profil_change_password') }}" 
-               class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
-                🔒 Changer le mot de passe
-            </a>
+            {% if isOwner %}
+                <a href="{{ path('app_profil_edit') }}"
+                class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
+                    ✏️ Modifier mon profil
+                </a>
+                <a href="{{ path('app_profil_change_password') }}"
+                class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
+                    🔒 Changer le mot de passe
+                </a>
+            {% elseif app.user %}
+                <button class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
+                    ➕ Ajouter en ami
+                </button>
+                <button class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
+                    ✉️ Envoyer un message
+                </button>
+            {% endif %}
         </div>
     </div>
 
