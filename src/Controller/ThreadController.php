@@ -1,0 +1,135 @@
+<?php
+
+namespace App\Controller;
+
+use App\Entity\Post;
+use App\Entity\Thread;
+use App\Form\ThreadFormType;
+use App\Form\PostFormType;
+use App\Repository\CategoryRepository;
+use App\Repository\PostRepository;
+use App\Repository\ThreadRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Knp\Component\Pager\PaginatorInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\String\Slugger\SluggerInterface;
+
+#[Route('/forum', name: 'app_thread_')]
+class ThreadController extends AbstractController
+{
+    #[Route('/thread/{slug}', name: 'show')]
+    public function show(
+        string $slug,
+        Request $request,
+        EntityManagerInterface $em,
+        ThreadRepository $threadRepository,
+        PostRepository $postRepository,
+        PaginatorInterface $paginator
+    ): Response {
+        $thread = $threadRepository->findOneBy(['slug' => $slug]);
+
+        if (!$thread) {
+            throw $this->createNotFoundException('Sujet introuvable');
+        }
+
+        $sessionKey = 'viewed_thread_' . $thread->getId();
+        if (!$request->getSession()->has($sessionKey)) {
+            $thread->setViews($thread->getViews() + 1);
+            $request->getSession()->set($sessionKey, true);
+            $em->flush();
+        }
+
+        $query = $postRepository->createQueryBuilder('p')
+            ->where('p.thread = :thread')
+            ->setParameter('thread', $thread)
+            ->orderBy('p.createdAt', 'ASC')
+            ->getQuery();
+
+        $posts = $paginator->paginate(
+            $query,
+            $request->query->getInt('page', 1),
+            10
+        );
+
+        $form = null;
+        if ($this->getUser() && !$thread->isLocked()) {
+            $post = new Post();
+            $form = $this->createForm(PostFormType::class, $post);
+            $form->handleRequest($request);
+
+            if ($form->isSubmitted() && $form->isValid()) {
+                /** @var \App\Entity\User $user */
+                $user = $this->getUser();
+                $post->setAuthor($user);
+                $post->setThread($thread);
+                $post->setIsFirst(false);
+                $thread->setUpdatedAt(new \DateTimeImmutable());
+
+                $em->persist($post);
+                $em->flush();
+
+                $this->addFlash('success', 'Réponse ajoutée avec succès !');
+                return $this->redirectToRoute('app_thread_show', ['slug' => $thread->getSlug()]);
+            }
+        }
+
+        return $this->render('thread/show.html.twig', [
+            'thread' => $thread,
+            'posts' => $posts,
+            'form' => $form?->createView(),
+        ]);
+    }
+
+    #[Route('/category/{slug}/new-thread', name: 'new')]
+    #[IsGranted('ROLE_USER')]
+    public function new(
+        string $slug,
+        Request $request,
+        EntityManagerInterface $em,
+        CategoryRepository $categoryRepository,
+        SluggerInterface $slugger
+    ): Response {
+        $category = $categoryRepository->findOneBy(['slug' => $slug]);
+
+        if (!$category) {
+            throw $this->createNotFoundException('Catégorie introuvable');
+        }
+
+        $thread = new Thread();
+        $form = $this->createForm(ThreadFormType::class, $thread);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var \App\Entity\User $user */
+            $user = $this->getUser();
+
+            // Créer le slug
+            $thread->setSlug(strtolower($slugger->slug($thread->getTitle())) . '-' . uniqid());
+            $thread->setAuthor($user);
+            $thread->setCategory($category);
+
+            // Premier post = contenu du thread
+            $post = new Post();
+            $post->setContent($form->get('content')->getData());
+            $post->setAuthor($user);
+            $post->setThread($thread);
+            $post->setIsFirst(true);
+
+            $em->persist($thread);
+            $em->persist($post);
+            $em->flush();
+
+            $this->addFlash('success', 'Sujet créé avec succès !');
+            return $this->redirectToRoute('app_thread_show', ['slug' => $thread->getSlug()]);
+        }
+
+        return $this->render('thread/new.html.twig', [
+            'form' => $form,
+            'category' => $category,
+        ]);
+    }
+}

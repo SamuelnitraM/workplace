@@ -1,0 +1,90 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ thread.title }}{% endblock %}
+
+{% block body %}
+<div class="max-w-4xl mx-auto">
+
+    <div class="mb-6">
+        <a href="{{ path('app_forum_category', {slug: thread.category.slug}) }}"
+           class="text-gray-400 hover:text-white text-sm transition">
+            ← Retour à {{ thread.category.name }}
+        </a>
+        <h1 class="text-3xl font-bold text-white mt-1">{{ thread.title }}</h1>
+        <div class="text-sm text-gray-500 mt-1">
+            Par <span class="text-gray-400">{{ thread.author.username }}</span>
+            le {{ thread.createdAt|date('d/m/Y à H:i') }}
+            — {{ thread.views }} vue(s)
+        </div>
+    </div>
+
+    {% if thread.isLocked %}
+        <div class="bg-red-900/30 border border-red-700 rounded-xl p-4 mb-6 text-red-400">
+            🔒 Ce sujet est fermé, il n'est plus possible de répondre.
+        </div>
+    {% endif %}
+
+    {# POSTS #}
+    <div class="space-y-4 mb-8">
+        {% for post in posts.items %}
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 flex gap-5">
+
+                {# AVATAR AUTEUR #}
+                <a class="shrink-0 group" href="{{ path('app_profil_index', {username: post.author.username}) }}" >
+                    <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-lg group-hover:ring-2 group-hover:ring-indigo-400 transition">
+                        {% if post.author.avatar %}
+                            <img src="{{ asset('uploads/avatars/' ~ post.author.avatar) }}"
+                                 alt="Avatar"
+                                 class="w-12 h-12 rounded-full object-cover">
+                        {% else %}
+                            {{ post.author.username|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="text-center text-xs text-gray-500 mt-1 group-hover:text-white transition mt-1">
+                        {{ post.author.username }}
+                    </div>
+                </a>
+
+                {# CONTENU #}
+                <div class="flex-1">
+                    <div class="text-sm text-gray-500 mb-2">
+                        {{ post.createdAt|date('d/m/Y à H:i') }}
+                        {% if post.isFirst %}
+                            <span class="ml-2 text-indigo-400 text-xs">✦ Message original</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-gray-200 leading-relaxed">
+                        {{ post.content|nl2br }}
+                    </div>
+                </div>
+
+            </div>
+            {# Pagination #}
+        <div class="mt-4 mb-8 flex justify-center">
+            {{ knp_pagination_render(posts) }}
+        </div>
+        {% endfor %}
+    </div>
+
+    {# FORMULAIRE DE RÉPONSE #}
+    {% if app.user and not thread.isLocked %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">💬 Votre réponse</h2>
+            {{ form_start(form) }}
+                {{ form_widget(form.content, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500'}}) }}
+                {{ form_errors(form.content) }}
+                <button type="submit"
+                        class="mt-4 bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
+                    Envoyer la réponse
+                </button>
+            {{ form_end(form) }}
+        </div>
+    {% elseif not app.user %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-400">
+            <a href="{{ path('app_login') }}" class="text-indigo-400 hover:text-indigo-300">Connectez-vous</a>
+            pour répondre à ce sujet.
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

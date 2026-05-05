@@ -19,7 +19,13 @@
             <a href="{{ path('app_home') }}" class="text-xl font-bold text-indigo-400">
                 ⚔️ HighlightForge
             </a>
+
+            <a href="{{ path('app_forum_index') }}"
+                class="text-gray-300 hover:text-white transition text-sm">
+                💬 Forum
+            </a>
             <div class="flex gap-4 items-center">
+
                 {% if app.user %}
                     <a href="{{ path('app_profil_index') }}" 
                     class="text-gray-300 hover:text-white transition text-sm flex">
