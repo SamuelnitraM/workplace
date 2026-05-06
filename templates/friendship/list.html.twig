@@ -1,0 +1,187 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mes amis{% endblock %}
+
+{% block body %}
+<div class="max-w-3xl mx-auto">
+
+    <h1 class="text-3xl font-bold text-white mb-8">👥 Mes amis</h1>
+
+    {# DEMANDES REÇUES #}
+    {% if pendingReceived is not empty %}
+    <div class="bg-gray-800 rounded-xl border border-yellow-600 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-yellow-400 mb-4">
+            📬 Demandes reçues ({{ pendingReceived|length }})
+        </h2>
+        <div class="space-y-3">
+            {% for friendship in pendingReceived %}
+                <div class="flex items-center justify-between bg-gray-700 rounded-lg p-4">
+                    <a href="{{ path('app_profil_show', {username: friendship.requester.username}) }}"
+                       class="flex items-center gap-3 hover:text-indigo-400 transition">
+                        <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold">
+                            {% if friendship.requester.avatar %}
+                                <img src="{{ asset('uploads/avatars/' ~ friendship.requester.avatar) }}"
+                                     class="w-10 h-10 rounded-full object-cover">
+                            {% else %}
+                                {{ friendship.requester.username|first|upper }}
+                            {% endif %}
+                        </div>
+                        <span class="font-semibold">{{ friendship.requester.username }}</span>
+                    </a>
+                    <div class="flex gap-2">
+                        <form method="post" action="{{ path('app_friendship_accept', {id: friendship.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                            <button type="submit"
+                                    class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
+                                ✅ Accepter
+                            </button>
+                        </form>
+                        <form method="post" action="{{ path('app_friendship_refuse', {id: friendship.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                            <button type="submit"
+                                    class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm transition">
+                                ❌ Refuser
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# DEMANDES ENVOYÉES #}
+    {% if pendingSent is not empty %}
+    <div class="bg-gray-800 rounded-xl border border-gray-600 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-400 mb-4">
+            📤 Demandes envoyées ({{ pendingSent|length }})
+        </h2>
+        <div class="space-y-3">
+            {% for friendship in pendingSent %}
+                <div class="flex items-center justify-between bg-gray-700 rounded-lg p-4">
+                    <a href="{{ path('app_profil_show', {username: friendship.receiver.username}) }}"
+                       class="flex items-center gap-3 hover:text-indigo-400 transition">
+                        <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold">
+                            {% if friendship.receiver.avatar %}
+                                <img src="{{ asset('uploads/avatars/' ~ friendship.receiver.avatar) }}"
+                                     class="w-10 h-10 rounded-full object-cover">
+                            {% else %}
+                                {{ friendship.receiver.username|first|upper }}
+                            {% endif %}
+                        </div>
+                        <span class="font-semibold">{{ friendship.receiver.username }}</span>
+                    </a>
+                    <span class="text-gray-500 text-sm">⏳ En attente...</span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ONGLETS AMIS / BLOQUES #}
+    <div class="bg-gray-800 rounded-xl border border-gray-700">
+
+        {# BOUTONS ONGLETS #}
+        <div class="flex border-b border-gray-700">
+            <button onclick="showTab('friends')"
+                    id="tab-friends"
+                    class="tab-btn flex-1 py-4 text-sm font-semibold text-indigo-400 border-b-2 border-indigo-400 transition">
+                ✅ Mes amis ({{ friends|length }})
+            </button>
+            <button onclick="showTab('blocked')"
+                    id="tab-blocked"
+                    class="tab-btn flex-1 py-4 text-sm font-semibold text-gray-500 hover:text-gray-300 border-b-2 border-transparent transition">
+                🚫 Bloqués ({{ blocked|length }})
+            </button>
+        </div>
+
+        {# CONTENU ONGLET AMIS #}
+        <div id="panel-friends" class="p-6">
+            {% if friends is empty %}
+                <p class="text-gray-500 text-center py-8">
+                    Vous n'avez pas encore d'amis. Explorez les profils pour en ajouter !
+                </p>
+            {% else %}
+                <div class="space-y-3">
+                    {% for friendship in friends %}
+                        {% set friend = friendship.requester == app.user ? friendship.receiver : friendship.requester %}
+                        <div class="flex items-center justify-between bg-gray-700 rounded-lg p-4">
+                            <a href="{{ path('app_profil_show', {username: friend.username}) }}"
+                               class="flex items-center gap-3 hover:text-indigo-400 transition">
+                                <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold">
+                                    {% if friend.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ friend.avatar) }}"
+                                             class="w-10 h-10 rounded-full object-cover">
+                                    {% else %}
+                                        {{ friend.username|first|upper }}
+                                    {% endif %}
+                                </div>
+                                <span class="font-semibold">{{ friend.username }}</span>
+                            </a>
+                            <form method="post" action="{{ path('app_friendship_remove', {username: friend.username}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                <button type="submit"
+                                        class="bg-red-600/30 hover:bg-red-600 px-4 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
+                                    Retirer
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        {# CONTENU ONGLET BLOQUES #}
+        <div id="panel-blocked" class="p-6 hidden">
+            {% if blocked is empty %}
+                <p class="text-gray-500 text-center py-8">
+                    Aucun utilisateur bloqué.
+                </p>
+            {% else %}
+                <div class="space-y-3">
+                    {% for friendship in blocked %}
+                        <div class="flex items-center justify-between bg-gray-700 rounded-lg p-4">
+                            <a href="{{ path('app_profil_show', {username: friendship.requester.username}) }}"
+                               class="flex items-center gap-3 hover:text-indigo-400 transition">
+                                <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center font-bold">
+                                    {% if friendship.requester.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ friendship.requester.avatar) }}"
+                                             class="w-10 h-10 rounded-full object-cover">
+                                    {% else %}
+                                        {{ friendship.requester.username|first|upper }}
+                                    {% endif %}
+                                </div>
+                                <span class="font-semibold text-gray-400">{{ friendship.requester.username }}</span>
+                            </a>
+                            <form method="post" action="{{ path('app_friendship_unblock', {username: friendship.requester.username}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                <button type="submit"
+                                        class="bg-gray-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm text-gray-300 hover:text-white transition">
+                                    🔓 Débloquer
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+<script>
+function showTab(tab) {
+    document.getElementById('panel-friends').classList.add('hidden');
+    document.getElementById('panel-blocked').classList.add('hidden');
+    document.getElementById('tab-friends').classList.remove('text-indigo-400', 'border-indigo-400');
+    document.getElementById('tab-friends').classList.add('text-gray-500', 'border-transparent');
+    document.getElementById('tab-blocked').classList.remove('text-indigo-400', 'border-indigo-400');
+    document.getElementById('tab-blocked').classList.add('text-gray-500', 'border-transparent');
+
+    document.getElementById('panel-' + tab).classList.remove('hidden');
+    document.getElementById('tab-' + tab).classList.remove('text-gray-500', 'border-transparent');
+    document.getElementById('tab-' + tab).classList.add('text-indigo-400', 'border-indigo-400');
+}
+</script>
+
+{% endblock %}

@@ -42,7 +42,7 @@
                         class="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
                     💾 Sauvegarder
                 </button>
-                <a href="{{ path('app_profil_index') }}" 
+                <a href="{{ path('app_profil_show', {username: app.user.username}) }}" 
                    class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition">
                     Annuler
                 </a>

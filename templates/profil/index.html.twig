@@ -43,14 +43,67 @@
                 class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
                     🔒 Changer le mot de passe
                 </a>
-            {% elseif app.user %}
-                <button class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
-                    ➕ Ajouter en ami
-                </button>
-                <button class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
-                    ✉️ Envoyer un message
-                </button>
+
+        {# DEMANDE AMI / MESSAGE #}
+        {% elseif app.user %}
+            {% if friendship is null %}
+                <form method="post" action="{{ path('app_friendship_request', {username: user.username}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                    <button type="submit"
+                            class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
+                        ➕ Ajouter en ami
+                    </button>
+                </form>
+            {% elseif friendship.status == 'pending' and friendship.requester == app.user %}
+                <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
+                    ⏳ Demande envoyée
+                </span>
+            {% elseif friendship.status == 'pending' and friendship.receiver == app.user %}
+                <form method="post" action="{{ path('app_friendship_accept', {id: friendship.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                    <button type="submit"
+                            class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
+                        ✅ Accepter la demande
+                    </button>
+                </form>
+                <form method="post" action="{{ path('app_friendship_refuse', {id: friendship.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                    <button type="submit"
+                            class="bg-red-600 hover:bg-red-700 px-5 py-2 rounded-lg transition text-sm">
+                        ❌ Refuser
+                    </button>
+                </form>
+            {% elseif friendship.status == 'accepted' %}
+                <span class="bg-green-900/30 border border-green-700 px-5 py-2 rounded-lg text-sm text-green-400">
+                    ✅ Amis
+                </span>
+                <form method="post" action="{{ path('app_friendship_remove', {username: user.username}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                    <button type="submit"
+                            class="bg-red-600/30 hover:bg-red-600 px-5 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
+                        Retirer
+                    </button>
+                </form>
+            {% elseif friendship.status == 'blocked' and friendship.receiver == app.user %}
+                {# C'est moi qui ai bloqué cet utilisateur #}
+                <form method="post" action="{{ path('app_friendship_unblock', {username: user.username}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                    <button type="submit"
+                            class="bg-gray-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm text-gray-300 hover:text-white">
+                        🔓 Débloquer
+                    </button>
+                </form>
+            {% elseif friendship.status == 'blocked' and friendship.requester == app.user %}
+                {# Je suis bloqué par cet utilisateur, je vois juste "Refusé" #}
+                <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
+                    ❌ Refusé
+                </span>
             {% endif %}
+            <a href="#"
+            class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
+                ✉️ Envoyer un message
+            </a>
+        {% endif %}
         </div>
     </div>
 

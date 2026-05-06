@@ -62,6 +62,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Post::class, mappedBy: 'author')]
     private Collection $posts;
 
+    /**
+     * @var Collection<int, Friendship>
+     */
+    #[ORM\OneToMany(targetEntity: Friendship::class, mappedBy: 'requester')]
+    private Collection $friendshipAsRequester;
+
+    /**
+     * @var Collection<int, Friendship>
+     */
+    #[ORM\OneToMany(targetEntity: Friendship::class, mappedBy: 'receiver')]
+    private Collection $friendshipAsReceiver;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -173,6 +185,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->isVerified = false;
         $this->threads = new ArrayCollection();
         $this->posts = new ArrayCollection();
+        $this->friendshipAsRequester = new ArrayCollection();
+        $this->friendshipAsReceiver = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -265,6 +279,66 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($post->getAuthor() === $this) {
                 $post->setAuthor(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Friendship>
+     */
+    public function getFriendshipAsRequester(): Collection
+    {
+        return $this->friendshipAsRequester;
+    }
+
+    public function addFriendshipAsRequester(Friendship $friendshipAsRequester): static
+    {
+        if (!$this->friendshipAsRequester->contains($friendshipAsRequester)) {
+            $this->friendshipAsRequester->add($friendshipAsRequester);
+            $friendshipAsRequester->setRequester($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFriendshipAsRequester(Friendship $friendshipAsRequester): static
+    {
+        if ($this->friendshipAsRequester->removeElement($friendshipAsRequester)) {
+            // set the owning side to null (unless already changed)
+            if ($friendshipAsRequester->getRequester() === $this) {
+                $friendshipAsRequester->setRequester(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Friendship>
+     */
+    public function getFriendshipAsReceiver(): Collection
+    {
+        return $this->friendshipAsReceiver;
+    }
+
+    public function addFriendshipAsReceiver(Friendship $friendshipAsReceiver): static
+    {
+        if (!$this->friendshipAsReceiver->contains($friendshipAsReceiver)) {
+            $this->friendshipAsReceiver->add($friendshipAsReceiver);
+            $friendshipAsReceiver->setReceiver($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFriendshipAsReceiver(Friendship $friendshipAsReceiver): static
+    {
+        if ($this->friendshipAsReceiver->removeElement($friendshipAsReceiver)) {
+            // set the owning side to null (unless already changed)
+            if ($friendshipAsReceiver->getReceiver() === $this) {
+                $friendshipAsReceiver->setReceiver(null);
             }
         }
 

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Form\ChangePasswordFormType;
 use App\Form\UserProfileFormType;
+use App\Repository\FriendshipRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,7 +21,7 @@ class ProfilController extends AbstractController
 {
     // Profil public — accessible par tous
     #[Route('/{username}', name: 'show')]
-    public function show(string $username, UserRepository $userRepository): Response
+    public function show(string $username, UserRepository $userRepository, FriendshipRepository $friendshipRepository): Response
     {
         $user = $userRepository->findOneBy(['username' => $username]);
 
@@ -30,9 +31,17 @@ class ProfilController extends AbstractController
 
         $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();
 
+        $friendship = null;
+        if ($this->getUser() && !$isOwner) {
+            /** @var \App\Entity\User $currentUser */
+            $currentUser = $this->getUser();
+            $friendship = $friendshipRepository->findExisting($currentUser, $user);
+        }
+
         return $this->render('profil/index.html.twig', [
             'user' => $user,
             'isOwner' => $isOwner,
+            'friendship' => $friendship,
         ]);
     }
 
