@@ -1,0 +1,185 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mes Todo Lists{% endblock %}
+
+{% block body %}
+<div class="max-w-4xl mx-auto">
+
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-white">📋 Mes Todo Lists</h1>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {# LISTES EXISTANTES #}
+        {% for list in lists %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-5" id="list-{{ list.id }}">
+
+            {# HEADER LISTE #}
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-indigo-400 cursor-pointer"
+                    ondblclick="startRename({{ list.id }}, this, '{{ list.title }}')">
+                    📋 {{ list.title }}
+                </h2>
+                <div class="flex gap-2">
+                    <form method="post" action="{{ path('app_todo_delete', {id: list.id}) }}"
+                          onsubmit="return confirm('Supprimer cette liste et tout son contenu ?')">
+                        <input type="hidden" name="_token" value="{{ csrf_token('todo') }}">
+                        <button type="submit" class="text-red-400 hover:text-red-300 text-sm transition">
+                            🗑️
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {# CATEGORIES #}
+            {% for category in list.children %}
+            <div class="mb-4 bg-gray-700/50 rounded-lg p-3" id="category-{{ category.id }}">
+
+                {# HEADER CATEGORIE #}
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-semibold text-gray-300 cursor-pointer"
+                        ondblclick="startRename({{ category.id }}, this, '{{ category.title }}')">
+                        📁 {{ category.title }}
+                    </h3>
+                    <form method="post" action="{{ path('app_todo_delete', {id: category.id}) }}"
+                          onsubmit="return confirm('Supprimer cette catégorie ?')">
+                        <input type="hidden" name="_token" value="{{ csrf_token('todo') }}">
+                        <button type="submit" class="text-red-400 hover:text-red-300 text-xs transition">
+                            🗑️
+                        </button>
+                    </form>
+                </div>
+
+                {# ITEMS #}
+                <div class="space-y-1 mb-2">
+                    {% for item in category.children %}
+                    <div class="flex items-center gap-2 group" id="item-{{ item.id }}">
+                        <input type="checkbox"
+                               {{ item.isDone ? 'checked' : '' }}
+                               onchange="toggleItem({{ item.id }}, this)"
+                               class="w-4 h-4 rounded accent-indigo-500 cursor-pointer">
+                        <span class="text-sm text-gray-300 flex-1 cursor-pointer
+                                     {{ item.isDone ? 'line-through text-gray-500' : '' }}"
+                              id="item-text-{{ item.id }}"
+                              ondblclick="startRename({{ item.id }}, this, '{{ item.title }}')">
+                            {{ item.title }}
+                        </span>
+                        <form method="post" action="{{ path('app_todo_delete', {id: item.id}) }}"
+                              class="opacity-0 group-hover:opacity-100 transition">
+                            <input type="hidden" name="_token" value="{{ csrf_token('todo') }}">
+                            <button type="submit" class="text-red-400 hover:text-red-300 text-xs">
+                                🗑️
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {# AJOUTER UN ITEM #}
+                <form method="post" action="{{ path('app_todo_create') }}" class="flex gap-2 mt-2">
+                    <input type="hidden" name="type" value="item">
+                    <input type="hidden" name="parent_id" value="{{ category.id }}">
+                    <input type="text" name="title" placeholder="+ Nouvelle tâche..."
+                           class="flex-1 bg-gray-600 border border-gray-500 rounded px-2 py-1 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500">
+                    <button type="submit"
+                            class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded text-sm transition">
+                        ✚
+                    </button>
+                </form>
+
+            </div>
+            {% endfor %}
+
+            {# AJOUTER UNE CATEGORIE #}
+            <form method="post" action="{{ path('app_todo_create') }}" class="flex gap-2 mt-3">
+                <input type="hidden" name="type" value="category">
+                <input type="hidden" name="parent_id" value="{{ list.id }}">
+                <input type="text" name="title" placeholder="+ Nouvelle catégorie..."
+                       class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500">
+                <button type="submit"
+                        class="bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm transition">
+                    ✚
+                </button>
+            </form>
+
+        </div>
+        {% endfor %}
+
+        {# CRÉER UNE NOUVELLE LISTE #}
+        <div class="bg-gray-800 rounded-xl border border-dashed border-gray-600 p-5 flex flex-col justify-center items-center">
+            <p class="text-gray-500 mb-4">Nouvelle liste</p>
+            <form method="post" action="{{ path('app_todo_create') }}" class="flex gap-2 w-full">
+                <input type="hidden" name="type" value="list">
+                <input type="text" name="title" placeholder="Nom de la liste..."
+                       class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500">
+                <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded text-sm transition">
+                    ✚
+                </button>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// Toggle item via AJAX
+function toggleItem(id, checkbox) {
+    fetch(`/todo/toggle/${id}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: '_token={{ csrf_token("todo") }}'
+    })
+    .then(r => r.json())
+    .then(data => {
+        const text = document.getElementById(`item-text-${id}`);
+        if (data.isDone) {
+            text.classList.add('line-through', 'text-gray-500');
+            text.classList.remove('text-gray-300');
+        } else {
+            text.classList.remove('line-through', 'text-gray-500');
+            text.classList.add('text-gray-300');
+        }
+    });
+}
+
+// Renommer via double-clic
+function startRename(id, element, currentTitle) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentTitle;
+    input.className = 'bg-gray-600 border border-indigo-500 rounded px-2 py-1 text-sm text-white w-full focus:outline-none';
+
+    element.replaceWith(input);
+    input.focus();
+    input.select();
+
+    function saveRename() {
+        const newTitle = input.value.trim();
+        if (!newTitle || newTitle === currentTitle) {
+            input.replaceWith(element);
+            return;
+        }
+
+        fetch(`/todo/rename/${id}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `title=${encodeURIComponent(newTitle)}&_token={{ csrf_token("todo") }}`
+        })
+        .then(r => r.json())
+        .then(data => {
+            element.textContent = data.title;
+            input.replaceWith(element);
+        });
+    }
+
+    input.addEventListener('blur', saveRename);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveRename();
+        if (e.key === 'Escape') input.replaceWith(element);
+    });
+}
+</script>
+
+{% endblock %}

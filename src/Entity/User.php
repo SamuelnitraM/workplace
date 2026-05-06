@@ -74,6 +74,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Friendship::class, mappedBy: 'receiver')]
     private Collection $friendshipAsReceiver;
 
+    /**
+     * @var Collection<int, TodoNode>
+     */
+    #[ORM\OneToMany(targetEntity: TodoNode::class, mappedBy: 'owner')]
+    private Collection $todoNodes;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -187,6 +193,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->posts = new ArrayCollection();
         $this->friendshipAsRequester = new ArrayCollection();
         $this->friendshipAsReceiver = new ArrayCollection();
+        $this->todoNodes = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -339,6 +346,66 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($friendshipAsReceiver->getReceiver() === $this) {
                 $friendshipAsReceiver->setReceiver(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TodoList>
+     */
+    public function getTodoLists(): Collection
+    {
+        return $this->todoLists;
+    }
+
+    public function addTodoList(TodoList $todoList): static
+    {
+        if (!$this->todoLists->contains($todoList)) {
+            $this->todoLists->add($todoList);
+            $todoList->setOwner($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTodoList(TodoList $todoList): static
+    {
+        if ($this->todoLists->removeElement($todoList)) {
+            // set the owning side to null (unless already changed)
+            if ($todoList->getOwner() === $this) {
+                $todoList->setOwner(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TodoNode>
+     */
+    public function getTodoNodes(): Collection
+    {
+        return $this->todoNodes;
+    }
+
+    public function addTodoNode(TodoNode $todoNode): static
+    {
+        if (!$this->todoNodes->contains($todoNode)) {
+            $this->todoNodes->add($todoNode);
+            $todoNode->setOwner($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTodoNode(TodoNode $todoNode): static
+    {
+        if ($this->todoNodes->removeElement($todoNode)) {
+            // set the owning side to null (unless already changed)
+            if ($todoNode->getOwner() === $this) {
+                $todoNode->setOwner(null);
             }
         }
 
