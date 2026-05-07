@@ -44,6 +44,11 @@ class Category
         $this->threads = new \Doctrine\Common\Collections\ArrayCollection();
     }
 
+    public function __toString(): string
+    {
+        return $this->name ?? '';
+    }
+
     public function getId(): ?int
     {
         return $this->id;
