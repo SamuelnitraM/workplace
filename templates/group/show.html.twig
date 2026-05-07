@@ -1,0 +1,175 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ group.name }}{% endblock %}
+
+{% block body %}
+<div class="max-w-6xl mx-auto">
+
+    {# HEADER #}
+    <div class="flex justify-between items-start mb-6">
+        <div>
+            <a href="{{ path('app_group_index') }}" class="text-gray-400 hover:text-white text-sm transition">
+                ← Retour aux groupes
+            </a>
+            <h1 class="text-3xl font-bold text-white mt-1">{{ group.name }}</h1>
+            <div class="flex gap-3 mt-2">
+                <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-red-600 text-red-300' }}">
+                    {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
+                </span>
+                <span class="text-gray-500 text-sm">
+                    {{ group.members|length }} membre(s) — Créé par {{ group.creator.username }}
+                </span>
+            </div>
+        </div>
+
+        {# BOUTONS ACTIONS #}
+        <div class="flex gap-3">
+            {% if currentMember %}
+                {% if currentMember.role in ['owner', 'admin'] %}
+                    <a href="{{ path('app_group_edit', {slug: group.slug}) }}"
+                    class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                        ⚙️ Paramètres
+                    </a>
+                {% endif %}
+                {% if currentMember.role != 'owner' %}
+                    <form method="post" action="{{ path('app_group_leave', {slug: group.slug}) }}">
+                        <button type="submit"
+                                class="bg-red-600/30 hover:bg-red-600 px-4 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
+                            Quitter
+                        </button>
+                    </form>
+                {% endif %}
+            {% elseif app.user %}
+                {% if group.isJoinable %}
+                    <form method="post" action="{{ path('app_group_join', {slug: group.slug}) }}">
+                        <button type="submit"
+                                class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
+                            ➕ Rejoindre
+                        </button>
+                    </form>
+                {% else %}
+                    <span class="bg-gray-700 px-4 py-2 rounded-lg text-sm text-gray-500 cursor-not-allowed">
+                        🔒 Sur invitation uniquement
+                    </span>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6">
+
+        {# CHAT #}
+        <div class="col-span-2">
+            <div class="bg-gray-800 rounded-xl border border-gray-700 flex flex-col h-[600px]">
+
+                <div class="p-4 border-b border-gray-700">
+                    <h2 class="font-semibold text-white">💬 Chat du groupe</h2>
+                </div>
+
+                {# MESSAGES #}
+                <div class="flex-1 overflow-y-auto p-4 space-y-3" id="chat-messages">
+                    {% if messages is empty %}
+                        <p class="text-gray-500 text-center py-8">Aucun message pour le moment.</p>
+                    {% else %}
+                        {% for message in messages %}
+                            <div class="flex gap-3 {{ message.author == app.user ? 'flex-row-reverse' : '' }}">
+                                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
+                                    {% if message.author.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ message.author.avatar) }}"
+                                             class="w-8 h-8 rounded-full object-cover">
+                                    {% else %}
+                                        {{ message.author.username|first|upper }}
+                                    {% endif %}
+                                </div>
+                                <div class="{{ message.author == app.user ? 'items-end' : 'items-start' }} flex flex-col">
+                                    <div class="text-xs text-gray-500 mb-1">
+                                        {{ message.author.username }} — {{ message.createdAt|date('d/m H:i') }}
+                                    </div>
+                                    <div class="px-4 py-2 rounded-xl text-sm max-w-xs
+                                        {{ message.author == app.user ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200' }}">
+                                        {{ message.content }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                {# FORMULAIRE MESSAGE #}
+                {% if currentMember %}
+                    <div class="p-4 border-t border-gray-700">
+                        <form method="post" action="{{ path('app_group_message', {slug: group.slug}) }}"
+                              class="flex gap-3">
+                            <input type="text" name="content" placeholder="Votre message..."
+                                   autocomplete="off"
+                                   class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                            <button type="submit"
+                                    class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
+                                ➤
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="p-4 border-t border-gray-700 text-center text-gray-500 text-sm">
+                        Rejoignez le groupe pour participer au chat.
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        {# SIDEBAR #}
+        <div class="space-y-4">
+
+            {# MEMBRES #}
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                <h3 class="font-semibold text-white mb-3">👥 Membres</h3>
+                <div class="space-y-2">
+                    {% for member in group.members %}
+                        <div class="flex items-center justify-between">
+                            <a href="{{ path('app_profil_show', {username: member.user.username}) }}"
+                               class="flex items-center gap-2 hover:text-indigo-400 transition text-sm">
+                                <div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold">
+                                    {% if member.user.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ member.user.avatar) }}"
+                                             class="w-7 h-7 rounded-full object-cover">
+                                    {% else %}
+                                        {{ member.user.username|first|upper }}
+                                    {% endif %}
+                                </div>
+                                <span>{{ member.user.username }}</span>
+                            </a>
+                            <span class="text-xs px-2 py-0.5 rounded
+                                {% if member.role == 'owner' %}bg-yellow-700 text-yellow-300
+                                {% elseif member.role == 'admin' %}bg-blue-700 text-blue-300
+                                {% else %}bg-gray-700 text-gray-400{% endif %}">
+                                {{ member.role }}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# DESCRIPTION #}
+            {% if group.description %}
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                <h3 class="font-semibold text-white mb-2">📋 Description</h3>
+                <p class="text-gray-400 text-sm">{{ group.description }}</p>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+// Scroll automatique vers le bas du chat
+const chatMessages = document.getElementById('chat-messages');
+if (chatMessages) {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+</script>
+
+{% endblock %}

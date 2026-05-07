@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mes invitations{% endblock %}
+
+{% block body %}
+<div class="max-w-3xl mx-auto">
+
+    <h1 class="text-3xl font-bold text-white mb-8">📬 Mes invitations</h1>
+
+    {% if invitations is empty %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-500">
+            Aucune invitation en attente.
+        </div>
+    {% else %}
+        <div class="space-y-4">
+            {% for invitation in invitations %}
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5 flex items-center justify-between">
+                    <div>
+                        <div class="text-white font-semibold">
+                            👥 {{ invitation.usergroup.name }}
+                        </div>
+                        <div class="text-gray-400 text-sm mt-1">
+                            Invité par <span class="text-indigo-400">{{ invitation.invitedBy.username }}</span>
+                            le {{ invitation.createdAt|date('d/m/Y') }}
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <form method="post" action="{{ path('app_group_invitation_accept', {id: invitation.id}) }}">
+                            <button type="submit"
+                                    class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
+                                ✅ Accepter
+                            </button>
+                        </form>
+                        <form method="post" action="{{ path('app_group_invitation_refuse', {id: invitation.id}) }}">
+                            <button type="submit"
+                                    class="bg-red-600/30 hover:bg-red-600 px-4 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
+                                ❌ Refuser
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

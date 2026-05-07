@@ -32,78 +32,116 @@
             </div>
         </div>
 
-        {# BOUTON MODIFIER #}
-        <div class="mt-6 flex gap-3">
-            {% if isOwner %}
-                <a href="{{ path('app_profil_edit') }}"
-                class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
-                    ✏️ Modifier mon profil
-                </a>
-                <a href="{{ path('app_profil_change_password') }}"
-                class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
-                    🔒 Changer le mot de passe
-                </a>
-
-        {# DEMANDE AMI / MESSAGE #}
-        {% elseif app.user %}
-            {% if friendship is null %}
-                <form method="post" action="{{ path('app_friendship_request', {username: user.username}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                    <button type="submit"
-                            class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
-                        ➕ Ajouter en ami
-                    </button>
-                </form>
-            {% elseif friendship.status == 'pending' and friendship.requester == app.user %}
-                <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
-                    ⏳ Demande envoyée
-                </span>
-            {% elseif friendship.status == 'pending' and friendship.receiver == app.user %}
-                <form method="post" action="{{ path('app_friendship_accept', {id: friendship.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                    <button type="submit"
-                            class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
-                        ✅ Accepter la demande
-                    </button>
-                </form>
-                <form method="post" action="{{ path('app_friendship_refuse', {id: friendship.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                    <button type="submit"
-                            class="bg-red-600 hover:bg-red-700 px-5 py-2 rounded-lg transition text-sm">
-                        ❌ Refuser
-                    </button>
-                </form>
-            {% elseif friendship.status == 'accepted' %}
-                <span class="bg-green-900/30 border border-green-700 px-5 py-2 rounded-lg text-sm text-green-400">
-                    ✅ Amis
-                </span>
-                <form method="post" action="{{ path('app_friendship_remove', {username: user.username}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                    <button type="submit"
-                            class="bg-red-600/30 hover:bg-red-600 px-5 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
-                        Retirer
-                    </button>
-                </form>
-            {% elseif friendship.status == 'blocked' and friendship.receiver == app.user %}
-                {# C'est moi qui ai bloqué cet utilisateur #}
-                <form method="post" action="{{ path('app_friendship_unblock', {username: user.username}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                    <button type="submit"
-                            class="bg-gray-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm text-gray-300 hover:text-white">
-                        🔓 Débloquer
-                    </button>
-                </form>
-            {% elseif friendship.status == 'blocked' and friendship.requester == app.user %}
-                {# Je suis bloqué par cet utilisateur, je vois juste "Refusé" #}
-                <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
-                    ❌ Refusé
+{# BOUTON MODIFIER #}
+<div class="mt-6 flex gap-3 flex-wrap">
+    {% if isOwner %}
+        <a href="{{ path('app_profil_edit') }}"
+           class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
+            ✏️ Modifier mon profil
+        </a>
+        <a href="{{ path('app_profil_change_password') }}"
+           class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
+            🔒 Changer le mot de passe
+        </a>
+        <a href="{{ path('app_group_invitation_list') }}"
+           class="relative inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
+            📬 Invitations
+            {% if pendingInvitationsCount > 0 %}
+                <span class="w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                    {{ pendingInvitationsCount }}
                 </span>
             {% endif %}
-            <a href="#"
-            class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
-                ✉️ Envoyer un message
-            </a>
+        </a>
+
+    {# BOUTONS POUR LES AUTRES PROFILS #}
+    {% elseif app.user %}
+        {% if friendship is null %}
+            <form method="post" action="{{ path('app_friendship_request', {username: user.username}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                <button type="submit"
+                        class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
+                    ➕ Ajouter en ami
+                </button>
+            </form>
+        {% elseif friendship.status == 'pending' and friendship.requester == app.user %}
+            <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
+                ⏳ Demande envoyée
+            </span>
+        {% elseif friendship.status == 'pending' and friendship.receiver == app.user %}
+            <form method="post" action="{{ path('app_friendship_accept', {id: friendship.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                <button type="submit"
+                        class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
+                    ✅ Accepter la demande
+                </button>
+            </form>
+            <form method="post" action="{{ path('app_friendship_refuse', {id: friendship.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                <button type="submit"
+                        class="bg-red-600 hover:bg-red-700 px-5 py-2 rounded-lg transition text-sm">
+                    ❌ Refuser
+                </button>
+            </form>
+        {% elseif friendship.status == 'accepted' %}
+            <span class="bg-green-900/30 border border-green-700 px-5 py-2 rounded-lg text-sm text-green-400">
+                ✅ Amis
+            </span>
+            <form method="post" action="{{ path('app_friendship_remove', {username: user.username}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                <button type="submit"
+                        class="bg-red-600/30 hover:bg-red-600 px-5 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
+                    Retirer
+                </button>
+            </form>
+        {% elseif friendship.status == 'blocked' and friendship.receiver == app.user %}
+            <form method="post" action="{{ path('app_friendship_unblock', {username: user.username}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                <button type="submit"
+                        class="bg-gray-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm text-gray-300 hover:text-white">
+                    🔓 Débloquer
+                </button>
+            </form>
+        {% elseif friendship.status == 'blocked' and friendship.requester == app.user %}
+            <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
+                ❌ Refusé
+            </span>
         {% endif %}
+
+        <a href="#"
+           class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
+            ✉️ Envoyer un message
+        </a>
+
+        {% if myGroups is defined and myGroups is not empty %}
+            <div x-data="{ open: false }" class="relative">
+                <button @click="open = !open"
+                        class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
+                    👥 Inviter dans un groupe
+                </button>
+                <div x-show="open"
+                     @click.outside="open = false"
+                     x-transition
+                     class="absolute left-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50 p-4">
+                    <h3 class="text-white font-semibold mb-3">Choisir un groupe</h3>
+                    <div class="space-y-2">
+                        {% for group in myGroups %}
+                            <form method="post" action="{{ path('app_group_invitation_send', {username: user.username}) }}">
+                                <input type="hidden" name="group_id" value="{{ group.id }}">
+                                <button type="submit"
+                                        class="w-full text-left px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition">
+                                    {{ group.name }}
+                                    <span class="text-gray-400 text-xs ml-1">
+                                        {{ group.isPublic ? '🌍' : '🔒' }}
+                                    </span>
+                                </button>
+                            </form>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
         </div>
     </div>
 

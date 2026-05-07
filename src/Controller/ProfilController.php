@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Form\ChangePasswordFormType;
 use App\Form\UserProfileFormType;
 use App\Repository\FriendshipRepository;
+use App\Repository\GroupMemberRepository;
+use App\Repository\GroupRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,30 +22,68 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 class ProfilController extends AbstractController
 {
     // Profil public — accessible par tous
-    #[Route('/{username}', name: 'show')]
-    public function show(string $username, UserRepository $userRepository, FriendshipRepository $friendshipRepository): Response
-    {
-        $user = $userRepository->findOneBy(['username' => $username]);
+#[Route('/{username}', name: 'show')]
+public function show(
+    string $username,
+    UserRepository $userRepository,
+    FriendshipRepository $friendshipRepository,
+    GroupRepository $groupRepository,
+    GroupMemberRepository $groupMemberRepository
+): Response {
+    $user = $userRepository->findOneBy(['username' => $username]);
 
-        if (!$user) {
-            throw $this->createNotFoundException('Utilisateur introuvable');
-        }
-
-        $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();
-
-        $friendship = null;
-        if ($this->getUser() && !$isOwner) {
-            /** @var \App\Entity\User $currentUser */
-            $currentUser = $this->getUser();
-            $friendship = $friendshipRepository->findExisting($currentUser, $user);
-        }
-
-        return $this->render('profil/index.html.twig', [
-            'user' => $user,
-            'isOwner' => $isOwner,
-            'friendship' => $friendship,
-        ]);
+    if (!$user) {
+        throw $this->createNotFoundException('Utilisateur introuvable');
     }
+
+    $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();
+
+    $friendship = null;
+    if ($this->getUser() && !$isOwner) {
+        /** @var \App\Entity\User $currentUser */
+        $currentUser = $this->getUser();
+        $friendship = $friendshipRepository->findExisting($currentUser, $user);
+    }
+
+    $myGroups = [];
+    if ($this->getUser() && !$isOwner) {
+        /** @var \App\Entity\User $currentUser */
+        $currentUser = $this->getUser();
+
+        // Récupérer tous mes groupes où j'ai le droit d'inviter
+        $allMyGroups = $groupRepository->findGroupsByMember($currentUser);
+
+        // Filtrer : garder uniquement les groupes où
+        // 1. J'ai le rôle owner ou admin
+        // 2. L'utilisateur cible n'est pas déjà membre
+        $myGroups = array_filter($allMyGroups, function($group) use ($currentUser, $user, $groupMemberRepository) {
+            // Vérifier mon rôle dans ce groupe
+            $myMembership = $groupMemberRepository->findOneBy([
+                'user' => $currentUser,
+                'usergroup' => $group,
+            ]);
+
+            if (!$myMembership || !in_array($myMembership->getRole(), ['owner', 'admin', 'member'])) {
+                return false;
+            }
+
+            // Vérifier que l'utilisateur cible n'est pas déjà membre
+            $targetMembership = $groupMemberRepository->findOneBy([
+                'user' => $user,
+                'usergroup' => $group,
+            ]);
+
+            return $targetMembership === null;
+        });
+    }
+
+    return $this->render('profil/index.html.twig', [
+        'user' => $user,
+        'isOwner' => $isOwner,
+        'friendship' => $friendship,
+        'myGroups' => $myGroups,
+    ]);
+}
 
     // Modifier son propre profil — connecté uniquement
     #[Route('/settings/edit', name: 'edit')]

@@ -104,6 +104,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: TodoNode::class, mappedBy: 'assignedTo')]
     private Collection $assignedTodos;
 
+    /**
+     * @var Collection<int, GroupInvitation>
+     */
+    #[ORM\OneToMany(targetEntity: GroupInvitation::class, mappedBy: 'invitedBy')]
+    private Collection $sentGroupInvitations;
+
+    /**
+     * @var Collection<int, GroupInvitation>
+     */
+    #[ORM\OneToMany(targetEntity: GroupInvitation::class, mappedBy: 'invitedUser')]
+    private Collection $receivedGroupInvitations;
+
     public function __toString(): string
     {
         return $this->username ?? '';
@@ -227,6 +239,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->groupMembers = new ArrayCollection();
         $this->groupMessages = new ArrayCollection();
         $this->assignedTodos = new ArrayCollection();
+        $this->sentGroupInvitations = new ArrayCollection();
+        $this->receivedGroupInvitations = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -529,6 +543,66 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($assignedTodo->getAssignedTo() === $this) {
                 $assignedTodo->setAssignedTo(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GroupInvitation>
+     */
+    public function getSentGroupInvitations(): Collection
+    {
+        return $this->sentGroupInvitations;
+    }
+
+    public function addSentGroupInvitation(GroupInvitation $sentGroupInvitation): static
+    {
+        if (!$this->sentGroupInvitations->contains($sentGroupInvitation)) {
+            $this->sentGroupInvitations->add($sentGroupInvitation);
+            $sentGroupInvitation->setInvitedBy($this);
+        }
+
+        return $this;
+    }
+
+    public function removeSentGroupInvitation(GroupInvitation $sentGroupInvitation): static
+    {
+        if ($this->sentGroupInvitations->removeElement($sentGroupInvitation)) {
+            // set the owning side to null (unless already changed)
+            if ($sentGroupInvitation->getInvitedBy() === $this) {
+                $sentGroupInvitation->setInvitedBy(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GroupInvitation>
+     */
+    public function getReceivedGroupInvitations(): Collection
+    {
+        return $this->receivedGroupInvitations;
+    }
+
+    public function addReceivedGroupInvitation(GroupInvitation $receivedGroupInvitation): static
+    {
+        if (!$this->receivedGroupInvitations->contains($receivedGroupInvitation)) {
+            $this->receivedGroupInvitations->add($receivedGroupInvitation);
+            $receivedGroupInvitation->setInvitedUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReceivedGroupInvitation(GroupInvitation $receivedGroupInvitation): static
+    {
+        if ($this->receivedGroupInvitations->removeElement($receivedGroupInvitation)) {
+            // set the owning side to null (unless already changed)
+            if ($receivedGroupInvitation->getInvitedUser() === $this) {
+                $receivedGroupInvitation->setInvitedUser(null);
             }
         }
 

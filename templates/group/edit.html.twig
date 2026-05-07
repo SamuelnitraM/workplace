@@ -1,0 +1,128 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Paramètres — {{ group.name }}{% endblock %}
+
+{% block body %}
+<div class="max-w-3xl mx-auto">
+
+    <div class="mb-6">
+        <a href="{{ path('app_group_show', {slug: group.slug}) }}"
+           class="text-gray-400 hover:text-white text-sm transition">
+            ← Retour au groupe
+        </a>
+        <h1 class="text-2xl font-bold text-white mt-1">⚙️ Paramètres — {{ group.name }}</h1>
+    </div>
+
+    {# PARAMÈTRES GÉNÉRAUX #}
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Informations générales</h2>
+        <form method="post">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Nom du groupe</label>
+                    <input type="text" name="name" value="{{ group.name }}" required
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Description</label>
+                    <textarea name="description" rows="3"
+                              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">{{ group.description }}</textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="isPublic" value="1"
+                                   {{ group.isPublic ? 'checked' : '' }}
+                                   class="w-5 h-5 accent-indigo-500">
+                            <div>
+                                <div class="text-white font-semibold">🌍 Public</div>
+                                <div class="text-gray-400 text-xs">Visible par tous</div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="isJoinable" value="1"
+                                   {{ group.isJoinable ? 'checked' : '' }}
+                                   class="w-5 h-5 accent-indigo-500">
+                            <div>
+                                <div class="text-white font-semibold">🚪 Demandes</div>
+                                <div class="text-gray-400 text-xs">Autoriser les demandes</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit"
+                    class="mt-6 bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
+                💾 Sauvegarder
+            </button>
+
+        </form>
+    </div>
+
+    {# GESTION DES MEMBRES (owner uniquement) #}
+    {% if currentMember.role == 'owner' %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-white mb-4">👥 Gestion des membres</h2>
+            <div class="space-y-3">
+                {% for member in group.members %}
+                    {% if member.role != 'owner' %}
+                    <div class="flex items-center justify-between bg-gray-700 rounded-lg p-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold">
+                                {{ member.user.username|first|upper }}
+                            </div>
+                            <span class="text-white">{{ member.user.username }}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <form method="post" class="flex items-center gap-2">
+                                <input type="hidden" name="action" value="update_role">
+                                <input type="hidden" name="member_id" value="{{ member.id }}">
+                                <select name="role"
+                                        class="bg-gray-600 border border-gray-500 rounded px-2 py-1 text-sm text-white">
+                                    <option value="member" {{ member.role == 'member' ? 'selected' : '' }}>
+                                        Membre
+                                    </option>
+                                    <option value="admin" {{ member.role == 'admin' ? 'selected' : '' }}>
+                                        Admin
+                                    </option>
+                                </select>
+                                <button type="submit"
+                                        class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded text-sm transition">
+                                    ✓
+                                </button>
+                            </form>
+                            <form method="post" action="{{ path('app_group_kick', {slug: group.slug, memberId: member.id}) }}"
+                                onsubmit="return confirm('Exclure {{ member.user.username }} ?')">
+                                <button type="submit"
+                                        class="bg-red-600/30 hover:bg-red-600 px-3 py-1 rounded text-sm text-red-400 hover:text-white transition">
+                                    Exclure
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {# DANGER ZONE #}
+    {% if currentMember.role == 'owner' %}
+    <div class="bg-gray-800 rounded-xl border border-red-700 p-6">
+        <h2 class="text-lg font-semibold text-red-400 mb-4">⚠️ Zone dangereuse</h2>
+        <form method="post" action="{{ path('app_group_delete', {slug: group.slug}) }}"
+              onsubmit="return confirm('Supprimer définitivement ce groupe et tout son contenu ?')">
+            <button type="submit"
+                    class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg transition">
+                🗑️ Supprimer le groupe
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

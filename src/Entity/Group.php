@@ -57,6 +57,12 @@ class Group
     #[ORM\OneToMany(targetEntity: TodoNode::class, mappedBy: 'usergroup')]
     private Collection $todoNodes;
 
+    /**
+     * @var Collection<int, GroupInvitation>
+     */
+    #[ORM\OneToMany(targetEntity: GroupInvitation::class, mappedBy: 'usergroup', orphanRemoval: true)]
+    private Collection $invitations;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -65,6 +71,7 @@ class Group
         $this->members = new \Doctrine\Common\Collections\ArrayCollection();
         $this->messages = new \Doctrine\Common\Collections\ArrayCollection();
         $this->todoNodes = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->invitations = new ArrayCollection();
     }
 
     public function __toString(): string
@@ -244,6 +251,36 @@ class Group
             // set the owning side to null (unless already changed)
             if ($todoNode->getUsergroup() === $this) {
                 $todoNode->setUsergroup(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GroupInvitation>
+     */
+    public function getInvitations(): Collection
+    {
+        return $this->invitations;
+    }
+
+    public function addInvitation(GroupInvitation $invitation): static
+    {
+        if (!$this->invitations->contains($invitation)) {
+            $this->invitations->add($invitation);
+            $invitation->setUsergroup($this);
+        }
+
+        return $this;
+    }
+
+    public function removeInvitation(GroupInvitation $invitation): static
+    {
+        if ($this->invitations->removeElement($invitation)) {
+            // set the owning side to null (unless already changed)
+            if ($invitation->getUsergroup() === $this) {
+                $invitation->setUsergroup(null);
             }
         }
 
