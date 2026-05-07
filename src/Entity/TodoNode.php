@@ -51,6 +51,12 @@ class TodoNode
     #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
     private Collection $children;
 
+    #[ORM\ManyToOne(inversedBy: 'assignedTodos')]
+    private ?User $assignedTo = null;
+
+    #[ORM\ManyToOne(inversedBy: 'todoNodes')]
+    private ?Group $usergroup = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -186,6 +192,30 @@ class TodoNode
                 $child->setParent(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getAssignedTo(): ?User
+    {
+        return $this->assignedTo;
+    }
+
+    public function setAssignedTo(?User $assignedTo): static
+    {
+        $this->assignedTo = $assignedTo;
+
+        return $this;
+    }
+
+    public function getUsergroup(): ?Group
+    {
+        return $this->usergroup;
+    }
+
+    public function setUsergroup(?Group $usergroup): static
+    {
+        $this->usergroup = $usergroup;
 
         return $this;
     }

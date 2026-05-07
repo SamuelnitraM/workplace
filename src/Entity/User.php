@@ -80,6 +80,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: TodoNode::class, mappedBy: 'owner')]
     private Collection $todoNodes;
 
+    /**
+     * @var Collection<int, Group>
+     */
+    #[ORM\OneToMany(targetEntity: Group::class, mappedBy: 'creator')]
+    private Collection $CreatedGroups;
+
+    /**
+     * @var Collection<int, GroupMember>
+     */
+    #[ORM\OneToMany(targetEntity: GroupMember::class, mappedBy: 'user')]
+    private Collection $groupMembers;
+
+    /**
+     * @var Collection<int, GroupMessage>
+     */
+    #[ORM\OneToMany(targetEntity: GroupMessage::class, mappedBy: 'author')]
+    private Collection $groupMessages;
+
+    /**
+     * @var Collection<int, TodoNode>
+     */
+    #[ORM\OneToMany(targetEntity: TodoNode::class, mappedBy: 'assignedTo')]
+    private Collection $assignedTodos;
+
     public function __toString(): string
     {
         return $this->username ?? '';
@@ -199,6 +223,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->friendshipAsRequester = new ArrayCollection();
         $this->friendshipAsReceiver = new ArrayCollection();
         $this->todoNodes = new ArrayCollection();
+        $this->CreatedGroups = new ArrayCollection();
+        $this->groupMembers = new ArrayCollection();
+        $this->groupMessages = new ArrayCollection();
+        $this->assignedTodos = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -381,6 +409,126 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($todoNode->getOwner() === $this) {
                 $todoNode->setOwner(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Group>
+     */
+    public function getCreatedGroups(): Collection
+    {
+        return $this->CreatedGroups;
+    }
+
+    public function addCreatedGroup(Group $createdGroup): static
+    {
+        if (!$this->CreatedGroups->contains($createdGroup)) {
+            $this->CreatedGroups->add($createdGroup);
+            $createdGroup->setCreator($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCreatedGroup(Group $createdGroup): static
+    {
+        if ($this->CreatedGroups->removeElement($createdGroup)) {
+            // set the owning side to null (unless already changed)
+            if ($createdGroup->getCreator() === $this) {
+                $createdGroup->setCreator(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GroupMember>
+     */
+    public function getGroupMembers(): Collection
+    {
+        return $this->groupMembers;
+    }
+
+    public function addGroupMember(GroupMember $groupMember): static
+    {
+        if (!$this->groupMembers->contains($groupMember)) {
+            $this->groupMembers->add($groupMember);
+            $groupMember->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeGroupMember(GroupMember $groupMember): static
+    {
+        if ($this->groupMembers->removeElement($groupMember)) {
+            // set the owning side to null (unless already changed)
+            if ($groupMember->getUser() === $this) {
+                $groupMember->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GroupMessage>
+     */
+    public function getGroupMessages(): Collection
+    {
+        return $this->groupMessages;
+    }
+
+    public function addGroupMessage(GroupMessage $groupMessage): static
+    {
+        if (!$this->groupMessages->contains($groupMessage)) {
+            $this->groupMessages->add($groupMessage);
+            $groupMessage->setAuthor($this);
+        }
+
+        return $this;
+    }
+
+    public function removeGroupMessage(GroupMessage $groupMessage): static
+    {
+        if ($this->groupMessages->removeElement($groupMessage)) {
+            // set the owning side to null (unless already changed)
+            if ($groupMessage->getAuthor() === $this) {
+                $groupMessage->setAuthor(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TodoNode>
+     */
+    public function getAssignedTodos(): Collection
+    {
+        return $this->assignedTodos;
+    }
+
+    public function addAssignedTodo(TodoNode $assignedTodo): static
+    {
+        if (!$this->assignedTodos->contains($assignedTodo)) {
+            $this->assignedTodos->add($assignedTodo);
+            $assignedTodo->setAssignedTo($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAssignedTodo(TodoNode $assignedTodo): static
+    {
+        if ($this->assignedTodos->removeElement($assignedTodo)) {
+            // set the owning side to null (unless already changed)
+            if ($assignedTodo->getAssignedTo() === $this) {
+                $assignedTodo->setAssignedTo(null);
             }
         }
 
