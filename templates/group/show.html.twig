@@ -150,6 +150,13 @@
                 </div>
             </div>
 
+            {% if currentMember %}
+                <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}"
+                class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                    📋 Todo liste
+                </a>
+            {% endif %}
+
             {# DESCRIPTION #}
             {% if group.description %}
             <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">

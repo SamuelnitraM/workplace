@@ -1,0 +1,351 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Todo — {{ group.name }}{% endblock %}
+
+{% block body %}
+<div class="max-w-5xl mx-auto">
+
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <a href="{{ path('app_group_show', {slug: group.slug}) }}"
+               class="text-gray-400 hover:text-white text-sm transition">
+                ← Retour au groupe
+            </a>
+            <h1 class="text-3xl font-bold text-white mt-1">📋 Todo — {{ group.name }}</h1>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {# LISTES EXISTANTES #}
+        {% for list in lists %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+
+            {# HEADER LISTE #}
+            <div class="flex items-center gap-2 group mb-4">
+                {% if currentMember.role in ['owner', 'admin'] %}
+                    <h2 class="text-lg font-bold text-indigo-400 cursor-pointer"
+                        ondblclick="startGroupRename({{ list.id }}, this, '{{ list.title }}')">
+                        📋 {{ list.title }}
+                    </h2>
+                    <form method="post" action="{{ path('app_group_todo_delete', {slug: group.slug, id: list.id}) }}"
+                          onsubmit="return confirm('Supprimer cette liste ?')"
+                          class="ml-auto opacity-0 group-hover:opacity-100 transition">
+                        <button type="submit" class="text-red-400 hover:text-red-300 text-sm">🗑️</button>
+                    </form>
+                {% else %}
+                    <h2 class="text-lg font-bold text-indigo-400">📋 {{ list.title }}</h2>
+                {% endif %}
+            </div>
+
+            {# CATEGORIES #}
+            {% for category in list.children %}
+            <div class="mb-4 bg-gray-700/50 rounded-lg p-3">
+
+                {# HEADER CATEGORIE #}
+                <div class="flex items-center gap-2 group mb-2">
+
+                    {% if currentMember.role in ['owner', 'admin'] %}
+                        <span class="text-gray-400 text-sm">📁</span>
+                        <span class="text-sm flex-1 font-semibold text-gray-300 cursor-pointer"
+                              ondblclick="startGroupRename({{ category.id }}, this, '{{ category.title }}')">
+                            {{ category.title }}
+                        </span>
+
+                        {# AVATAR CLIQUABLE CATEGORIE #}
+                        <div class="relative ml-1" x-data="{ open: false }">
+                            <div @click="open = !open"
+                                 class="w-6 h-6 rounded-full cursor-pointer flex items-center justify-center text-xs font-bold shrink-0
+                                        {{ category.assignedTo ? 'bg-indigo-600' : 'bg-gray-600 border border-dashed border-gray-400' }}"
+                                 title="{{ category.assignedTo ? category.assignedTo.username : 'Non assigné' }}">
+                                {% if category.assignedTo %}
+                                    {% if category.assignedTo.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ category.assignedTo.avatar) }}"
+                                             class="w-6 h-6 rounded-full object-cover">
+                                    {% else %}
+                                        {{ category.assignedTo.username|first|upper }}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-gray-400">+</span>
+                                {% endif %}
+                            </div>
+
+                            {# DROPDOWN ASSIGNATION #}
+                            <div x-show="open"
+                                 @click.outside="open = false"
+                                 x-transition
+                                 class="absolute left-0 mt-1 w-40 bg-gray-800 border border-gray-600 rounded-xl shadow-lg z-50 py-1">
+                                <button type="button"
+                                        onclick="assignItem('{{ slug }}', {{ category.id }}, '')"
+                                        class="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-700 transition">
+                                    ✕ Non assigné
+                                </button>
+                                {% for member in members %}
+                                    <button type="button"
+                                            onclick="assignItem('{{ slug }}', {{ category.id }}, '{{ member.user.id }}')"
+                                            class="w-full text-left px-3 py-1.5 text-xs text-white hover:bg-gray-700 transition flex items-center gap-2">
+                                        <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                            {% if member.user.avatar %}
+                                                <img src="{{ asset('uploads/avatars/' ~ member.user.avatar) }}"
+                                                     class="w-5 h-5 rounded-full object-cover">
+                                            {% else %}
+                                                {{ member.user.username|first|upper }}
+                                            {% endif %}
+                                        </div>
+                                        {{ member.user.username }}
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        {# BOUTON SUPPRESSION CATEGORIE #}
+                        <form method="post" action="{{ path('app_group_todo_delete', {slug: group.slug, id: category.id}) }}"
+                              onsubmit="return confirm('Supprimer cette catégorie ?')"
+                              class="ml-auto opacity-0 group-hover:opacity-100 transition">
+                            <button type="submit" class="text-red-400 hover:text-red-300 text-xs">🗑️</button>
+                        </form>
+
+                    {% else %}
+                        <span class="text-sm font-semibold text-gray-300">📁 {{ category.title }}</span>
+                        {% if category.assignedTo %}
+                            <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0 ml-1"
+                                 title="{{ category.assignedTo.username }}">
+                                {% if category.assignedTo.avatar %}
+                                    <img src="{{ asset('uploads/avatars/' ~ category.assignedTo.avatar) }}"
+                                         class="w-6 h-6 rounded-full object-cover">
+                                {% else %}
+                                    {{ category.assignedTo.username|first|upper }}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+
+                </div>
+
+                {# ITEMS #}
+                <div class="space-y-1 mb-2">
+                    {% for item in category.children %}
+                    <div class="flex items-center gap-2 group">
+
+                        <input type="checkbox"
+                               {{ item.isDone ? 'checked' : '' }}
+                               {% if currentMember.role == 'member' and item.assignedTo != app.user %}
+                                   disabled
+                               {% else %}
+                                   onchange="toggleGroupItem('{{ slug }}', {{ item.id }}, this)"
+                               {% endif %}
+                               class="w-4 h-4 rounded accent-indigo-500 cursor-pointer
+                                      {{ currentMember.role == 'member' and item.assignedTo != app.user ? 'opacity-50 cursor-not-allowed' : '' }}">
+
+                        {% if currentMember.role in ['owner', 'admin'] %}
+                            <span class="text-sm flex-1 text-gray-300 cursor-pointer
+                                         {{ item.isDone ? 'line-through text-gray-500' : '' }}"
+                                  id="item-text-{{ item.id }}"
+                                  ondblclick="startGroupRename({{ item.id }}, this, '{{ item.title }}')">
+                                {{ item.title }}
+                            </span>
+                        {% else %}
+                            <span class="text-sm text-gray-300
+                                         {{ item.isDone ? 'line-through text-gray-500' : '' }}"
+                                  id="item-text-{{ item.id }}">
+                                {{ item.title }}
+                            </span>
+                        {% endif %}
+
+                        {% if currentMember.role in ['owner', 'admin'] %}
+                            {# AVATAR CLIQUABLE ITEM #}
+                            <div class="relative ml-1" x-data="{ open: false }">
+                                <div @click="open = !open" class="w-6 h-6 rounded-full cursor-pointer flex items-center justify-center text-xs font-bold shrink-0
+                                            {{ item.assignedTo ? 'bg-indigo-600' : 'bg-gray-600 border border-dashed border-gray-400' }}"
+                                     title="{{ item.assignedTo ? item.assignedTo.username : 'Non assigné' }}">
+                                    {% if item.assignedTo %}
+                                        {% if item.assignedTo.avatar %}
+                                            <img src="{{ asset('uploads/avatars/' ~ item.assignedTo.avatar) }}"
+                                                 class="w-6 h-6 rounded-full object-cover">
+                                        {% else %}
+                                            {{ item.assignedTo.username|first|upper }}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-gray-400">+</span>
+                                    {% endif %}
+                                </div>
+
+                                {# DROPDOWN ASSIGNATION #}
+                                <div x-show="open"
+                                     @click.outside="open = false"
+                                     x-transition
+                                     class="absolute left-0 mt-1 w-40 bg-gray-800 border border-gray-600 rounded-xl shadow-lg z-50 py-1">
+                                    <button type="button"
+                                            onclick="assignItem('{{ slug }}', {{ item.id }}, '')"
+                                            class="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-700 transition">
+                                        ✕ Non assigné
+                                    </button>
+                                    {% for member in members %}
+                                        <button type="button"
+                                                onclick="assignItem('{{ slug }}', {{ item.id }}, '{{ member.user.id }}')"
+                                                class="w-full text-left px-3 py-1.5 text-xs text-white hover:bg-gray-700 transition flex items-center gap-2">
+                                            <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                                {% if member.user.avatar %}
+                                                    <img src="{{ asset('uploads/avatars/' ~ member.user.avatar) }}"
+                                                         class="w-5 h-5 rounded-full object-cover">
+                                                {% else %}
+                                                    {{ member.user.username|first|upper }}
+                                                {% endif %}
+                                            </div>
+                                            {{ member.user.username }}
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            {# BOUTON SUPPRESSION ITEM #}
+                            <form method="post" action="{{ path('app_group_todo_delete', {slug: group.slug, id: item.id}) }}"
+                                  class="opacity-0 group-hover:opacity-100 transition">
+                                <button type="submit" class="text-red-400 hover:text-red-300 text-xs">🗑️</button>
+                            </form>
+
+                        {% else %}
+                            {# AVATAR NON CLIQUABLE POUR LES MEMBRES #}
+                            {% if item.assignedTo %}
+                                <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0 ml-1"
+                                     title="{{ item.assignedTo.username }}">
+                                    {% if item.assignedTo.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ item.assignedTo.avatar) }}"
+                                             class="w-6 h-6 rounded-full object-cover">
+                                    {% else %}
+                                        {{ item.assignedTo.username|first|upper }}
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endif %}
+
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {# AJOUTER UN ITEM #}
+                {% if currentMember.role in ['owner', 'admin'] %}
+                <form method="post" action="{{ path('app_group_todo_create', {slug: group.slug}) }}"
+                      class="flex gap-2 mt-2">
+                    <input type="hidden" name="type" value="item">
+                    <input type="hidden" name="parent_id" value="{{ category.id }}">
+                    <input type="text" name="title" placeholder="+ Nouvelle tâche..."
+                           class="flex-1 bg-gray-600 border border-gray-500 rounded px-2 py-1 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500">
+                    <button type="submit"
+                            class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded text-sm transition">
+                        ✚
+                    </button>
+                </form>
+                {% endif %}
+
+            </div>
+            {% endfor %}
+
+            {# AJOUTER UNE CATEGORIE #}
+            {% if currentMember.role in ['owner', 'admin'] %}
+            <form method="post" action="{{ path('app_group_todo_create', {slug: group.slug}) }}"
+                  class="flex gap-2 mt-3">
+                <input type="hidden" name="type" value="category">
+                <input type="hidden" name="parent_id" value="{{ list.id }}">
+                <input type="text" name="title" placeholder="+ Nouvelle catégorie..."
+                       class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500">
+                <button type="submit"
+                        class="bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm transition">
+                    ✚
+                </button>
+            </form>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+
+        {# CRÉER UNE NOUVELLE LISTE #}
+        {% if currentMember.role in ['owner', 'admin'] %}
+        <div class="bg-gray-800 rounded-xl border border-dashed border-gray-600 p-5 flex flex-col justify-center items-center">
+            <p class="text-gray-500 mb-4">Nouvelle liste</p>
+            <form method="post" action="{{ path('app_group_todo_create', {slug: group.slug}) }}"
+                  class="flex gap-2 w-full">
+                <input type="hidden" name="type" value="list">
+                <input type="text" name="title" placeholder="Nom de la liste..."
+                       class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500">
+                <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded text-sm transition">
+                    ✚
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<script>
+function toggleGroupItem(slug, id, checkbox) {
+    fetch(`/groups/${slug}/todo/toggle/${id}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: '_token={{ csrf_token("todo") }}'
+    })
+    .then(r => r.json())
+    .then(data => {
+        const text = document.getElementById(`item-text-${id}`);
+        if (data.isDone) {
+            text.classList.add('line-through', 'text-gray-500');
+            text.classList.remove('text-gray-300');
+        } else {
+            text.classList.remove('line-through', 'text-gray-500');
+            text.classList.add('text-gray-300');
+        }
+    });
+}
+
+function assignItem(slug, id, userId) {
+    fetch(`/groups/${slug}/todo/assign/${id}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: `assigned_to=${userId}&_token={{ csrf_token("todo") }}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        location.reload();
+    });
+}
+
+function startGroupRename(id, element, currentTitle) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentTitle;
+    input.className = 'bg-gray-600 border border-indigo-500 rounded px-2 py-1 text-sm text-white w-full focus:outline-none';
+
+    element.replaceWith(input);
+    input.focus();
+    input.select();
+
+    function saveRename() {
+        const newTitle = input.value.trim();
+        if (!newTitle || newTitle === currentTitle) {
+            input.replaceWith(element);
+            return;
+        }
+
+        fetch(`/todo/rename/${id}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `title=${encodeURIComponent(newTitle)}&_token={{ csrf_token("todo") }}`
+        })
+        .then(r => r.json())
+        .then(data => {
+            element.textContent = data.title;
+            input.replaceWith(element);
+        });
+    }
+
+    input.addEventListener('blur', saveRename);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveRename();
+        if (e.key === 'Escape') input.replaceWith(element);
+    });
+}
+</script>
+
+{% endblock %}
