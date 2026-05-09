@@ -63,6 +63,12 @@ class Group
     #[ORM\OneToMany(targetEntity: GroupInvitation::class, mappedBy: 'usergroup', orphanRemoval: true)]
     private Collection $invitations;
 
+    /**
+     * @var Collection<int, GroupChannel>
+     */
+    #[ORM\OneToMany(targetEntity: GroupChannel::class, mappedBy: 'usergroup', orphanRemoval: true)]
+    private Collection $channels;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -72,6 +78,7 @@ class Group
         $this->messages = new \Doctrine\Common\Collections\ArrayCollection();
         $this->todoNodes = new \Doctrine\Common\Collections\ArrayCollection();
         $this->invitations = new ArrayCollection();
+        $this->channels = new ArrayCollection();
     }
 
     public function __toString(): string
@@ -281,6 +288,36 @@ class Group
             // set the owning side to null (unless already changed)
             if ($invitation->getUsergroup() === $this) {
                 $invitation->setUsergroup(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GroupChannel>
+     */
+    public function getChannels(): Collection
+    {
+        return $this->channels;
+    }
+
+    public function addChannel(GroupChannel $channel): static
+    {
+        if (!$this->channels->contains($channel)) {
+            $this->channels->add($channel);
+            $channel->setUsergroup($this);
+        }
+
+        return $this;
+    }
+
+    public function removeChannel(GroupChannel $channel): static
+    {
+        if ($this->channels->removeElement($channel)) {
+            // set the owning side to null (unless already changed)
+            if ($channel->getUsergroup() === $this) {
+                $channel->setUsergroup(null);
             }
         }
 

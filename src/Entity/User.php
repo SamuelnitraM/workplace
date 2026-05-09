@@ -116,6 +116,24 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: GroupInvitation::class, mappedBy: 'invitedUser')]
     private Collection $receivedGroupInvitations;
 
+    /**
+     * @var Collection<int, PrivateConversation>
+     */
+    #[ORM\OneToMany(targetEntity: PrivateConversation::class, mappedBy: 'participant1')]
+    private Collection $conversationAsParticipant1;
+
+    /**
+     * @var Collection<int, PrivateConversation>
+     */
+    #[ORM\OneToMany(targetEntity: PrivateConversation::class, mappedBy: 'participant2')]
+    private Collection $conversationAsParticipant2;
+
+    /**
+     * @var Collection<int, PrivateMessage>
+     */
+    #[ORM\OneToMany(targetEntity: PrivateMessage::class, mappedBy: 'author')]
+    private Collection $privateMessages;
+
     public function __toString(): string
     {
         return $this->username ?? '';
@@ -241,6 +259,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->assignedTodos = new ArrayCollection();
         $this->sentGroupInvitations = new ArrayCollection();
         $this->receivedGroupInvitations = new ArrayCollection();
+        $this->conversationAsParticipant1 = new ArrayCollection();
+        $this->conversationAsParticipant2 = new ArrayCollection();
+        $this->privateMessages = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -603,6 +624,96 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($receivedGroupInvitation->getInvitedUser() === $this) {
                 $receivedGroupInvitation->setInvitedUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PrivateConversation>
+     */
+    public function getConversationAsParticipant1(): Collection
+    {
+        return $this->conversationAsParticipant1;
+    }
+
+    public function addConversationAsParticipant1(PrivateConversation $conversationAsParticipant1): static
+    {
+        if (!$this->conversationAsParticipant1->contains($conversationAsParticipant1)) {
+            $this->conversationAsParticipant1->add($conversationAsParticipant1);
+            $conversationAsParticipant1->setParticipant1($this);
+        }
+
+        return $this;
+    }
+
+    public function removeConversationAsParticipant1(PrivateConversation $conversationAsParticipant1): static
+    {
+        if ($this->conversationAsParticipant1->removeElement($conversationAsParticipant1)) {
+            // set the owning side to null (unless already changed)
+            if ($conversationAsParticipant1->getParticipant1() === $this) {
+                $conversationAsParticipant1->setParticipant1(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PrivateConversation>
+     */
+    public function getConversationAsParticipant2(): Collection
+    {
+        return $this->conversationAsParticipant2;
+    }
+
+    public function addConversationAsParticipant2(PrivateConversation $conversationAsParticipant2): static
+    {
+        if (!$this->conversationAsParticipant2->contains($conversationAsParticipant2)) {
+            $this->conversationAsParticipant2->add($conversationAsParticipant2);
+            $conversationAsParticipant2->setParticipant2($this);
+        }
+
+        return $this;
+    }
+
+    public function removeConversationAsParticipant2(PrivateConversation $conversationAsParticipant2): static
+    {
+        if ($this->conversationAsParticipant2->removeElement($conversationAsParticipant2)) {
+            // set the owning side to null (unless already changed)
+            if ($conversationAsParticipant2->getParticipant2() === $this) {
+                $conversationAsParticipant2->setParticipant2(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PrivateMessage>
+     */
+    public function getPrivateMessages(): Collection
+    {
+        return $this->privateMessages;
+    }
+
+    public function addPrivateMessage(PrivateMessage $privateMessage): static
+    {
+        if (!$this->privateMessages->contains($privateMessage)) {
+            $this->privateMessages->add($privateMessage);
+            $privateMessage->setAuthor($this);
+        }
+
+        return $this;
+    }
+
+    public function removePrivateMessage(PrivateMessage $privateMessage): static
+    {
+        if ($this->privateMessages->removeElement($privateMessage)) {
+            // set the owning side to null (unless already changed)
+            if ($privateMessage->getAuthor() === $this) {
+                $privateMessage->setAuthor(null);
             }
         }
 

@@ -2,12 +2,12 @@
 
 namespace App\Entity;
 
-use App\Repository\GroupMessageRepository;
+use App\Repository\PrivateMessageRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: GroupMessageRepository::class)]
-class GroupMessage
+#[ORM\Entity(repositoryClass: PrivateMessageRepository::class)]
+class PrivateMessage
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -20,20 +20,21 @@ class GroupMessage
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
-    #[ORM\ManyToOne(inversedBy: 'groupMessages')]
+    #[ORM\Column]
+    private ?bool $isRead = null;
+
+    #[ORM\ManyToOne(inversedBy: 'privateMessages')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $author = null;
 
     #[ORM\ManyToOne(inversedBy: 'messages')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?Group $usergroup = null;
-
-    #[ORM\ManyToOne(inversedBy: 'messages')]
-    private ?GroupChannel $channel = null;
+    private ?PrivateConversation $conversation = null;
 
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->isRead = false;
     }
 
     public function getId(): ?int
@@ -65,6 +66,18 @@ class GroupMessage
         return $this;
     }
 
+    public function isRead(): ?bool
+    {
+        return $this->isRead;
+    }
+
+    public function setIsRead(bool $isRead): static
+    {
+        $this->isRead = $isRead;
+
+        return $this;
+    }
+
     public function getAuthor(): ?User
     {
         return $this->author;
@@ -77,25 +90,14 @@ class GroupMessage
         return $this;
     }
 
-    public function getUsergroup(): ?Group
+    public function getConversation(): ?PrivateConversation
     {
-        return $this->usergroup;
+        return $this->conversation;
     }
 
-    public function setUsergroup(?Group $usergroup): static
+    public function setConversation(?PrivateConversation $conversation): static
     {
-        $this->usergroup = $usergroup;
-        return $this;
-    }
-
-    public function getChannel(): ?GroupChannel
-    {
-        return $this->channel;
-    }
-
-    public function setChannel(?GroupChannel $channel): static
-    {
-        $this->channel = $channel;
+        $this->conversation = $conversation;
 
         return $this;
     }
