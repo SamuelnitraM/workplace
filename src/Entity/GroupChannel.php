@@ -47,7 +47,7 @@ class GroupChannel
     $this->position = 0;
     $this->canRead = 'member';
     $this->canWrite = 'member';
-    $this->messages = new ArrayCollection();
+    $this->messages = new \Doctrine\Common\Collections\ArrayCollection();
 }
 
 public function __toString(): string
@@ -141,6 +141,31 @@ public function __toString(): string
     {
         $this->usergroup = $usergroup;
 
+        return $this;
+    }
+
+    /** * @return Collection<int, GroupMessage> */
+    public function getMessages(): Collection
+    {
+        return $this->messages;
+    }
+
+    public function addMessage(GroupMessage $message): static
+    {
+        if (!$this->messages->contains($message)) {
+            $this->messages->add($message);
+            $message->setChannel($this);
+        }
+        return $this;
+    }
+
+    public function removeMessage(GroupMessage $message): static
+    {
+        if ($this->messages->removeElement($message)) {
+            if ($message->getChannel() === $this) {
+                $message->setChannel(null);
+            }
+        }
         return $this;
     }
 }

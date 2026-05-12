@@ -108,7 +108,6 @@ class PrivateConversation
             $this->messages->add($message);
             $message->setConversation($this);
         }
-
         return $this;
     }
 
@@ -120,7 +119,6 @@ class PrivateConversation
                 $message->setConversation(null);
             }
         }
-
         return $this;
     }
 }

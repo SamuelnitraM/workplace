@@ -13,7 +13,7 @@
             </a>
             <h1 class="text-3xl font-bold text-white mt-1">{{ group.name }}</h1>
             <div class="flex gap-3 mt-2">
-                <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-red-600 text-red-300' }}">
+                <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-gray-700 text-gray-400' }}">
                     {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
                 </span>
                 <span class="text-gray-500 text-sm">
@@ -25,9 +25,13 @@
         {# BOUTONS ACTIONS #}
         <div class="flex gap-3">
             {% if currentMember %}
+                <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}"
+                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                    📋 Todo
+                </a>
                 {% if currentMember.role in ['owner', 'admin'] %}
                     <a href="{{ path('app_group_edit', {slug: group.slug}) }}"
-                    class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                       class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
                         ⚙️ Paramètres
                     </a>
                 {% endif %}
@@ -39,40 +43,102 @@
                         </button>
                     </form>
                 {% endif %}
+            {% elseif app.user and group.isJoinable %}
+                <form method="post" action="{{ path('app_group_join', {slug: group.slug}) }}">
+                    <button type="submit"
+                            class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
+                        ➕ Rejoindre
+                    </button>
+                </form>
             {% elseif app.user %}
-                {% if group.isJoinable %}
-                    <form method="post" action="{{ path('app_group_join', {slug: group.slug}) }}">
-                        <button type="submit"
-                                class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
-                            ➕ Rejoindre
-                        </button>
-                    </form>
-                {% else %}
-                    <span class="bg-gray-700 px-4 py-2 rounded-lg text-sm text-gray-500 cursor-not-allowed">
-                        🔒 Sur invitation uniquement
-                    </span>
-                {% endif %}
+                <span class="bg-gray-700 px-4 py-2 rounded-lg text-sm text-gray-500 cursor-not-allowed">
+                    🔒 Sur invitation uniquement
+                </span>
             {% endif %}
         </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-6">
+    <div class="flex gap-4 h-[600px]">
 
-        {# CHAT #}
-        <div class="col-span-2">
-            <div class="bg-gray-800 rounded-xl border border-gray-700 flex flex-col h-[600px]">
+        {# SIDEBAR GAUCHE - CHANNELS ET MEMBRES #}
+        <div class="w-56 flex flex-col gap-4 shrink-0">
 
+            {# CHANNELS #}
+            {% if currentMember and channels is not empty %}
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-1">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    📢 Channels
+                </h3>
+                <div class="space-y-1">
+                    {% for channel in channels %}
+                        <a href="{{ path('app_group_show', {slug: group.slug, channel: channel.id}) }}"
+                           class="flex items-center gap-2 px-2 py-1.5 rounded text-sm transition
+                                  {{ activeChannel and activeChannel.id == channel.id
+                                     ? 'bg-indigo-600 text-white'
+                                     : 'text-gray-400 hover:text-white hover:bg-gray-700' }}">
+                            <span>#</span>
+                            <span>{{ channel.name }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {# MEMBRES #}
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    👥 Membres
+                </h3>
+                <div class="space-y-2">
+                    {% for member in group.members %}
+                        <a href="{{ path('app_profil_show', {username: member.user.username}) }}"
+                           class="flex items-center gap-2 hover:text-indigo-400 transition">
+                            <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                {% if member.user.avatar %}
+                                    <img src="{{ asset('uploads/avatars/' ~ member.user.avatar) }}"
+                                         class="w-6 h-6 rounded-full object-cover">
+                                {% else %}
+                                    {{ member.user.username|first|upper }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="text-xs text-white">{{ member.user.username }}</div>
+                                <div class="text-xs
+                                    {% if member.role == 'owner' %}text-yellow-400
+                                    {% elseif member.role == 'admin' %}text-blue-400
+                                    {% else %}text-gray-500{% endif %}">
+                                    {{ member.role }}
+                                </div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
+        {# ZONE PRINCIPALE - CHAT #}
+        <div class="flex-1 flex flex-col bg-gray-800 rounded-xl border border-gray-700">
+
+            {% if activeChannel %}
+                {# HEADER CHANNEL #}
                 <div class="p-4 border-b border-gray-700">
-                    <h2 class="font-semibold text-white">💬 Chat du groupe</h2>
+                    <h2 class="font-semibold text-white"># {{ activeChannel.name }}</h2>
+                    {% if activeChannel.description %}
+                        <p class="text-gray-400 text-xs mt-0.5">{{ activeChannel.description }}</p>
+                    {% endif %}
                 </div>
 
                 {# MESSAGES #}
                 <div class="flex-1 overflow-y-auto p-4 space-y-3" id="chat-messages">
                     {% if messages is empty %}
-                        <p class="text-gray-500 text-center py-8">Aucun message pour le moment.</p>
+                        <p class="text-gray-500 text-center py-8">
+                            Aucun message dans # {{ activeChannel.name }}
+                        </p>
                     {% else %}
                         {% for message in messages %}
-                            <div class="flex gap-3 {{ message.author == app.user ? 'flex-row-reverse' : '' }}">
+                            <div class="flex gap-3 {{ message.author == app.user ? 'flex-row-reverse' : '' }}"
+                                 id="msg-{{ message.id }}">
                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
                                     {% if message.author.avatar %}
                                         <img src="{{ asset('uploads/avatars/' ~ message.author.avatar) }}"
@@ -95,88 +161,164 @@
                     {% endif %}
                 </div>
 
+                {# BOUTON SCROLL TO BOTTOM #}
+                <div class=" relative">
+                    <button id="scroll-btn"
+                            class="hidden absolute bottom-5 left-1/2 -translate-x-1/2 bg-opacity-50 bg-indigo-600 hover:bg-indigo-900 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg transition z-10">
+                        ↓
+                        <span id="scroll-badge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center"> </span>
+                    </button>
+                </div>
+
                 {# FORMULAIRE MESSAGE #}
                 {% if currentMember %}
-                    <div class="p-4 border-t border-gray-700">
-                        <form method="post" action="{{ path('app_group_message', {slug: group.slug}) }}"
-                              class="flex gap-3">
-                            <input type="text" name="content" placeholder="Votre message..."
-                                   autocomplete="off"
-                                   class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                            <button type="submit"
-                                    class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
-                                ➤
-                            </button>
-                        </form>
-                    </div>
-                {% else %}
-                    <div class="p-4 border-t border-gray-700 text-center text-gray-500 text-sm">
-                        Rejoignez le groupe pour participer au chat.
-                    </div>
+                    {% set roleHierarchy = {'member': 1, 'admin': 2, 'owner': 3} %}
+                    {% set userLevel = roleHierarchy[currentMember.role] ?? 0 %}
+                    {% set requiredLevel = roleHierarchy[activeChannel.canWrite] ?? 1 %}
+                    {% if userLevel >= requiredLevel %}
+                        <div class="p-4 border-t border-gray-700">
+                            <form method="post"
+                                  action="{{ path('app_group_message', {slug: group.slug}) }}"
+                                  class="flex gap-3"
+                                  id="message-form">
+                                <input type="hidden" name="channel_id" value="{{ activeChannel.id }}">
+                                <input type="text" name="content" id="message-input"
+                                       placeholder="Message dans # {{ activeChannel.name }}..."
+                                       autocomplete="off"
+                                       class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
+                                <button type="submit"
+                                        class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
+                                    ➤
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <div class="p-4 border-t border-gray-700 text-center text-gray-500 text-sm">
+                            🔒 Vous n'avez pas les droits pour écrire dans ce channel.
+                        </div>
+                    {% endif %}
                 {% endif %}
 
-            </div>
-        </div>
-
-        {# SIDEBAR #}
-        <div class="space-y-4">
-
-            {# MEMBRES #}
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
-                <h3 class="font-semibold text-white mb-3">👥 Membres</h3>
-                <div class="space-y-2">
-                    {% for member in group.members %}
-                        <div class="flex items-center justify-between">
-                            <a href="{{ path('app_profil_show', {username: member.user.username}) }}"
-                               class="flex items-center gap-2 hover:text-indigo-400 transition text-sm">
-                                <div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold">
-                                    {% if member.user.avatar %}
-                                        <img src="{{ asset('uploads/avatars/' ~ member.user.avatar) }}"
-                                             class="w-7 h-7 rounded-full object-cover">
-                                    {% else %}
-                                        {{ member.user.username|first|upper }}
-                                    {% endif %}
-                                </div>
-                                <span>{{ member.user.username }}</span>
-                            </a>
-                            <span class="text-xs px-2 py-0.5 rounded
-                                {% if member.role == 'owner' %}bg-yellow-700 text-yellow-300
-                                {% elseif member.role == 'admin' %}bg-blue-700 text-blue-300
-                                {% else %}bg-gray-700 text-gray-400{% endif %}">
-                                {{ member.role }}
-                            </span>
-                        </div>
-                    {% endfor %}
+            {% else %}
+                {# PAS DE CHANNEL #}
+                <div class="flex-1 flex items-center justify-center text-gray-500">
+                    {% if currentMember %}
+                        {% if currentMember.role in ['owner', 'admin'] %}
+                            <div class="text-center">
+                                <p class="mb-3">Aucun channel pour le moment.</p>
+                                <a href="{{ path('app_group_edit', {slug: group.slug}) }}"
+                                   class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition text-white">
+                                    ⚙️ Créer un channel
+                                </a>
+                            </div>
+                        {% else %}
+                            <p>Aucun channel disponible.</p>
+                        {% endif %}
+                    {% else %}
+                        <p>Rejoignez le groupe pour accéder aux channels.</p>
+                    {% endif %}
                 </div>
-            </div>
-
-            {% if currentMember %}
-                <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}"
-                class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
-                    📋 Todo liste
-                </a>
             {% endif %}
-
-            {# DESCRIPTION #}
-            {% if group.description %}
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
-                <h3 class="font-semibold text-white mb-2">📋 Description</h3>
-                <p class="text-gray-400 text-sm">{{ group.description }}</p>
-            </div>
-            {% endif %}
-
         </div>
-
     </div>
-
 </div>
 
+{% if activeChannel and currentMember %}
 <script>
-// Scroll automatique vers le bas du chat
-const chatMessages = document.getElementById('chat-messages');
-if (chatMessages) {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
+(function() {
+    const chatMessages = document.getElementById('chat-messages');
+    const scrollBtn = document.getElementById('scroll-btn');
+    const scrollBadge = document.getElementById('scroll-badge');
+
+    // Scroll initial
+    if (chatMessages) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Helpers
+    function isAtBottom() {
+        return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 50;
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Détecter scroll utilisateur
+    chatMessages.addEventListener('scroll', () => {
+        if (isAtBottom()) {
+            scrollBtn.classList.add('hidden');
+            scrollBadge.classList.add('hidden');
+        } else {
+            scrollBtn.classList.remove('hidden');
+        }
+    });
+
+    // Clic bouton
+    scrollBtn.addEventListener('click', () => {
+        scrollToBottom();
+        scrollBtn.classList.add('hidden');
+        scrollBadge.classList.add('hidden');
+    });
+
+    // Mercure
+    const url = new URL('http://localhost:3000/.well-known/mercure');
+    url.searchParams.append('topic', 'group/{{ group.slug }}/channel/{{ activeChannel.id }}');
+
+    const eventSource = new EventSource(url);
+
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const isCurrentUser = data.author === '{{ app.user ? app.user.username : '' }}';
+        const wasAtBottom = isAtBottom();
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : ''}`;
+        msgDiv.id = `msg-${data.id}`;
+
+        const avatar = data.avatar
+            ? `<img src="/uploads/avatars/${data.avatar}" class="w-8 h-8 rounded-full object-cover">`
+            : `<span>${data.author.charAt(0).toUpperCase()}</span>`;
+
+        msgDiv.innerHTML = `
+            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
+                ${avatar}
+            </div>
+            <div class="${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col">
+                <div class="text-xs text-gray-500 mb-1">
+                    ${data.author} — ${data.createdAt}
+                </div>
+                <div class="px-4 py-2 rounded-xl text-sm max-w-xs ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'}">
+                    ${data.content}
+                </div>
+            </div>
+        `;
+
+        chatMessages.appendChild(msgDiv);
+
+        if (wasAtBottom || isCurrentUser) {
+            scrollToBottom();
+        } else {
+            scrollBadge.classList.remove('hidden');
+        }
+    };
+
+    // Formulaire AJAX
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+
+    if (messageForm) {
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const content = messageInput.value.trim();
+            if (!content) return;
+            const formData = new FormData(this);
+            messageInput.value = '';
+            fetch(this.action, { method: 'POST', body: formData });
+        });
+    }
+})();
 </script>
+{% endif %}
 
 {% endblock %}

@@ -110,6 +110,97 @@
         </div>
     {% endif %}
 
+    {# GESTION DES CHANNELS (owner/admin) #}
+    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-white mb-4">📢 Channels</h2>
+
+        {# LISTE DES CHANNELS #}
+        {% if group.channels is empty %}
+            <p class="text-gray-500 text-sm mb-4">Aucun channel pour le moment.</p>
+        {% else %}
+            <div class="space-y-2 mb-4">
+                {% for channel in group.channels %}
+                    <div class="flex items-center justify-between bg-gray-700 rounded-lg p-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-gray-400">#</span>
+                            <span class="text-white text-sm">{{ channel.name }}</span>
+                            <span class="text-gray-500 text-xs">
+                                👁 {{ channel.canRead }} — ✏️ {{ channel.canWrite }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {# MODIFIER LES DROITS #}
+                            <form method="post" class="flex items-center gap-2">
+                                <input type="hidden" name="action" value="update_channel">
+                                <input type="hidden" name="channel_id" value="{{ channel.id }}">
+                                <select name="can_read"
+                                        class="bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
+                                    <option value="member" {{ channel.canRead == 'member' ? 'selected' : '' }}>
+                                        👁 Membre
+                                    </option>
+                                    <option value="admin" {{ channel.canRead == 'admin' ? 'selected' : '' }}>
+                                        👁 Admin
+                                    </option>
+                                    <option value="owner" {{ channel.canRead == 'owner' ? 'selected' : '' }}>
+                                        👁 Owner
+                                    </option>
+                                </select>
+                                <select name="can_write"
+                                        class="bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
+                                    <option value="member" {{ channel.canWrite == 'member' ? 'selected' : '' }}>
+                                        ✏️ Membre
+                                    </option>
+                                    <option value="admin" {{ channel.canWrite == 'admin' ? 'selected' : '' }}>
+                                        ✏️ Admin
+                                    </option>
+                                    <option value="owner" {{ channel.canWrite == 'owner' ? 'selected' : '' }}>
+                                        ✏️ Owner
+                                    </option>
+                                </select>
+                                <button type="submit"
+                                        class="bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded text-xs transition">
+                                    ✓
+                                </button>
+                            </form>
+                            {# SUPPRIMER #}
+                            <form method="post"
+                                action="{{ path('app_group_channel_delete', {slug: group.slug, channelId: channel.id}) }}"
+                                onsubmit="return confirm('Supprimer ce channel ?')">
+                                <button type="submit"
+                                        class="bg-red-600/30 hover:bg-red-600 px-2 py-1 rounded text-xs text-red-400 hover:text-white transition">
+                                    🗑️
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {# CRÉER UN CHANNEL #}
+        <form method="post" class="flex gap-2">
+            <input type="hidden" name="action" value="create_channel">
+            <input type="text" name="channel_name" placeholder="# nouveau-channel"
+                class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <select name="channel_can_read"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-sm text-white">
+                <option value="member">👁 Membre</option>
+                <option value="admin">👁 Admin</option>
+                <option value="owner">👁 Owner</option>
+            </select>
+            <select name="channel_can_write"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-sm text-white">
+                <option value="member">✏️ Membre</option>
+                <option value="admin">✏️ Admin</option>
+                <option value="owner">✏️ Owner</option>
+            </select>
+            <button type="submit"
+                    class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition">
+                ✚ Créer
+            </button>
+        </form>
+    </div>
+
     {# DANGER ZONE #}
     {% if currentMember.role == 'owner' %}
     <div class="bg-gray-800 rounded-xl border border-red-700 p-6">
