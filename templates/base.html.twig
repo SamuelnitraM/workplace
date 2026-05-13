@@ -30,9 +30,7 @@
             </a>
 
             <div class="flex gap-4 items-center">
-
                 {% if app.user %}
-                    {# MENU DÉROULANT PROFIL #}
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open"
                                 class="flex items-center gap-2 text-gray-300 hover:text-white transition text-sm">
@@ -40,12 +38,11 @@
                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm">
                                     {% if app.user.avatar %}
                                         <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}"
-                                            class="w-8 h-8 rounded-full object-cover">
+                                             class="w-8 h-8 rounded-full object-cover">
                                     {% else %}
                                         {{ app.user.username|first|upper }}
                                     {% endif %}
                                 </div>
-                                {# BADGE ROUGE #}
                                 {% if pendingInvitationsCount > 0 %}
                                     <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
                                         {{ pendingInvitationsCount }}
@@ -58,13 +55,13 @@
                             </svg>
                         </button>
 
-                        {# DROPDOWN #}
                         <div x-show="open"
-                            @click.outside="open = false"
-                            x-transition
-                            class="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50">
+                             @click.outside="open = false"
+                             x-transition
+                             class="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50">
                             <div class="py-2">
-                                <a href="{{ path('app_profil_show', {username: app.user.username}) }}" class="flex items-center justify-between px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
+                                <a href="{{ path('app_profil_show', {username: app.user.username}) }}"
+                                   class="flex items-center justify-between px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
                                     <span>👤 Mon profil</span>
                                     {% if pendingInvitationsCount > 0 %}
                                         <span class="w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
@@ -72,26 +69,32 @@
                                         </span>
                                     {% endif %}
                                 </a>
-                                <a href="{{ path('app_todo_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
+                                <a href="{{ path('app_todo_index') }}"
+                                   class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
                                     📋 Todo liste
                                 </a>
-                                <a href="{{ path('app_friendship_list') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
+                                <a href="{{ path('app_friendship_list') }}"
+                                   class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
                                     👥 Mes amis
+                                </a>
+                                <a href="{{ path('app_message_index') }}"
+                                   class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
+                                    ✉️ Messages
                                 </a>
                                 <div class="border-t border-gray-700 my-1"></div>
                                 <a href="{{ path('app_logout') }}"
-                                class="flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition text-sm">
+                                   class="flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition text-sm">
                                     🚪 Déconnexion
                                 </a>
                             </div>
                         </div>
                     </div>
                 {% else %}
-                    <a href="{{ path('app_login') }}" 
+                    <a href="{{ path('app_login') }}"
                        class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded text-sm transition">
                         Connexion
                     </a>
-                    <a href="{{ path('app_register') }}" 
+                    <a href="{{ path('app_register') }}"
                        class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition">
                         Inscription
                     </a>
@@ -100,25 +103,25 @@
         </div>
     </nav>
 
-{# FLASH MESSAGES #}
-{% set flashes = app.flashes %}
-{% if flashes is not empty %}
-    <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-6">
-        {% for type, messages in flashes %}
-            {% for message in messages %}
-                <div class="mb-2 px-4 py-3 rounded shadow-lg
-                    {% if type == 'success' %}bg-green-700
-                    {% elseif type == 'error' %}bg-red-700
-                    {% else %}bg-blue-700{% endif %}">
-                    {{ message }}
-                </div>
+    {# FLASH MESSAGES #}
+    {% set flashes = app.flashes %}
+    {% if flashes is not empty %}
+        <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-6">
+            {% for type, messages in flashes %}
+                {% for message in messages %}
+                    <div class="mb-2 px-4 py-3 rounded shadow-lg
+                        {% if type == 'success' %}bg-green-700
+                        {% elseif type == 'error' %}bg-red-700
+                        {% else %}bg-blue-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
             {% endfor %}
-        {% endfor %}
-    </div>
-{% endif %}
+        </div>
+    {% endif %}
 
     {# CONTENU PRINCIPAL #}
-    <main class="flex-1 max-w-7xl mx-auto w-full px-6">
+    <main class="flex-1 max-w-7xl mx-auto w-full p-8">
         {% block body %}{% endblock %}
     </main>
 
@@ -126,6 +129,429 @@
     <footer class="bg-gray-800 border-t border-gray-700 text-center text-gray-500 text-sm py-4">
         © {{ "now"|date("Y") }} HighlightForge — Communauté Miniaturiste
     </footer>
+
+    {% if app.user %}
+    {# ─── MESSENGER ─────────────────────────────────────────── #}
+    <div id="messenger" class="fixed bottom-0 right-4 z-50 flex items-end gap-2">
+
+        {# BOUTON FLECHE GAUCHE #}
+        <button id="messenger-prev"
+                class="hidden self-end mb-1 w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full text-white text-sm transition">
+            ◀
+        </button>
+
+        {# ONGLETS CONVERSATIONS (à gauche, générés dynamiquement) #}
+        <div id="messenger-conv-tabs" class="flex items-end gap-2"></div>
+
+        {# BOUTON FLECHE DROITE #}
+        <button id="messenger-next"
+                class="hidden self-end mb-1 w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full text-white text-sm transition">
+            ▶
+        </button>
+
+        {# ONGLET PRINCIPAL (toujours à droite) #}
+        <div id="messenger-main" class="w-64">
+            <div class="bg-gray-800 border border-gray-700 border-b-0 rounded-t-xl">
+                <div class="flex justify-between items-center px-4 py-3 cursor-pointer"
+                     onclick="toggleMessengerMain()">
+                    <span class="font-semibold text-white text-sm flex items-center gap-2">
+                        💬 Messages
+                        <span id="messenger-badge"
+                              class="hidden bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+                        </span>
+                    </span>
+                    <span id="messenger-main-arrow" class="text-gray-400 text-xs">▲</span>
+                </div>
+                <div id="messenger-main-body" class="hidden border-t border-gray-700 max-h-80 overflow-y-auto">
+                    <div id="messenger-conversations" class="p-2 space-y-1">
+                        <div class="text-gray-500 text-sm text-center py-4">Chargement...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+    (function() {
+
+        // ─── État ─────────────────────────────────────────────
+        const state = {
+            mainOpen: false,
+            openConvs: [],      // { username, avatar, convId, open, messages, loaded, unread }
+            visibleStart: 0,
+            maxVisible: 3,
+            globalSource: null,
+        };
+
+        // ─── Init Mercure global ───────────────────────────────
+        // S'abonne à toutes les conversations existantes pour recevoir
+        // les notifications même sans ouvrir le messenger
+        function initGlobalMercure() {
+            fetch('/messages/ajax/conversation-ids')
+                .then(r => r.json())
+                .then(ids => {
+                    if (ids.length === 0) return;
+
+                    const url = new URL('http://localhost:3000/.well-known/mercure');
+                    ids.forEach(id => url.searchParams.append('topic', `private/conversation/${id}`));
+
+                    state.globalSource = new EventSource(url);
+
+                    state.globalSource.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+
+                        // Ignorer nos propres messages
+                        if (data.author === '{{ app.user.username }}') return;
+
+                        const conv = state.openConvs.find(c => c.convId === data.conversationId);
+
+                        if (conv) {
+                            // Conversation ouverte et dépliée → ajouter le message sans notification
+                            if (conv.open) {
+                                data.isCurrentUser = false;
+                                conv.messages.push(data);
+                                renderTabs();
+                                setTimeout(() => {
+                                    const chatEl = document.getElementById(`chat-${conv.username}`);
+                                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                                }, 50);
+                            } else {
+                                // Conversation ouverte mais repliée → badge sur l'onglet
+                                conv.unread = (conv.unread || 0) + 1;
+                                data.isCurrentUser = false;
+                                conv.messages.push(data);
+                                renderTabs();
+                            }
+                        } else {
+                            // Conversation pas ouverte → badge sur l'onglet principal
+                            updateMainBadge(1);
+                        }
+                    };
+                });
+        }
+
+        // ─── Badge onglet principal ────────────────────────────
+        function updateMainBadge(delta) {
+            const badge = document.getElementById('messenger-badge');
+            if (!badge) return;
+            const current = parseInt(badge.textContent) || 0;
+            const newCount = Math.max(0, current + delta);
+            if (newCount > 0) {
+                badge.textContent = newCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function resetMainBadge() {
+            const badge = document.getElementById('messenger-badge');
+            if (badge) {
+                badge.textContent = '';
+                badge.classList.add('hidden');
+            }
+        }
+
+        // ─── Toggle onglet principal ───────────────────────────
+        window.toggleMessengerMain = function() {
+            state.mainOpen = !state.mainOpen;
+            const body = document.getElementById('messenger-main-body');
+            const arrow = document.getElementById('messenger-main-arrow');
+
+            if (state.mainOpen) {
+                body.classList.remove('hidden');
+                arrow.textContent = '▼';
+                loadConversations();
+                resetMainBadge();
+            } else {
+                body.classList.add('hidden');
+                arrow.textContent = '▲';
+            }
+        };
+
+        // ─── Charger la liste des conversations ───────────────
+        function loadConversations() {
+            fetch('/messages/ajax/conversations')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('messenger-conversations');
+
+                    if (data.length === 0) {
+                        container.innerHTML = '<div class="text-gray-500 text-sm text-center py-4">Aucune conversation</div>';
+                        return;
+                    }
+
+                    container.innerHTML = data.map(conv => `
+                        <div class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-700 cursor-pointer transition group"
+                             onclick="openConversation('${conv.username}', '${conv.avatar || ''}', ${conv.id})">
+                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                                ${conv.avatar
+                                    ? `<img src="/uploads/avatars/${conv.avatar}" class="w-8 h-8 rounded-full object-cover">`
+                                    : conv.username.charAt(0).toUpperCase()
+                                }
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-semibold text-white">${conv.username}</div>
+                                <div class="text-xs text-gray-400 truncate">${conv.lastMessage}</div>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                                ${conv.unread > 0
+                                    ? `<span class="bg-red-500 text-white text-xs rounded-full px-1.5">${conv.unread}</span>`
+                                    : ''
+                                }
+                            </div>
+                        </div>
+                    `).join('');
+
+                    // Recalculer le badge global
+                    const totalUnread = data.reduce((sum, c) => sum + c.unread, 0);
+                    const badge = document.getElementById('messenger-badge');
+                    if (totalUnread > 0) {
+                        badge.textContent = totalUnread;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                });
+        }
+
+        // ─── Ouvrir une conversation ───────────────────────────
+        window.openConversation = function(username, avatar, convId) {
+            // Déjà ouverte → juste déplier
+            const existing = state.openConvs.find(c => c.username === username);
+            if (existing) {
+                existing.open = true;
+                existing.unread = 0;
+                renderTabs();
+                setTimeout(() => {
+                    const chatEl = document.getElementById(`chat-${username}`);
+                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                }, 50);
+                return;
+            }
+
+            state.openConvs.push({
+                username,
+                avatar,
+                convId,
+                open: true,
+                messages: [],
+                loaded: false,
+                unread: 0,
+            });
+
+            state.visibleStart = Math.max(0, state.openConvs.length - state.maxVisible);
+            renderTabs();
+            loadMessages(username);
+
+            if (state.mainOpen) toggleMessengerMain();
+        };
+
+        // ─── Charger les messages ──────────────────────────────
+        function loadMessages(username) {
+            fetch(`/messages/ajax/messages/${username}`)
+                .then(r => r.json())
+                .then(data => {
+                    const conv = state.openConvs.find(c => c.username === username);
+                    if (!conv) return;
+
+                    conv.messages = data.messages || [];
+                    conv.convId = data.conversationId;
+                    conv.loaded = true;
+                    conv.unread = 0;
+
+                    renderTabs();
+
+                    setTimeout(() => {
+                        const chatEl = document.getElementById(`chat-${username}`);
+                        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                    }, 50);
+                });
+        }
+
+        // ─── Fermer une conversation ───────────────────────────
+        window.closeConversation = function(username) {
+            const idx = state.openConvs.findIndex(c => c.username === username);
+            if (idx !== -1) {
+                state.openConvs.splice(idx, 1);
+                state.visibleStart = Math.min(
+                    state.visibleStart,
+                    Math.max(0, state.openConvs.length - state.maxVisible)
+                );
+            }
+            renderTabs();
+        };
+
+        // ─── Toggle une conversation (déplier/replier) ─────────
+        window.toggleConversation = function(username) {
+            const conv = state.openConvs.find(c => c.username === username);
+            if (!conv) return;
+
+            conv.open = !conv.open;
+
+            // Si on déplie → marquer comme lu
+            if (conv.open) {
+                conv.unread = 0;
+                // Marquer comme lus côté serveur
+                if (conv.convId) {
+                    fetch(`/messages/ajax/messages/${username}`);
+                }
+            }
+
+            renderTabs();
+
+            if (conv.open) {
+                setTimeout(() => {
+                    const chatEl = document.getElementById(`chat-${username}`);
+                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                }, 50);
+            }
+        };
+
+        // ─── Envoyer un message ────────────────────────────────
+        window.sendMessage = function(username, inputId) {
+            const input = document.getElementById(inputId);
+            const content = input.value.trim();
+            if (!content) return;
+
+            input.value = '';
+
+            fetch(`/messages/ajax/send/${username}`, {
+                method: 'POST',
+                body: new URLSearchParams({ content }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+
+                const conv = state.openConvs.find(c => c.username === username);
+                if (!conv) return;
+
+                if (!conv.convId && data.conversationId) {
+                    conv.convId = data.conversationId;
+                }
+
+                data.isCurrentUser = true;
+                conv.messages.push(data);
+                renderTabs();
+
+                setTimeout(() => {
+                    const chatEl = document.getElementById(`chat-${username}`);
+                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                }, 50);
+            });
+        };
+
+        // ─── Navigation carousel ──────────────────────────────
+        document.getElementById('messenger-prev').addEventListener('click', () => {
+            if (state.visibleStart > 0) {
+                state.visibleStart--;
+                renderTabs();
+            }
+        });
+
+        document.getElementById('messenger-next').addEventListener('click', () => {
+            if (state.visibleStart + state.maxVisible < state.openConvs.length) {
+                state.visibleStart++;
+                renderTabs();
+            }
+        });
+
+        // ─── Rendu des onglets ─────────────────────────────────
+        function renderTabs() {
+            const container = document.getElementById('messenger-conv-tabs');
+            const prevBtn = document.getElementById('messenger-prev');
+            const nextBtn = document.getElementById('messenger-next');
+
+            // Flèches
+            const needArrows = state.openConvs.length > state.maxVisible;
+            prevBtn.classList.toggle('hidden', !needArrows || state.visibleStart === 0);
+            nextBtn.classList.toggle('hidden', !needArrows || state.visibleStart + state.maxVisible >= state.openConvs.length);
+
+            const visible = state.openConvs.slice(state.visibleStart, state.visibleStart + state.maxVisible);
+
+            container.innerHTML = visible.map(conv => {
+                const avatarHtml = conv.avatar
+                    ? `<img src="/uploads/avatars/${conv.avatar}" class="w-6 h-6 rounded-full object-cover">`
+                    : `<span class="text-xs font-bold">${conv.username.charAt(0).toUpperCase()}</span>`;
+
+                const messagesHtml = conv.loaded
+                    ? (conv.messages.length > 0
+                        ? conv.messages.map(msg => `
+                            <div class="flex gap-2 ${msg.isCurrentUser ? 'flex-row-reverse' : ''}">
+                                <div class="px-3 py-1.5 rounded-xl text-xs max-w-xs break-words ${msg.isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-600 text-gray-200'}">
+                                    ${msg.content}
+                                </div>
+                            </div>
+                        `).join('')
+                        : '<div class="text-gray-500 text-xs text-center py-4">Commencez la conversation !</div>'
+                    )
+                    : '<div class="text-gray-500 text-xs text-center py-4">Chargement...</div>';
+
+                const unreadBadge = conv.unread > 0
+                    ? `<span class="w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">${conv.unread}</span>`
+                    : '';
+
+                return `
+                    <div class="w-64">
+                        <div class="bg-gray-800 border border-gray-700 border-b-0 rounded-t-xl shadow-lg">
+
+                            {# Header #}
+                            <div class="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-gray-700 rounded-t-xl transition"
+                                 onclick="toggleConversation('${conv.username}')">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                                        ${avatarHtml}
+                                    </div>
+                                    <span class="text-sm font-semibold text-white">${conv.username}</span>
+                                    ${unreadBadge}
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-gray-400 text-xs">${conv.open ? '▼' : '▲'}</span>
+                                    <button onclick="event.stopPropagation(); closeConversation('${conv.username}')"
+                                            class="text-gray-400 hover:text-red-400 text-xs ml-1 transition">✕</button>
+                                </div>
+                            </div>
+
+                            {# Corps #}
+                            ${conv.open ? `
+                                <div class="border-t border-gray-700">
+                                    <div id="chat-${conv.username}"
+                                         class="h-64 overflow-y-auto p-3 space-y-2">
+                                        ${messagesHtml}
+                                    </div>
+                                    <div class="p-2 border-t border-gray-700 flex gap-2">
+                                        <input id="input-${conv.username}"
+                                               type="text"
+                                               placeholder="Message..."
+                                               autocomplete="off"
+                                               onkeydown="if(event.key==='Enter'){ sendMessage('${conv.username}', 'input-${conv.username}') }"
+                                               class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                        <button onclick="sendMessage('${conv.username}', 'input-${conv.username}')"
+                                                class="bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded text-xs text-white transition">
+                                            ➤
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ─── Initialisation ───────────────────────────────────
+        loadConversations();
+        initGlobalMercure();
+
+    })();
+    </script>
+    {% endif %}
 
 </body>
 </html>

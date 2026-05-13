@@ -1,20 +1,47 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Hello PrivateMessageController!{% endblock %}
+{% block title %}Mes messages{% endblock %}
 
 {% block body %}
-<style>
-    .example-wrapper { margin: 1em auto; max-width: 800px; width: 95%; font: 18px/1.5 sans-serif; }
-    .example-wrapper code { background: #F5F5F5; padding: 2px 6px; }
-</style>
+<div class="max-w-3xl mx-auto">
 
-<div class="example-wrapper">
-    <h1>Hello {{ controller_name }}! ✅</h1>
+    <h1 class="text-3xl font-bold text-white mb-8">✉️ Mes messages</h1>
 
-    This friendly message is coming from:
-    <ul>
-        <li>Your controller at <code>C:/xampp/htdocs/HighlightForge/src/Controller/PrivateMessageController.php</code></li>
-        <li>Your template at <code>C:/xampp/htdocs/HighlightForge/templates/private_message/index.html.twig</code></li>
-    </ul>
+    {% if conversations is empty %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-500">
+            Aucune conversation pour le moment.
+        </div>
+    {% else %}
+        <div class="space-y-3">
+            {% for conversation in conversations %}
+                {% set other = conversation.participant1 == app.user ? conversation.participant2 : conversation.participant1 %}
+                <a href="{{ path('app_message_show', {username: other.username}) }}"
+                   class="flex items-center gap-4 bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-indigo-500 transition">
+                    <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold shrink-0">
+                        {% if other.avatar %}
+                            <img src="{{ asset('uploads/avatars/' ~ other.avatar) }}"
+                                 class="w-12 h-12 rounded-full object-cover">
+                        {% else %}
+                            {{ other.username|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-semibold text-white">{{ other.username }}</div>
+                        {% if conversation.messages|last %}
+                            <div class="text-gray-400 text-sm truncate">
+                                {{ conversation.messages|last.content|slice(0, 50) }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if conversation.updatedAt %}
+                        <div class="text-gray-500 text-xs shrink-0">
+                            {{ conversation.updatedAt|date('d/m H:i') }}
+                        </div>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+
 </div>
 {% endblock %}

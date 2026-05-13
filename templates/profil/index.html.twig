@@ -107,7 +107,7 @@
             </span>
         {% endif %}
 
-        <a href="#"
+        <a href="{{ path('app_message_show', {username: user.username}) }}"
            class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
             ✉️ Envoyer un message
         </a>

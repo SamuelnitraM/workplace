@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\PrivateConversation;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -16,28 +17,24 @@ class PrivateConversationRepository extends ServiceEntityRepository
         parent::__construct($registry, PrivateConversation::class);
     }
 
-    //    /**
-    //     * @return PrivateConversation[] Returns an array of PrivateConversation objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('p.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function findBetween(User $user1, User $user2): ?PrivateConversation
+    {
+        return $this->createQueryBuilder('c')
+            ->where('(c.participant1 = :user1 AND c.participant2 = :user2)')
+            ->orWhere('(c.participant1 = :user2 AND c.participant2 = :user1)')
+            ->setParameter('user1', $user1)
+            ->setParameter('user2', $user2)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 
-    //    public function findOneBySomeField($value): ?PrivateConversation
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    public function findUserConversations(User $user): array
+    {
+        return $this->createQueryBuilder('c')
+            ->where('c.participant1 = :user OR c.participant2 = :user')
+            ->setParameter('user', $user)
+            ->orderBy('c.updatedAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }
