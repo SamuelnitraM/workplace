@@ -1,38 +1,86 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Log in!{% endblock %}
+{% block title %}Connexion{% endblock %}
 
 {% block body %}
-    <form method="post">
+
+<div class="max-w-md mx-auto">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-xl">
+
+        {# HEADER #}
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-white mb-2">
+                Connexion
+            </h1>
+
+            <p class="text-gray-400">
+                Connectez-vous à votre compte HighlightForge
+            </p>
+        </div>
+
+        {# ERREUR #}
         {% if error %}
-            <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+            <div class="mb-6 bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg">
+                {{ error.messageKey|trans(error.messageData, 'security') }}
+            </div>
         {% endif %}
 
+        {# DÉJÀ CONNECTÉ #}
         {% if app.user %}
-            <div class="mb-3">
-                You are logged in as {{ app.user.userIdentifier }}, <a href="{{ logout_path() }}">Logout</a>
+            <div class="mb-6 bg-green-500/10 border border-green-500 text-green-400 px-4 py-3 rounded-lg">
+                Vous êtes connecté en tant que
+                <span class="font-semibold">{{ app.user.userIdentifier }}</span>
+
+                <a href="{{ logout_path() }}"
+                   class="underline hover:text-green-300 ml-2">
+                    Déconnexion
+                </a>
             </div>
         {% endif %}
 
-        <h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
-        <label for="username">Email</label>
-        <input type="email" value="{{ last_username }}" name="_username" id="username" class="form-control" autocomplete="email" required autofocus>
-        <label for="password">Password</label>
-        <input type="password" name="_password" id="password" class="form-control" autocomplete="current-password" required>
-        <input type="hidden" name="_csrf_token" data-controller="csrf-protection" value="{{ csrf_token('authenticate') }}">
+        <form method="post" class="space-y-6">
 
-        {#
-            Uncomment this section and add a remember_me option below your firewall to activate remember me functionality.
-            See https://symfony.com/doc/current/security/remember_me.html
+            {# EMAIL / USERNAME #}
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-300 mb-2">
+                    Email ou pseudo
+                </label>
 
-            <div class="checkbox mb-3">
-                <input type="checkbox" name="_remember_me" id="_remember_me">
-                <label for="_remember_me">Remember me</label>
+                <input
+                    type="text" value="{{ last_username }}" name="_username" id="username" autocomplete="username" required autofocus placeholder="Pseudo ou adresse email" class="w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                >
             </div>
-        #}
 
-        <button class="btn btn-lg btn-primary" type="submit">
-            Sign in
-        </button>
-    </form>
+            {# PASSWORD #}
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
+                    Mot de passe
+                </label>
+
+                <input
+                    type="password" name="_password" id="password" autocomplete="current-password" required placeholder="Votre mot de passe" class="w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white  laceholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+            </div>
+
+            {# CSRF #}
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            {# SUBMIT #}
+            <button
+                type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-indigo-600/20">
+                Se connecter
+            </button>
+
+        </form>
+
+        {# FOOTER #}
+        <div class="mt-6 text-center text-sm text-gray-500">
+            Pas encore de compte ?
+            <a href="{{ path('app_register') }}" class="text-indigo-400 hover:text-indigo-300 transition">
+                Créer un compte
+            </a>
+        </div>
+
+    </div>
+</div>
+
 {% endblock %}

@@ -21,11 +21,6 @@ class RegistrationFormType extends AbstractType
     {
         $builder
             ->add('username', TextType::class, [
-                'label' => "Nom d'utilisateur",
-                'attr' => [
-                    'placeholder' => 'Choisissez un pseudo',
-                    'autocomplete' => 'username'
-                ],
                 'constraints' => [
                     new NotBlank(message: 'Veuillez choisir un nom d\'utilisateur'),
                     new Length(
@@ -36,24 +31,18 @@ class RegistrationFormType extends AbstractType
                     ),
                 ],
             ])
-            ->add('email', EmailType::class, [
-                'label' => 'Adresse email',
-                'attr' => ['placeholder' => 'votre@email.com']
-            ])
+
+            ->add('email', EmailType::class)
+
             ->add('agreeTerms', CheckboxType::class, [
                 'mapped' => false,
-                'label' => 'J\'accepte les conditions d\'utilisation',
                 'constraints' => [
                     new IsTrue(message: 'Vous devez accepter les conditions d\'utilisation.'),
                 ],
             ])
+            
             ->add('plainPassword', PasswordType::class, [
                 'mapped' => false,
-                'label' => 'Mot de passe',
-                'attr' => [
-                    'autocomplete' => 'new-password',
-                    'placeholder' => '6 caractères minimum'
-                ],
                 'constraints' => [
                     new NotBlank(message: 'Veuillez entrer un mot de passe'),
                     new Length(

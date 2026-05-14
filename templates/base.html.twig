@@ -106,22 +106,41 @@
     {# FLASH MESSAGES #}
     {% set flashes = app.flashes %}
     {% if flashes is not empty %}
-        <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-6">
+        <div id="flash-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-6">
             {% for type, messages in flashes %}
                 {% for message in messages %}
-                    <div class="mb-2 px-4 py-3 rounded shadow-lg
+                    <div class="flash-message mb-2 px-4 py-3 rounded shadow-lg flex items-center justify-between gap-4
                         {% if type == 'success' %}bg-green-700
                         {% elseif type == 'error' %}bg-red-700
                         {% else %}bg-blue-700{% endif %}">
-                        {{ message }}
+                        <span>{{ message }}</span>
+                        <button onclick="this.parentElement.remove()"
+                                class="text-white/70 hover:text-white text-lg leading-none shrink-0">
+                            ✕
+                        </button>
                     </div>
                 {% endfor %}
             {% endfor %}
         </div>
+
+        <script>
+        (function() {
+            const messages = document.querySelectorAll('.flash-message');
+            messages.forEach((msg, index) => {
+                // Disparition progressive après 4 secondes (décalé selon l'index)
+                setTimeout(() => {
+                    msg.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    msg.style.opacity = '0';
+                    msg.style.transform = 'translateY(-10px)';
+                    setTimeout(() => msg.remove(), 500);
+                }, 4000 + (index * 500));
+            });
+        })();
+        </script>
     {% endif %}
 
     {# CONTENU PRINCIPAL #}
-    <main class="flex-1 max-w-7xl mx-auto w-full p-8">
+    <main class="flex-1 max-w-7xl mx-auto w-full py-8">
         {% block body %}{% endblock %}
     </main>
 
