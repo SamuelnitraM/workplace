@@ -134,6 +134,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: PrivateMessage::class, mappedBy: 'author')]
     private Collection $privateMessages;
 
+    /**
+     * @var Collection<int, ArmyList>
+     */
+    #[ORM\OneToMany(targetEntity: ArmyList::class, mappedBy: 'owner')]
+    private Collection $armyLists;
+
     public function __toString(): string
     {
         return $this->username ?? '';
@@ -262,6 +268,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->conversationAsParticipant1 = new ArrayCollection();
         $this->conversationAsParticipant2 = new ArrayCollection();
         $this->privateMessages = new ArrayCollection();
+        $this->armyLists = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -714,6 +721,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($privateMessage->getAuthor() === $this) {
                 $privateMessage->setAuthor(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, ArmyList>
+     */
+    public function getArmyLists(): Collection
+    {
+        return $this->armyLists;
+    }
+
+    public function addArmyList(ArmyList $armyList): static
+    {
+        if (!$this->armyLists->contains($armyList)) {
+            $this->armyLists->add($armyList);
+            $armyList->setOwner($this);
+        }
+
+        return $this;
+    }
+
+    public function removeArmyList(ArmyList $armyList): static
+    {
+        if ($this->armyLists->removeElement($armyList)) {
+            // set the owning side to null (unless already changed)
+            if ($armyList->getOwner() === $this) {
+                $armyList->setOwner(null);
             }
         }
 

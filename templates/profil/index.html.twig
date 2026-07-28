@@ -63,18 +63,22 @@
 {# BOUTON MODIFIER #}
 <div class="mt-6 flex gap-3 flex-wrap">
     {% if isOwner %}
-        <a href="{{ path('app_profil_edit') }}"
-           class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
+
+        <a href="{{ path('app_profil_edit') }}" class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
             ✏️ Modifier mon profil
         </a>
-        <a href="{{ path('app_group_invitation_list') }}"
-           class="relative inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
+
+        <a href="{{ path('app_group_invitation_list') }}" class="relative inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
             📬 Invitations
             {% if pendingInvitationsCount > 0 %}
                 <span class="w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
                     {{ pendingInvitationsCount }}
                 </span>
             {% endif %}
+        </a>
+
+        <a href="{{ path('app_army_index') }}" class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
+                ⚔️ Mes listes d'armées
         </a>
 
     {# BOUTONS POUR LES AUTRES PROFILS #}
