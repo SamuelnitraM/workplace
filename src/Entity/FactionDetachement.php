@@ -2,12 +2,12 @@
 
 namespace App\Entity;
 
-use App\Repository\FactionUnitRepository;
+use App\Repository\FactionDetachementRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: FactionUnitRepository::class)]
-#[ORM\UniqueConstraint(name: 'unique_bsdata_id', columns: ['bsdata_id'])]
-class FactionUnit
+#[ORM\Entity(repositoryClass: FactionDetachementRepository::class)]
+#[ORM\UniqueConstraint(name: 'unique_detachment_bsdata_id', columns: ['bsdata_id'])]
+class FactionDetachement
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -23,20 +23,11 @@ class FactionUnit
     #[ORM\Column(length: 100)]
     private ?string $faction = null;
 
-    #[ORM\Column(length: 50, nullable: true)]
-    private ?string $category = null;
-
-    #[ORM\Column]
-    private ?int $points = null;
-
     #[ORM\Column(length: 100)]
     private ?string $sourceFile = null;
 
     #[ORM\Column(length: 155, nullable: true)]
     private ?string $nameFr = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?array $statsData = null;
 
     public function getId(): ?int
     {
@@ -79,30 +70,6 @@ class FactionUnit
         return $this;
     }
 
-    public function getCategory(): ?string
-    {
-        return $this->category;
-    }
-
-    public function setCategory(?string $category): static
-    {
-        $this->category = $category;
-
-        return $this;
-    }
-
-    public function getPoints(): ?int
-    {
-        return $this->points;
-    }
-
-    public function setPoints(int $points): static
-    {
-        $this->points = $points;
-
-        return $this;
-    }
-
     public function getSourceFile(): ?string
     {
         return $this->sourceFile;
@@ -123,18 +90,6 @@ class FactionUnit
     public function setNameFr(?string $nameFr): static
     {
         $this->nameFr = $nameFr;
-
-        return $this;
-    }
-
-    public function getStatsData(): ?array
-    {
-        return $this->statsData;
-    }
-
-    public function setStatsData(?array $statsData): static
-    {
-        $this->statsData = $statsData;
 
         return $this;
     }

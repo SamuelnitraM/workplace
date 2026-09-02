@@ -44,6 +44,13 @@
         {% endif %}
     </div>
 
+    {% if armyList.description %}
+        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+            <h2 class="text-sm uppercase tracking-wide text-gray-500 font-semibold mb-2">Description</h2>
+            <p class="text-gray-300 whitespace-pre-line">{{ armyList.description }}</p>
+        </div>
+    {% endif %}
+
     {# UNITÉS #}
     <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
         {% if armyList.units is empty %}
@@ -60,22 +67,166 @@
             <table class="w-full">
                 <thead>
                     <tr class="text-gray-400 text-sm border-b border-gray-700">
+                        <th class="text-left pb-3"></th>
                         <th class="text-left pb-3">Unité</th>
                         <th class="text-center pb-3">Quantité</th>
                         <th class="text-right pb-3">Points</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-700">
-                    {% for unit in armyList.units %}
+                {% for unit in armyList.units %}
+                    <tbody x-data="{ open: false }" class="divide-y divide-gray-700">
                         <tr class="text-sm">
+                            <td class="py-3 w-8">
+                                {% if unit.statsData %}
+                                    <button type="button" @click="open = !open"
+                                            class="text-gray-500 hover:text-indigo-400 text-xs">
+                                        <span x-text="open ? '▼' : '▶'"></span>
+                                    </button>
+                                {% endif %}
+                            </td>
                             <td class="py-3 text-white">{{ unit.name }}</td>
                             <td class="py-3 text-center text-gray-400">{{ unit.quantity }}</td>
                             <td class="py-3 text-right text-yellow-400 font-semibold">{{ unit.points }} pts</td>
                         </tr>
-                    {% endfor %}
-                </tbody>
+                        {% if unit.statsData %}
+                            <tr x-show="open" x-cloak>
+                                <td></td>
+                                <td colspan="3" class="pb-4 text-xs">
+
+                                    {% if unit.statsData.keywords is defined and unit.statsData.keywords is not empty %}
+                                        <p class="text-gray-500 mb-3">
+                                            <span class="uppercase text-[10px]">Mots-clés :</span>
+                                            {{ unit.statsData.keywords|join(', ') }}
+                                        </p>
+                                    {% endif %}
+
+                                    {# --- STATS : un bloc empilé par modèle --- #}
+                                    {% for model in unit.statsData.models %}
+                                        <div class="mb-2">
+                                            <p class="text-white font-semibold mb-1">{{ model.name }}</p>
+                                            <table class="w-full text-center max-w-md">
+                                                <thead>
+                                                    <tr class="text-gray-500 text-[10px] uppercase">
+                                                        <th>M</th><th>E</th><th>Sv</th><th>PV</th><th>Cd</th><th>Co</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr class="text-white font-semibold">
+                                                        <td>{{ model.stats.M|default('-') }}</td>
+                                                        <td>{{ model.stats.T|default('-') }}</td>
+                                                        <td>{{ model.stats.Sv|default('-') }}</td>
+                                                        <td>{{ model.stats.W|default('-') }}</td>
+                                                        <td>{{ model.stats.LD|default('-') }}</td>
+                                                        <td>{{ model.stats.OC|default('-') }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% endfor %}
+
+                                    <hr class="border-gray-700 my-3">
+
+                                    {# --- ARMES : par modèle si plusieurs, puis rôles en continuité --- #}
+                                    <p class="text-gray-500 uppercase text-[10px] mb-2">Armes</p>
+
+                                    {% for model in unit.statsData.models %}
+                                        {% if unit.statsData.models|length > 1 %}
+                                            <p class="text-gray-400 font-semibold mb-1">{{ model.name }}</p>
+                                        {% endif %}
+                                        {% if model.weapons is not empty %}
+                                            <table class="w-full text-left mb-3">
+                                                <thead>
+                                                    <tr class="text-gray-500 text-[10px] uppercase">
+                                                        <th class="pr-2 py-1">Arme</th>
+                                                        <th class="pr-2">Portée</th>
+                                                        <th class="pr-2">A</th>
+                                                        <th class="pr-2">C/T</th>
+                                                        <th class="pr-2">F</th>
+                                                        <th class="pr-2">PA</th>
+                                                        <th>D</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for w in model.weapons %}
+                                                        <tr class="text-gray-300 border-t border-gray-800">
+                                                            <td class="pr-2 py-1">{{ w.name }}</td>
+                                                            <td class="pr-2">{{ w.Range|default('-') }}</td>
+                                                            <td class="pr-2">{{ w.A|default('-') }}</td>
+                                                            <td class="pr-2">{{ w.BS ?? w.WS ?? '-' }}</td>
+                                                            <td class="pr-2">{{ w.S|default('-') }}</td>
+                                                            <td class="pr-2">{{ w.AP|default('-') }}</td>
+                                                            <td>{{ w.D|default('-') }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% for role in unit.statsData.roles %}
+                                        <p class="text-indigo-400 font-semibold text-[11px] uppercase mb-1">{{ role.name }}</p>
+                                        {% if role.weapons is not empty %}
+                                            <table class="w-full text-left mb-3">
+                                                <thead>
+                                                    <tr class="text-gray-500 text-[10px] uppercase">
+                                                        <th class="pr-2 py-1">Arme</th>
+                                                        <th class="pr-2">Portée</th>
+                                                        <th class="pr-2">A</th>
+                                                        <th class="pr-2">C/T</th>
+                                                        <th class="pr-2">F</th>
+                                                        <th class="pr-2">PA</th>
+                                                        <th>D</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for w in role.weapons %}
+                                                        <tr class="text-gray-300 border-t border-gray-800">
+                                                            <td class="pr-2 py-1">{{ w.name }}</td>
+                                                            <td class="pr-2">{{ w.Range|default('-') }}</td>
+                                                            <td class="pr-2">{{ w.A|default('-') }}</td>
+                                                            <td class="pr-2">{{ w.BS ?? w.WS ?? '-' }}</td>
+                                                            <td class="pr-2">{{ w.S|default('-') }}</td>
+                                                            <td class="pr-2">{{ w.AP|default('-') }}</td>
+                                                            <td>{{ w.D|default('-') }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    <hr class="border-gray-700 my-3">
+
+                                    {# --- CAPACITÉS : par défaut, puis rôles en continuité --- #}
+                                    {% if unit.statsData.abilities is not empty or unit.statsData.roles is not empty %}
+                                        <p class="text-gray-500 uppercase text-[10px] mb-2">Capacités</p>
+
+                                        {% for a in unit.statsData.abilities %}
+                                            <p class="text-gray-300 mb-1">
+                                                <span class="text-white font-semibold">{{ a.name }}</span> — {{ a.description }}
+                                            </p>
+                                        {% endfor %}
+
+                                        {% for role in unit.statsData.roles %}
+                                            {% if role.abilities is not empty %}
+                                                <p class="text-indigo-400 font-semibold text-[11px] uppercase mt-2 mb-1">{{ role.name }}</p>
+                                                {% for a in role.abilities %}
+                                                    <p class="text-gray-300 mb-1">
+                                                        <span class="text-white font-semibold">{{ a.name }}</span> — {{ a.description }}
+                                                    </p>
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                {% endfor %}
                 <tfoot>
                     <tr class="border-t border-gray-600">
+                        <td></td>
                         <td colspan="2" class="pt-3 text-gray-400 font-semibold">Total</td>
                         <td class="pt-3 text-right text-yellow-400 font-bold text-lg">
                             {{ armyList.totalPoints }} pts

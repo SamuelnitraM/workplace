@@ -1,107 +1,414 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Nouvelle liste d'armée{% endblock %}
+{% block title %}Créer une liste d'armée{% endblock %}
 
 {% block body %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-6xl mx-auto px-4 py-8" x-data="armyForm()">
 
-    <div class="mb-6">
-        <a href="{{ path('app_army_index') }}"
-           class="text-gray-400 hover:text-white text-sm transition">
-            ← Retour à mes listes
-        </a>
-        <h1 class="text-2xl font-bold text-white mt-1">✚ Nouvelle liste d'armée</h1>
-    </div>
+    <h1 class="text-2xl font-bold text-gray-100 mb-6">Créer une nouvelle liste d'armée</h1>
 
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-8">
-        <form method="post">
+    <form method="post" action="{{ path('app_army_new') }}">
 
-            <div class="space-y-5">
+        {# --- Infos générales --- #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Nom de la liste</label>
+                <input type="text" name="name" required
+                       class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:border-red-600">
+            </div>
 
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Nom de la liste</label>
-                    <input type="text" name="name" required
-                           placeholder="Ex: Space Marines 2000pts"
-                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Faction</label>
+                <select name="faction" x-model="selectedFaction" @change="onFactionChange" required
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:border-red-600">
+                    <option value="">-- Choisir une faction --</option>
+                    <option value="Space Marines">Space Marines</option>
+                    <option value="Blood Angels">Blood Angels</option>
+                    <option value="Dark Angels">Dark Angels</option>
+                    <option value="Space Wolves">Space Wolves</option>
+                    <option value="Grey Knights">Grey Knights</option>
+                    <option value="Deathwatch">Deathwatch</option>
+                    <option value="Adeptus Custodes">Adeptus Custodes</option>
+                    <option value="Sisters of Battle">Sisters of Battle</option>
+                    <option value="Astra Militarum">Astra Militarum</option>
+                    <option value="Adeptus Mechanicus">Adeptus Mechanicus</option>
+                    <option value="Imperial Knights">Imperial Knights</option>
+                    <option value="Chaos Space Marines">Chaos Space Marines</option>
+                    <option value="Death Guard">Death Guard</option>
+                    <option value="Thousand Sons">Thousand Sons</option>
+                    <option value="World Eaters">World Eaters</option>
+                    <option value="Emperor's Children">Emperor's Children</option>
+                    <option value="Chaos Knights">Chaos Knights</option>
+                    <option value="Daemons">Daemons</option>
+                    <option value="Orks">Orks</option>
+                    <option value="Eldar">Eldar</option>
+                    <option value="Dark Eldar">Dark Eldar</option>
+                    <option value="Tyranids">Tyranids</option>
+                    <option value="Genestealer Cults">Genestealer Cults</option>
+                    <option value="Tau">Tau</option>
+                    <option value="Necrons">Necrons</option>
+                    <option value="Leagues of Votann">Leagues of Votann</option>
+                </select>
+            </div>
 
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Faction</label>
-                    <select name="faction" required
-                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                        <option value="">-- Choisir une faction --</option>
-                        <optgroup label="Imperium">
-                            <option value="Space Marines">Space Marines</option>
-                            <option value="Blood Angels">Blood Angels</option>
-                            <option value="Dark Angels">Dark Angels</option>
-                            <option value="Space Wolves">Space Wolves</option>
-                            <option value="Grey Knights">Grey Knights</option>
-                            <option value="Deathwatch">Deathwatch</option>
-                            <option value="Adeptus Custodes">Adeptus Custodes</option>
-                            <option value="Sisters of Battle">Sisters of Battle</option>
-                            <option value="Astra Militarum">Astra Militarum</option>
-                            <option value="Adeptus Mechanicus">Adeptus Mechanicus</option>
-                            <option value="Imperial Knights">Imperial Knights</option>
-                        </optgroup>
-                        <optgroup label="Chaos">
-                            <option value="Chaos Space Marines">Chaos Space Marines</option>
-                            <option value="Death Guard">Death Guard</option>
-                            <option value="Thousand Sons">Thousand Sons</option>
-                            <option value="World Eaters">World Eaters</option>
-                            <option value="Emperor's Children">Emperor's Children</option>
-                            <option value="Chaos Knights">Chaos Knights</option>
-                            <option value="Daemons">Daemons of Chaos</option>
-                        </optgroup>
-                        <optgroup label="Xenos">
-                            <option value="Orks">Orks</option>
-                            <option value="Eldar">Aeldari</option>
-                            <option value="Dark Eldar">Drukhari</option>
-                            <option value="Tyranids">Tyranids</option>
-                            <option value="Genestealer Cults">Genestealer Cults</option>
-                            <option value="Tau">T'au Empire</option>
-                            <option value="Necrons">Necrons</option>
-                            <option value="Leagues of Votann">Leagues of Votann</option>
-                        </optgroup>
-                    </select>
-                </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Détachement</label>
+                <select name="detachment" x-model="selectedDetachment"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:border-red-600">
+                    <option value="">-- Aucun / à définir --</option>
+                    <template x-for="det in availableDetachments" :key="det.id">
+                        <option :value="det.nameEn" x-text="det.name"></option>
+                    </template>
+                </select>
+                <p class="text-xs text-gray-500 mt-1" x-show="!selectedFaction">Choisis d'abord une faction.</p>
+            </div>
 
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">
-                        Détachement <span class="text-gray-600">(optionnel)</span>
-                    </label>
-                    <input type="text" name="detachment"
-                           placeholder="Ex: Gladius Task Force"
-                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                </div>
+            <div class="flex items-end">
+                <label class="flex items-center">
+                    <input type="checkbox" name="isPublic" value="1" class="mr-2 accent-red-700">
+                    <span class="text-sm text-gray-300">Rendre cette liste publique</span>
+                </label>
+            </div>
+        </div>
 
-                <div class="bg-gray-700 rounded-lg p-4">
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" name="isPublic" value="1"
-                               class="w-5 h-5 accent-indigo-500">
-                        <div>
-                            <div class="text-white font-semibold">🌍 Liste publique</div>
-                            <div class="text-gray-400 text-xs">
-                                Visible sur votre profil public
-                            </div>
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-300 mb-1">Description / Lore</label>
+            <textarea name="description" rows="3"
+                      placeholder="Contexte, thème de l'armée, stratégie envisagée..."
+                      class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:border-red-600"></textarea>
+        </div>
+
+        {# --- Les deux colonnes --- #}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 border-t border-gray-700 pt-6" x-show="selectedFaction">
+
+            {# Colonne gauche : unités disponibles, groupées par catégorie #}
+            <div>
+                <h2 class="text-lg font-semibold text-gray-100 mb-3">Unités disponibles</h2>
+
+                <template x-if="loadingUnits">
+                    <p class="text-gray-400 text-sm">Chargement...</p>
+                </template>
+
+                <template x-if="!loadingUnits && availableUnits.length === 0">
+                    <p class="text-gray-500 text-sm">Aucune unité trouvée pour cette faction (données pas encore synchronisées).</p>
+                </template>
+
+                <template x-for="group in groupOrder" :key="group">
+                    <div class="mb-5" x-show="groupedUnits[group] && groupedUnits[group].length > 0">
+                        <h3 class="text-sm uppercase tracking-wide text-red-400 font-semibold mb-2" x-text="group"></h3>
+                        <div class="space-y-2">
+                            <template x-for="unit in groupedUnits[group]" :key="unit.id">
+                                <div class="flex justify-between items-center bg-gray-800 rounded-lg px-4 py-2">
+                                    <span class="text-gray-100" x-text="unit.name"></span>
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm text-red-400" x-text="unit.points + ' pts'"></span>
+                                        <button type="button" @click="addUnit(unit)"
+                                                class="text-sm bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded">
+                                            Ajouter
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
-                    </label>
-                </div>
-
+                    </div>
+                </template>
             </div>
 
-            <div class="flex gap-3 mt-8">
-                <button type="submit"
-                        class="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
-                    ✚ Créer la liste
-                </button>
-                <a href="{{ path('app_army_index') }}"
-                   class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition">
-                    Annuler
-                </a>
+            {# Colonne droite : la liste du joueur #}
+            <div>
+                <h2 class="text-lg font-semibold text-gray-100 mb-3">
+                    Ma liste (<span x-text="totalPoints"></span> pts)
+                </h2>
+
+                <template x-if="addedUnits.length === 0">
+                    <p class="text-gray-500 text-sm">Ajoute des unités depuis la colonne de gauche.</p>
+                </template>
+
+                <template x-for="group in groupOrder" :key="group">
+                    <div class="mb-5" x-show="groupedAddedUnits[group] && groupedAddedUnits[group].length > 0">
+                        <h3 class="text-sm uppercase tracking-wide text-red-400 font-semibold mb-2" x-text="group"></h3>
+                        <div class="space-y-2">
+                            <template x-for="unit in groupedAddedUnits[group]" :key="unit.uid">
+                                <div class="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2">
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" @click="unit.showDetails = !unit.showDetails"
+                                                    class="text-gray-500 hover:text-red-400 text-xs">
+                                                <span x-text="unit.showDetails ? '▼' : '▶'"></span>
+                                            </button>
+                                            <span class="text-gray-100" x-text="unit.name"></span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <input type="number" min="1" x-model.number="unit.quantity"
+                                                @input="unit.quantity = unit.quantity < 1 ? 1 : unit.quantity"
+                                                class="w-14 bg-gray-800 border border-gray-700 rounded text-center text-gray-100 text-sm py-1">
+                                            <span class="text-sm text-red-400" x-text="(unit.points * unit.quantity) + ' pts'"></span>
+                                            <button type="button" @click="removeUnit(unit.uid)"
+                                                    class="text-gray-500 hover:text-red-400 text-sm">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {# --- Fiche stats/armes/capacités --- #}
+                                    <div x-show="unit.showDetails" x-cloak class="mt-3 pt-3 border-t border-gray-800 text-xs">
+
+                                        <template x-if="unit.statsData && unit.statsData.keywords && unit.statsData.keywords.length">
+                                            <p class="text-gray-500 mb-3">
+                                                <span class="uppercase text-[10px]">Mots-clés :</span>
+                                                <span x-text="unit.statsData.keywords.join(', ')"></span>
+                                            </p>
+                                        </template>
+
+                                        {# --- STATS empilées --- #}
+                                        <template x-for="model in (unit.statsData?.models || [])" :key="model.name">
+                                            <div class="mb-2">
+                                                <p class="text-gray-100 font-semibold mb-1" x-text="model.name"></p>
+                                                <table class="w-full text-center max-w-md">
+                                                    <thead>
+                                                        <tr class="text-gray-500 text-[10px] uppercase">
+                                                            <th>M</th><th>E</th><th>Sv</th><th>PV</th><th>Cd</th><th>Co</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr class="text-gray-100 font-semibold">
+                                                            <td x-text="model.stats.M"></td>
+                                                            <td x-text="model.stats.T"></td>
+                                                            <td x-text="model.stats.Sv"></td>
+                                                            <td x-text="model.stats.W"></td>
+                                                            <td x-text="model.stats.LD"></td>
+                                                            <td x-text="model.stats.OC"></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </template>
+
+                                        <hr class="border-gray-800 my-3">
+
+                                        {# --- ARMES : par modèle si plusieurs, puis rôles en continuité --- #}
+                                        <p class="text-gray-500 uppercase text-[10px] mb-2">Armes</p>
+
+                                        <template x-for="model in (unit.statsData?.models || [])" :key="'w-' + model.name">
+                                            <div>
+                                                <template x-if="unit.statsData.models.length > 1">
+                                                    <p class="text-gray-400 font-semibold mb-1" x-text="model.name"></p>
+                                                </template>
+                                                <template x-if="model.weapons && model.weapons.length">
+                                                    <table class="w-full text-left mb-3">
+                                                        <thead>
+                                                            <tr class="text-gray-500 text-[10px] uppercase">
+                                                                <th class="pr-2 py-1">Arme</th>
+                                                                <th class="pr-2">Portée</th>
+                                                                <th class="pr-2">A</th>
+                                                                <th class="pr-2">C/T</th>
+                                                                <th class="pr-2">F</th>
+                                                                <th class="pr-2">PA</th>
+                                                                <th>D</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template x-for="w in model.weapons" :key="w.name">
+                                                                <tr class="text-gray-300 border-t border-gray-800">
+                                                                    <td class="pr-2 py-1" x-text="w.name"></td>
+                                                                    <td class="pr-2" x-text="w.Range"></td>
+                                                                    <td class="pr-2" x-text="w.A"></td>
+                                                                    <td class="pr-2" x-text="w.BS || w.WS"></td>
+                                                                    <td class="pr-2" x-text="w.S"></td>
+                                                                    <td class="pr-2" x-text="w.AP"></td>
+                                                                    <td x-text="w.D"></td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <template x-for="role in (unit.statsData?.roles || [])" :key="'rw-' + role.name">
+                                            <div>
+                                                <p class="text-red-400 font-semibold text-[11px] uppercase mb-1" x-text="role.name"></p>
+                                                <template x-if="role.weapons && role.weapons.length">
+                                                    <table class="w-full text-left mb-3">
+                                                        <thead>
+                                                            <tr class="text-gray-500 text-[10px] uppercase">
+                                                                <th class="pr-2 py-1">Arme</th>
+                                                                <th class="pr-2">Portée</th>
+                                                                <th class="pr-2">A</th>
+                                                                <th class="pr-2">C/T</th>
+                                                                <th class="pr-2">F</th>
+                                                                <th class="pr-2">PA</th>
+                                                                <th>D</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <template x-for="w in role.weapons" :key="w.name">
+                                                                <tr class="text-gray-300 border-t border-gray-800">
+                                                                    <td class="pr-2 py-1" x-text="w.name"></td>
+                                                                    <td class="pr-2" x-text="w.Range"></td>
+                                                                    <td class="pr-2" x-text="w.A"></td>
+                                                                    <td class="pr-2" x-text="w.BS || w.WS"></td>
+                                                                    <td class="pr-2" x-text="w.S"></td>
+                                                                    <td class="pr-2" x-text="w.AP"></td>
+                                                                    <td x-text="w.D"></td>
+                                                                </tr>
+                                                            </template>
+                                                        </tbody>
+                                                    </table>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <hr class="border-gray-800 my-3">
+
+                                        {# --- CAPACITÉS : par défaut, puis rôles en continuité --- #}
+                                        <template x-if="(unit.statsData?.abilities?.length) || (unit.statsData?.roles?.length)">
+                                            <div>
+                                                <p class="text-gray-500 uppercase text-[10px] mb-2">Capacités</p>
+
+                                                <template x-for="a in (unit.statsData?.abilities || [])" :key="a.name">
+                                                    <p class="text-gray-300 mb-1">
+                                                        <span class="text-gray-100 font-semibold" x-text="a.name"></span> —
+                                                        <span x-text="a.description"></span>
+                                                    </p>
+                                                </template>
+
+                                                <template x-for="role in (unit.statsData?.roles || [])" :key="'ra-' + role.name">
+                                                    <div>
+                                                        <template x-if="role.abilities && role.abilities.length">
+                                                            <div>
+                                                                <p class="text-red-400 font-semibold text-[11px] uppercase mt-2 mb-1" x-text="role.name"></p>
+                                                                <template x-for="a in role.abilities" :key="a.name">
+                                                                    <p class="text-gray-300 mb-1">
+                                                                        <span class="text-gray-100 font-semibold" x-text="a.name"></span> —
+                                                                        <span x-text="a.description"></span>
+                                                                    </p>
+                                                                </template>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
+        </div>
 
-        </form>
-    </div>
+        <input type="hidden" name="units_json" :value="unitsPayload">
 
+        <div class="flex gap-3 mt-8">
+            <button type="submit"
+                    class="bg-red-700 hover:bg-red-800 text-white font-semibold px-5 py-2 rounded-lg transition">
+                Créer la liste
+            </button>
+            <a href="{{ path('app_army_index') }}"
+               class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold px-5 py-2 rounded-lg transition">
+                Annuler
+            </a>
+        </div>
+    </form>
 </div>
+
+<script>
+    function armyForm() {
+        return {
+            selectedFaction: '',
+            selectedDetachment: '',
+            availableUnits: [],
+            availableDetachments: [],
+            addedUnits: [],
+            loadingUnits: false,
+            groupOrder: ['Héros', 'Personnage', 'Véhicule', 'Transport', 'Infanterie', 'Montés', 'Autre'],
+
+            categoryGroup(category) {
+                const map = {
+                    'Epic Hero': 'Héros',
+                    'Character': 'Personnage',
+                    'Vehicle': 'Véhicule',
+                    'Dedicated Transport': 'Transport',
+                    'Infantry': 'Infanterie',
+                    'Mounted': 'Montés',
+                };
+                return map[category] || 'Autre';
+            },
+
+            get groupedUnits() {
+                const groups = {};
+                for (const unit of this.availableUnits) {
+                    const g = this.categoryGroup(unit.category);
+                    if (!groups[g]) groups[g] = [];
+                    groups[g].push(unit);
+                }
+                return groups;
+            },
+
+            get groupedAddedUnits() {
+                const groups = {};
+                for (const unit of this.addedUnits) {
+                    const g = this.categoryGroup(unit.category);
+                    if (!groups[g]) groups[g] = [];
+                    groups[g].push(unit);
+                }
+                return groups;
+            },
+
+            get totalPoints() {
+                return this.addedUnits.reduce((sum, u) => sum + (u.points * u.quantity), 0);
+            },
+
+            get unitsPayload() {
+                return JSON.stringify(this.addedUnits.map(u => ({
+                    name: u.name,
+                    points: u.points,
+                    quantity: u.quantity,
+                    category: u.category,
+                    statsData: u.statsData,
+                })));
+            },
+
+            async onFactionChange() {
+                this.availableUnits = [];
+                this.availableDetachments = [];
+                this.selectedDetachment = '';
+                if (!this.selectedFaction) return;
+
+                this.loadingUnits = true;
+                try {
+                    const [unitsRes, detsRes] = await Promise.all([
+                        fetch('/army/units/' + encodeURIComponent(this.selectedFaction)),
+                        fetch('/army/detachments/' + encodeURIComponent(this.selectedFaction)),
+                    ]);
+                    this.availableUnits = await unitsRes.json();
+                    this.availableDetachments = await detsRes.json();
+                } catch (e) {
+                    console.error('Erreur de chargement', e);
+                } finally {
+                    this.loadingUnits = false;
+                }
+            },
+
+            addUnit(unit) {
+                this.addedUnits.push({
+                    uid: crypto.randomUUID(),
+                    name: unit.name,
+                    points: unit.points,
+                    quantity: 1,
+                    category: unit.category,
+                    statsData: unit.statsData,
+                    showDetails: false,
+                });
+            },
+
+            removeUnit(uid) {
+                this.addedUnits = this.addedUnits.filter(u => u.uid !== uid);
+            },
+        };
+    }
+</script>
 {% endblock %}

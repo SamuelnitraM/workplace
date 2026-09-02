@@ -29,6 +29,12 @@ class ArmyUnit
     #[ORM\JoinColumn(nullable: false)]
     private ?ArmyList $armylist = null;
 
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $category = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?array $statsData = null;
+
     public function __construct()
     {
         $this->quantity = 1;
@@ -96,6 +102,30 @@ class ArmyUnit
     public function setArmylist(?ArmyList $armylist): static
     {
         $this->armylist = $armylist;
+
+        return $this;
+    }
+
+    public function getCategory(): ?string
+    {
+        return $this->category;
+    }
+
+    public function setCategory(?string $category): static
+    {
+        $this->category = $category;
+
+        return $this;
+    }
+
+    public function getStatsData(): ?array
+    {
+        return $this->statsData;
+    }
+
+    public function setStatsData(?array $statsData): static
+    {
+        $this->statsData = $statsData;
 
         return $this;
     }

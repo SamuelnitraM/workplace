@@ -25,6 +25,9 @@ class FactionSyncState
     #[ORM\Column(nullable: true)]
     private ?int $unitCount = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $extractorVersion = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -74,6 +77,18 @@ class FactionSyncState
     public function setUnitCount(?int $unitCount): static
     {
         $this->unitCount = $unitCount;
+
+        return $this;
+    }
+
+    public function getExtractorVersion(): ?int
+    {
+        return $this->extractorVersion;
+    }
+
+    public function setExtractorVersion(?int $extractorVersion): static
+    {
+        $this->extractorVersion = $extractorVersion;
 
         return $this;
     }
