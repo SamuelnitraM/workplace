@@ -101,7 +101,7 @@
                                     {% endif %}
 
                                     {# --- STATS : un bloc empilé par modèle --- #}
-                                    {% for model in unit.statsData.models %}
+                                    {% for model in unit.statsData.models|default([]) %}
                                         <div class="mb-2">
                                             <p class="text-white font-semibold mb-1">{{ model.name }}</p>
                                             <table class="w-full text-center max-w-md">
@@ -129,7 +129,7 @@
                                     {# --- ARMES : par modèle si plusieurs, puis rôles en continuité --- #}
                                     <p class="text-gray-500 uppercase text-[10px] mb-2">Armes</p>
 
-                                    {% for model in unit.statsData.models %}
+                                    {% for model in unit.statsData.models|default([]) %}
                                         {% if unit.statsData.models|length > 1 %}
                                             <p class="text-gray-400 font-semibold mb-1">{{ model.name }}</p>
                                         {% endif %}
@@ -163,7 +163,7 @@
                                         {% endif %}
                                     {% endfor %}
 
-                                    {% for role in unit.statsData.roles %}
+                                    {% for role in unit.statsData.roles|default([]) %}
                                         <p class="text-indigo-400 font-semibold text-[11px] uppercase mb-1">{{ role.name }}</p>
                                         {% if role.weapons is not empty %}
                                             <table class="w-full text-left mb-3">
@@ -198,7 +198,7 @@
                                     <hr class="border-gray-700 my-3">
 
                                     {# --- CAPACITÉS : par défaut, puis rôles en continuité --- #}
-                                    {% if unit.statsData.abilities is not empty or unit.statsData.roles is not empty %}
+                                    {% if (unit.statsData.abilities|default([]))|length > 0 or (unit.statsData.roles|default([]))|length > 0 %}
                                         <p class="text-gray-500 uppercase text-[10px] mb-2">Capacités</p>
 
                                         {% for a in unit.statsData.abilities %}
@@ -207,7 +207,7 @@
                                             </p>
                                         {% endfor %}
 
-                                        {% for role in unit.statsData.roles %}
+                                        {% for role in unit.statsData.roles|default([]) %}
                                             {% if role.abilities is not empty %}
                                                 <p class="text-indigo-400 font-semibold text-[11px] uppercase mt-2 mb-1">{{ role.name }}</p>
                                                 {% for a in role.abilities %}

@@ -1,6 +1,8 @@
 twig:
     file_name_pattern: '*.twig'
-
+    globals:
+        pusher_key: '%env(PUSHER_KEY)%'
+        pusher_cluster: '%env(PUSHER_CLUSTER)%'
 when@test:
     twig:
         strict_variables: true

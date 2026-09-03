@@ -8,6 +8,7 @@ use App\Entity\GroupMember;
 use App\Repository\GroupRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupChannelRepository;
+use App\Service\PusherService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -246,14 +247,7 @@ class GroupController extends AbstractController
     // Envoyer un message dans le chat
     #[Route('/{slug}/message', name: 'message', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function message(
-        string $slug,
-        Request $request,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
-        GroupChannelRepository $groupChannelRepository,
-        EntityManagerInterface $em,
-    ): Response {
+    public function message(string $slug,Request $request, GroupRepository $groupRepository, GroupMemberRepository $groupMemberRepository, GroupChannelRepository $groupChannelRepository, EntityManagerInterface $em, PusherService $pusher): Response {
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
         $group = $groupRepository->findOneBy(['slug' => $slug]);
@@ -300,24 +294,19 @@ class GroupController extends AbstractController
         $em->persist($message);
         $em->flush();
 
-        // Publier via Mercure
-        $update = new Update(
-            sprintf('group/%s/channel/%d', $slug, $channelId),
-            json_encode([
+        // Publier via Pusher
+        $pusher->sendMessage(
+            sprintf('group-%s-channel-%d', $slug, $channelId),
+            'new-message',
+            [
                 'id' => $message->getId(),
                 'content' => $message->getContent(),
                 'author' => $user->getUsername(),
                 'avatar' => $user->getAvatar(),
                 'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
                 'isCurrentUser' => false,
-            ])
+            ]
         );
-        
-        // DEBUG TEMPORAIRE
-        $tokenProvider = new \Symfony\Component\Mercure\Jwt\StaticTokenProvider('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.K4Dv2n1sqI9w7RLBXvxiKtlEp3q8cAfDGboMETVKd9w');
-        $mercureHub = new \Symfony\Component\Mercure\Hub('http://localhost:3000/.well-known/mercure', $tokenProvider);
-        
-        $mercureHub->publish($update);
 
         return $this->redirectToRoute('app_group_show', [
             'slug' => $slug,

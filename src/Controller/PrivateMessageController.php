@@ -7,14 +7,12 @@ use App\Entity\PrivateMessage;
 use App\Repository\FriendshipRepository;
 use App\Repository\PrivateConversationRepository;
 use App\Repository\UserRepository;
+use App\Service\PusherService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mercure\Hub;
-use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
-use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -22,7 +20,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/messages', name: 'app_message_')]
 class PrivateMessageController extends AbstractController
 {
-    private const MERCURE_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.K4Dv2n1sqI9w7RLBXvxiKtlEp3q8cAfDGboMETVKd9w';
+        private PusherService $pusher;
+
+    public function __construct(PusherService $pusher)
+    {
+        $this->pusher = $pusher;
+    }
 
     // ─── Page liste des conversations ─────────────────────────
     #[Route('/', name: 'index')]
@@ -261,13 +264,11 @@ class PrivateMessageController extends AbstractController
         $em->persist($message);
         $em->flush();
 
-        // Publier via Mercure
-        $tokenProvider = new StaticTokenProvider(self::MERCURE_TOKEN);
-        $mercureHub = new Hub('http://localhost:3000/.well-known/mercure', $tokenProvider);
-
-        $update = new Update(
-            sprintf('private/conversation/%d', $conversation->getId()),
-            json_encode([
+        // Publier via Pusher
+        $this->pusher->sendMessage(
+            sprintf('conversation-%d', $conversation->getId()),
+            'new-message',
+            [
                 'id' => $message->getId(),
                 'content' => $message->getContent(),
                 'author' => $author->getUsername(),
@@ -275,10 +276,8 @@ class PrivateMessageController extends AbstractController
                 'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
                 'conversationId' => $conversation->getId(),
                 'isCurrentUser' => false,
-            ])
+            ]
         );
-
-        $mercureHub->publish($update);
 
         return $message;
     }

@@ -121,14 +121,14 @@
         scrollBadge.classList.add('hidden');
     });
 
-    // Mercure
-    const url = new URL('http://localhost:3000/.well-known/mercure');
-    url.searchParams.append('topic', 'private/conversation/{{ conversation.id }}');
+    // Pusher
+    const pusher = new Pusher('{{ pusher_key }}', {
+        cluster: '{{ pusher_cluster }}'
+    });
 
-    const eventSource = new EventSource(url);
+    const channel = pusher.subscribe('conversation-{{ conversation.id }}');
 
-    eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    channel.bind('new-message', function(data) {
         const isCurrentUser = data.author === '{{ app.user.username }}';
         const wasAtBottom = isAtBottom();
 
@@ -159,7 +159,7 @@
         } else {
             scrollBadge.classList.remove('hidden');
         }
-    };
+    });
 
     // Formulaire AJAX
     const messageForm = document.getElementById('message-form');

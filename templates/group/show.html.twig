@@ -26,7 +26,7 @@
         <div class="flex gap-3">
             {% if currentMember %}
                 <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}"
-                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
+                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition hidden">
                     📋 Todo
                 </a>
                 {% if currentMember.role in ['owner', 'admin'] %}
@@ -261,14 +261,14 @@
         scrollBadge.classList.add('hidden');
     });
 
-    // Mercure
-    const url = new URL('http://localhost:3000/.well-known/mercure');
-    url.searchParams.append('topic', 'group/{{ group.slug }}/channel/{{ activeChannel.id }}');
+    // Pusher
+    const pusher = new Pusher('{{ pusher_key }}', {
+        cluster: '{{ pusher_cluster }}'
+    });
 
-    const eventSource = new EventSource(url);
+    const channel = pusher.subscribe('group-{{ group.slug }}-channel-{{ activeChannel.id }}');
 
-    eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    channel.bind('new-message', function(data) {
         const isCurrentUser = data.author === '{{ app.user ? app.user.username : '' }}';
         const wasAtBottom = isAtBottom();
 
@@ -301,7 +301,7 @@
         } else {
             scrollBadge.classList.remove('hidden');
         }
-    };
+    });
 
     // Formulaire AJAX
     const messageForm = document.getElementById('message-form');

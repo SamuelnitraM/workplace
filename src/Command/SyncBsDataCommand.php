@@ -39,7 +39,7 @@ class SyncBsDataCommand extends Command
         'Daemons' => 'Chaos - Chaos Daemons.json',
         'Orks' => 'Orks.json',
         'Eldar' => 'Aeldari - Craftworlds.json',
-        'Dark Eldar' => 'Aeldari - Drukhari.json',
+        'Drukhari' => 'Aeldari - Drukhari.json',
         'Tyranids' => 'Tyranids.json',
         'Genestealer Cults' => 'Genestealer Cults.json',
         'Tau' => "T'au Empire.json",
@@ -63,7 +63,7 @@ class SyncBsDataCommand extends Command
         );
     }
 
-    private const EXTRACTOR_VERSION = 10; // à incrémenter à chaque fois qu'on change ce qu'on extrait
+    private const EXTRACTOR_VERSION = 11; // à incrémenter à chaque fois qu'on change ce qu'on extrait
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {

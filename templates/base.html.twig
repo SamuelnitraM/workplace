@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>[x-cloak] { display: none !important; }</style>
     <title>{% block title %}HighlightForge{% endblock %}</title>
     {% block stylesheets %}
@@ -29,6 +30,12 @@
             <a href="{{ path('app_group_index') }}" class="text-gray-300 hover:text-white transition text-sm">
                 👥 Groupes
             </a>
+
+            {% if is_granted('ROLE_ADMIN') %}
+            <a href="{{ path('admin') }}" class="text-gray-300 hover:text-white transition text-sm">
+                👥 Admin
+            </a>
+            {% endif %}
 
             <div class="flex gap-4 items-center">
                 {% if app.user %}
@@ -211,47 +218,48 @@
         // ─── Init Mercure global ───────────────────────────────
         // S'abonne à toutes les conversations existantes pour recevoir
         // les notifications même sans ouvrir le messenger
-        function initGlobalMercure() {
+            function initGlobalPusher() {
+            const pusher = new Pusher('{{ pusher_key }}', {
+                cluster: '{{ pusher_cluster }}'
+            });
+
             fetch('/messages/ajax/conversation-ids')
                 .then(r => r.json())
                 .then(ids => {
                     if (ids.length === 0) return;
 
-                    const url = new URL('http://localhost:3000/.well-known/mercure');
-                    ids.forEach(id => url.searchParams.append('topic', `private/conversation/${id}`));
+                    ids.forEach(id => {
+                        const channel = pusher.subscribe('conversation-' + id);
 
-                    state.globalSource = new EventSource(url);
+                        channel.bind('new-message', function(data) {
+                            // Ignorer nos propres messages
+                            if (data.author === '{{ app.user.username }}') return;
 
-                    state.globalSource.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
+                            const conv = state.openConvs.find(c => c.convId === data.conversationId);
 
-                        // Ignorer nos propres messages
-                        if (data.author === '{{ app.user.username }}') return;
-
-                        const conv = state.openConvs.find(c => c.convId === data.conversationId);
-
-                        if (conv) {
-                            // Conversation ouverte et dépliée → ajouter le message sans notification
-                            if (conv.open) {
-                                data.isCurrentUser = false;
-                                conv.messages.push(data);
-                                renderTabs();
-                                setTimeout(() => {
-                                    const chatEl = document.getElementById(`chat-${conv.username}`);
-                                    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
-                                }, 50);
+                            if (conv) {
+                                // Conversation ouverte et dépliée → ajouter sans notification
+                                if (conv.open) {
+                                    data.isCurrentUser = false;
+                                    conv.messages.push(data);
+                                    renderTabs();
+                                    setTimeout(() => {
+                                        const chatEl = document.getElementById(`chat-${conv.username}`);
+                                        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+                                    }, 50);
+                                } else {
+                                    // Conversation ouverte mais repliée → badge sur l'onglet
+                                    conv.unread = (conv.unread || 0) + 1;
+                                    data.isCurrentUser = false;
+                                    conv.messages.push(data);
+                                    renderTabs();
+                                }
                             } else {
-                                // Conversation ouverte mais repliée → badge sur l'onglet
-                                conv.unread = (conv.unread || 0) + 1;
-                                data.isCurrentUser = false;
-                                conv.messages.push(data);
-                                renderTabs();
+                                // Conversation pas ouverte → badge sur l'onglet principal
+                                updateMainBadge(1);
                             }
-                        } else {
-                            // Conversation pas ouverte → badge sur l'onglet principal
-                            updateMainBadge(1);
-                        }
-                    };
+                        });
+                    });
                 });
         }
 
@@ -571,7 +579,7 @@
 
         // ─── Initialisation ───────────────────────────────────
         loadConversations();
-        initGlobalMercure();
+        initGlobalPusher();
 
     })();
     </script>

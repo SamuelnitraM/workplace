@@ -214,4 +214,5 @@ class ArmyListController extends AbstractController
         $this->addFlash('success', 'Liste supprimée.');
         return $this->redirectToRoute('app_army_index');
     }
+
 }

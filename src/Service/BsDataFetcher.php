@@ -208,6 +208,13 @@ class BsDataFetcher
         return $keywords;
     }
 
+    private function cleanRuleText(string $text): string
+    {
+        // Retire les marqueurs de mise en forme BattleScribe (**gras**, ^^mots-clés^^)
+        $text = str_replace(['^^', '**'], '', $text);
+        return trim($text);
+    }
+
     private function isDefaultRoleVariant(string $entryName, string $baseModelName): bool
     {
         $normalizedBase = rtrim($baseModelName, 's');
@@ -264,11 +271,17 @@ class BsDataFetcher
                 if ($currentRoleIndex !== null) {
                     if (!isset($seenRoleAbilities[$currentRoleIndex][$name])) {
                         $seenRoleAbilities[$currentRoleIndex][$name] = true;
-                        $roles[$currentRoleIndex]['abilities'][] = ['name' => $name, 'description' => $chars['Description'] ?? ''];
+                        $roles[$currentRoleIndex]['abilities'][] = [
+                            'name' => $name,
+                            'description' => $this->cleanRuleText($chars['Description'] ?? ''), // ← modifié
+                        ];
                     }
                 } elseif (!isset($seenAbilities[$name])) {
                     $seenAbilities[$name] = true;
-                    $abilities[] = ['name' => $name, 'description' => $chars['Description'] ?? ''];
+                    $abilities[] = [
+                        'name' => $name,
+                        'description' => $this->cleanRuleText($chars['Description'] ?? ''), // ← modifié
+                    ];
                 }
             } elseif (in_array($typeName, ['Ranged Weapons', 'Melee Weapons'], true)) {
                 $weaponName = $profile['name'];
