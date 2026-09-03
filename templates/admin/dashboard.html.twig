@@ -1,14 +1,104 @@
 {% extends '@EasyAdmin/page/content.html.twig' %}
 
 {% block main %}
-<div class="grid grid-cols-2 gap-6 p-6">
-    <div class="bg-white rounded-xl shadow p-6 text-center">
-        <div class="text-4xl mb-2">👥</div>
-        <h3 class="font-bold text-gray-700">Utilisateurs</h3>
-    </div>
-    <div class="bg-white rounded-xl shadow p-6 text-center">
-        <div class="text-4xl mb-2">💬</div>
-        <h3 class="font-bold text-gray-700">Forum</h3>
+<style>
+    .hf-admin-dashboard { color: #253044; }
+    .hf-admin-dashboard .hf-card { border: 1px solid #e7eaf0; border-radius: 14px; background: #fff; box-shadow: 0 4px 18px rgba(37, 48, 68, .06); }
+    .hf-admin-dashboard .hf-stat { transition: transform .18s ease, box-shadow .18s ease; }
+    .hf-admin-dashboard .hf-stat:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(37, 48, 68, .11); }
+    .hf-admin-dashboard .hf-icon { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; }
+    .hf-admin-dashboard .hf-indigo { color: #4f46e5; background: #eef2ff; }
+    .hf-admin-dashboard .hf-blue { color: #2563eb; background: #eff6ff; }
+    .hf-admin-dashboard .hf-emerald { color: #059669; background: #ecfdf5; }
+    .hf-admin-dashboard .hf-amber { color: #d97706; background: #fffbeb; }
+    .hf-admin-dashboard .hf-violet { color: #7c3aed; background: #f5f3ff; }
+    .hf-admin-dashboard .hf-rose { color: #e11d48; background: #fff1f2; }
+    .hf-admin-dashboard .hf-list-row { border-top: 1px solid #eef0f4; }
+    .hf-admin-dashboard .hf-list-row:first-child { border-top: 0; }
+    .hf-admin-dashboard .hf-action { min-height: 44px; }
+    @media (max-width: 575px) {
+        .hf-admin-dashboard { margin: -1rem; }
+        .hf-admin-dashboard .hf-card { border-radius: 10px; }
+    }
+</style>
+
+<div class="hf-admin-dashboard p-3 p-md-4">
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <p class="text-uppercase text-muted small fw-semibold mb-1">Vue d'ensemble</p>
+            <h1 class="h2 fw-bold mb-1">Bonjour, administrateur</h1>
+            <p class="text-muted mb-0">Suivez l'activité de la communauté depuis un seul endroit.</p>
+        </div>
+        <a href="{{ path('app_home') }}" class="btn btn-outline-secondary hf-action d-inline-flex align-items-center gap-2 align-self-start align-self-md-center">
+            <i class="fa fa-arrow-up-right-from-square"></i> Voir le site
+        </a>
+    </header>
+
+    <section class="row g-3 mb-4" aria-label="Statistiques principales">
+        {% for stat in stats %}
+            <div class="col-12 col-sm-6 col-xl-4">
+                <a href="{{ stat.url|default('#') }}" class="hf-card hf-stat d-flex align-items-center gap-3 p-3 p-lg-4 text-decoration-none h-100">
+                    <span class="hf-icon hf-{{ stat.tone }}"><i class="fa {{ stat.icon }}"></i></span>
+                    <span class="min-w-0">
+                        <span class="d-block text-muted small">{{ stat.label }}</span>
+                        <strong class="d-block fs-3 lh-1 mt-1 text-dark">{{ stat.value|number_format(0, ',', ' ') }}</strong>
+                    </span>
+                    <i class="fa fa-chevron-right text-muted ms-auto"></i>
+                </a>
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="hf-card p-3 p-md-4 mb-4">
+        <h2 class="h5 fw-bold mb-1">Actions rapides</h2>
+        <p class="text-muted small mb-3">Accédez directement aux tâches courantes.</p>
+        <div class="row g-2">
+            {% for action in quickActions %}
+                <div class="col-12 col-md-4">
+                    <a href="{{ action.url }}" class="btn btn-light border hf-action w-100 d-flex align-items-center justify-content-center gap-2">
+                        <i class="fa {{ action.icon }} text-primary"></i>{{ action.label }}
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="row g-4">
+        <section class="col-12 col-xl-6">
+            <div class="hf-card p-3 p-md-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 fw-bold mb-0">Derniers inscrits</h2>
+                    <a href="{{ path('admin') }}" class="small text-primary text-decoration-none">Tout voir</a>
+                </div>
+                {% for user in recentUsers %}
+                    <div class="hf-list-row d-flex align-items-center gap-3 py-3">
+                        <span class="hf-icon hf-indigo flex-shrink-0"><i class="fa fa-user"></i></span>
+                        <span class="min-w-0 flex-grow-1"><strong class="d-block text-truncate">{{ user.username }}</strong><small class="text-muted text-truncate d-block">{{ user.email }}</small></span>
+                        <small class="text-muted text-nowrap">{{ user.createdAt|date('d/m/Y') }}</small>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Aucun utilisateur récent.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="col-12 col-xl-6">
+            <div class="hf-card p-3 p-md-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 fw-bold mb-0">Sujets récents</h2>
+                    <a href="{{ path('admin') }}" class="small text-primary text-decoration-none">Tout voir</a>
+                </div>
+                {% for thread in recentThreads %}
+                    <div class="hf-list-row d-flex align-items-center gap-3 py-3">
+                        <span class="hf-icon hf-blue flex-shrink-0"><i class="fa fa-comments"></i></span>
+                        <span class="min-w-0 flex-grow-1"><strong class="d-block text-truncate">{{ thread.title }}</strong><small class="text-muted text-truncate d-block">par {{ thread.author.username }}</small></span>
+                        <small class="text-muted text-nowrap">{{ thread.createdAt|date('d/m/Y') }}</small>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Aucun sujet récent.</p>
+                {% endfor %}
+            </div>
+        </section>
     </div>
 </div>
 {% endblock %}

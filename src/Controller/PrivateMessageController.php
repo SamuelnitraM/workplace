@@ -226,7 +226,7 @@ class PrivateMessageController extends AbstractController
         ]);
     }
 
-    // ─── AJAX : IDs des conversations pour Mercure ────────────
+    // ─── AJAX : IDs des conversations pour Pusher ────────────
     #[Route('/ajax/conversation-ids', name: 'ajax_conversation_ids', methods: ['GET'])]
     public function ajaxConversationIds(PrivateConversationRepository $conversationRepository): JsonResponse
     {

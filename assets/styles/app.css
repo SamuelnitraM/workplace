@@ -1,5 +1,58 @@
 @import "tailwindcss";
 
+:root {
+    --hf-bg: #111827;
+    --hf-panel: #1f2937;
+    --hf-border: #374151;
+    --hf-accent: #818cf8;
+}
+
+html {
+    background: var(--hf-bg);
+}
+
 body {
-    /* background-color: skyblue; */
+    min-width: 320px;
+    overflow-x: hidden;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select,
+textarea {
+    max-width: 100%;
+}
+
+.site-nav-links {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .site-nav-links {
+        display: flex;
+    }
+}
+
+@media (max-width: 767px) {
+    .site-nav-links.is-open {
+        display: flex;
+    }
+}
+
+@media (max-width: 640px) {
+    main {
+        padding-top: 1.5rem;
+        padding-bottom: 1.5rem;
+    }
+
+    table {
+        min-width: 36rem;
+    }
 }

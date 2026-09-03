@@ -3,7 +3,7 @@
 {% block title %}Accueil — HighlightForge{% endblock %}
 
 {% block body %}
-<div class="relative w-screen left-1/2 -translate-x-1/2 h-[50vh] -mt-8">
+<div class="relative w-screen left-1/2 -translate-x-1/2 min-h-[32rem] h-[clamp(32rem,60vh,42rem)] -mt-8">
 
     {# Image de fond #}
     <div class="absolute inset-0 bg-[url(/images/bgHome.png)] bg-cover bg-center"></div>
@@ -13,18 +13,20 @@
 
     {# Contenu par dessus #}
     <div class="relative z-10 flex flex-col items-center justify-center h-full text-center px-6">
-        <h1 class="text-5xl font-bold text-indigo-400 mb-4">⚔️ HighlightForge</h1>
-        <p class="text-gray-400 text-xl mb-8">
+        <div class="max-w-3xl">
+        <p class="text-indigo-300 uppercase tracking-[0.2em] text-xs sm:text-sm font-semibold mb-4">Communauté · Création · Stratégie</p>
+        <h1 class="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-4">⚔️ HighlightForge</h1>
+        <p class="text-gray-300 text-lg sm:text-xl mb-8 max-w-2xl mx-auto">
             La communauté des passionnés de figurines miniatures
         </p>
         {% if not app.user %}
-            <div class="flex gap-4 justify-center">
+            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                 <a href="{{ path('app_register') }}" 
-                   class="bg-indigo-600 hover:bg-indigo-700 px-8 py-3 rounded-lg text-lg transition">
+                   class="bg-indigo-600 hover:bg-indigo-500 px-6 sm:px-8 py-3 rounded-lg text-base sm:text-lg transition shadow-lg shadow-indigo-950/40">
                     Rejoindre la communauté
                 </a>
                 <a href="{{ path('app_login') }}" 
-                   class="bg-gray-700 hover:bg-gray-600 px-8 py-3 rounded-lg text-lg transition">
+                   class="bg-gray-700/90 hover:bg-gray-600 px-6 sm:px-8 py-3 rounded-lg text-base sm:text-lg transition">
                     Se connecter
                 </a>
             </div>
@@ -33,6 +35,7 @@
                 Bienvenue, {{ app.user.username }} ! 👋
             </p>
         {% endif %}
+        </div>
     </div>
 
 </div>

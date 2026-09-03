@@ -17,32 +17,40 @@
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
 
     {# NAVBAR #}
-    <nav class="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <a href="{{ path('app_home') }}" class="text-xl font-bold text-indigo-400">
+    <nav class="bg-gray-800/95 border-b border-gray-700 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-40 backdrop-blur" x-data="{ menuOpen: false }">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
+            <a href="{{ path('app_home') }}" class="text-lg sm:text-xl font-bold text-indigo-400 shrink-0">
                 ⚔️ HighlightForge
             </a>
 
-            <a href="{{ path('app_forum_index') }}" class="text-gray-300 hover:text-white transition text-sm">
-                💬 Forum
-            </a>
+            <button @click="menuOpen = !menuOpen" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition" aria-label="Ouvrir le menu" :aria-expanded="menuOpen">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
 
-            <a href="{{ path('app_group_index') }}" class="text-gray-300 hover:text-white transition text-sm">
-                👥 Groupes
-            </a>
+            <div class="site-nav-links items-center gap-5 order-3 md:order-none w-full md:w-auto" :class="{ 'is-open': menuOpen }">
+                <a href="{{ path('app_forum_index') }}" class="text-gray-300 hover:text-white transition text-sm py-2">
+                    💬 Forum
+                </a>
 
-            {% if is_granted('ROLE_ADMIN') %}
-            <a href="{{ path('admin') }}" class="text-gray-300 hover:text-white transition text-sm">
-                👥 Admin
-            </a>
-            {% endif %}
+                <a href="{{ path('app_group_index') }}" class="text-gray-300 hover:text-white transition text-sm py-2">
+                    👥 Groupes
+                </a>
 
-            <div class="flex gap-4 items-center">
+                {% if is_granted('ROLE_ADMIN') %}
+                <a href="{{ path('admin') }}" class="text-gray-300 hover:text-white transition text-sm py-2">
+                    👥 Admin
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="flex gap-2 sm:gap-4 items-center">
                 {% if app.user %}
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open"
-                                class="flex items-center gap-2 text-gray-300 hover:text-white transition text-sm">
-                            <div class="relative">
+                                class="flex items-center gap-2 text-gray-300 hover:text-white transition text-sm max-w-[13rem]">
+                            <div class="relative shrink-0">
                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm">
                                     {% if app.user.avatar %}
                                         <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}"
@@ -57,8 +65,8 @@
                                     </span>
                                 {% endif %}
                             </div>
-                            <span>{{ app.user.username }}</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span class="truncate hidden sm:inline">{{ app.user.username }}</span>
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
@@ -77,39 +85,18 @@
                                         </span>
                                     {% endif %}
                                 </a>
-                                <a href="{{ path('app_todo_index') }}"
-                                   class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
-                                    📋 Todo liste
-                                </a>
-                                <a href="{{ path('app_army_index') }}"
-                                    class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
-                                        ⚔️ Listes d'armées
-                                </a>
-                                <a href="{{ path('app_friendship_list') }}"
-                                   class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
-                                    👥 Mes amis
-                                </a>
-                                <a href="{{ path('app_message_index') }}"
-                                   class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
-                                    ✉️ Messages
-                                </a>
+                                <a href="{{ path('app_todo_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">📋 Todo liste</a>
+                                <a href="{{ path('app_army_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">⚔️ Listes d'armées</a>
+                                <a href="{{ path('app_friendship_list') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">👥 Mes amis</a>
+                                <a href="{{ path('app_message_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">✉️ Messages</a>
                                 <div class="border-t border-gray-700 my-1"></div>
-                                <a href="{{ path('app_logout') }}"
-                                   class="flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition text-sm">
-                                    🚪 Déconnexion
-                                </a>
+                                <a href="{{ path('app_logout') }}" class="flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition text-sm">🚪 Déconnexion</a>
                             </div>
                         </div>
                     </div>
                 {% else %}
-                    <a href="{{ path('app_login') }}"
-                       class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded text-sm transition">
-                        Connexion
-                    </a>
-                    <a href="{{ path('app_register') }}"
-                       class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm transition">
-                        Inscription
-                    </a>
+                    <a href="{{ path('app_login') }}" class="bg-indigo-600 hover:bg-indigo-700 px-3 sm:px-4 py-2 rounded-lg text-sm transition">Connexion</a>
+                    <a href="{{ path('app_register') }}" class="hidden sm:inline-block bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">Inscription</a>
                 {% endif %}
             </div>
         </div>
@@ -152,7 +139,7 @@
     {% endif %}
 
     {# CONTENU PRINCIPAL #}
-    <main class="flex-1 max-w-7xl mx-auto w-full py-8">
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {% block body %}{% endblock %}
     </main>
 
@@ -163,7 +150,7 @@
 
     {% if app.user %}
     {# ─── MESSENGER ─────────────────────────────────────────── #}
-    <div id="messenger" class="fixed bottom-0 right-4 z-50 flex items-end gap-2">
+    <div id="messenger" class="fixed bottom-0 right-2 sm:right-4 z-50 flex items-end gap-2 max-w-[calc(100vw-1rem)]">
 
         {# BOUTON FLECHE GAUCHE #}
         <button id="messenger-prev"
@@ -181,7 +168,7 @@
         </button>
 
         {# ONGLET PRINCIPAL (toujours à droite) #}
-        <div id="messenger-main" class="w-64">
+        <div id="messenger-main" class="w-[min(16rem,calc(100vw-1rem))]">
             <div class="bg-gray-800 border border-gray-700 border-b-0 rounded-t-xl">
                 <div class="flex justify-between items-center px-4 py-3 cursor-pointer"
                      onclick="toggleMessengerMain()">
@@ -215,7 +202,7 @@
             globalSource: null,
         };
 
-        // ─── Init Mercure global ───────────────────────────────
+        // ─── Init Pusher global ────────────────────────────────
         // S'abonne à toutes les conversations existantes pour recevoir
         // les notifications même sans ouvrir le messenger
             function initGlobalPusher() {
