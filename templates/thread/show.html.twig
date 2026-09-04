@@ -56,6 +56,25 @@
                     <div class="text-gray-200 leading-relaxed">
                         {{ post.content|nl2br }}
                     </div>
+
+                    {% if app.user and app.user.id != post.author.id %}
+                        <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-700">
+                            <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'positive'}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_positive') }}">
+                                <button type="submit" class="px-3 py-1.5 rounded-lg border {{ post.hasVoteFrom(app.user, 'positive') ? 'border-green-500 bg-green-500/20 text-green-300' : 'border-gray-600 text-gray-300 hover:border-green-500 hover:text-green-300' }} transition">
+                                    👍 Positif <span class="ml-1">{{ post.getVoteCount('positive') }}</span>
+                                </button>
+                            </form>
+                            <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'helpful'}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_helpful') }}">
+                                <button type="submit" class="px-3 py-1.5 rounded-lg border {{ post.hasVoteFrom(app.user, 'helpful') ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300' : 'border-gray-600 text-gray-300 hover:border-indigo-500 hover:text-indigo-300' }} transition">
+                                    ♥ Aide <span class="ml-1">{{ post.getVoteCount('helpful') }}</span>
+                                </button>
+                            </form>
+                        </div>
+                    {% elseif not app.user %}
+                        <div class="text-xs text-gray-500 mt-4">Connectez-vous pour voter.</div>
+                    {% endif %}
                 </div>
 
             </div>

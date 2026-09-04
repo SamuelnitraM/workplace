@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\PostRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -34,10 +36,17 @@ class Post
     #[ORM\JoinColumn(nullable: false)]
     private ?User $author = null;
 
+    /**
+     * @var Collection<int, PostVote>
+     */
+    #[ORM\OneToMany(targetEntity: PostVote::class, mappedBy: 'post', orphanRemoval: true)]
+    private Collection $votes;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->isFirst = false;
+        $this->votes = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -115,5 +124,42 @@ class Post
         $this->author = $author;
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, PostVote>
+     */
+    public function getVotes(): Collection
+    {
+        return $this->votes;
+    }
+
+    public function addVote(PostVote $vote): static
+    {
+        if (!$this->votes->contains($vote)) {
+            $this->votes->add($vote);
+            $vote->setPost($this);
+        }
+
+        return $this;
+    }
+
+    public function removeVote(PostVote $vote): static
+    {
+        $this->votes->removeElement($vote);
+
+        return $this;
+    }
+
+    public function getVoteCount(string $type): int
+    {
+        return $this->votes->filter(fn (PostVote $vote): bool => $vote->getType() === $type)->count();
+    }
+
+    public function hasVoteFrom(User $user, string $type): bool
+    {
+        return $this->votes->exists(fn (int $key, PostVote $vote): bool =>
+            $vote->getType() === $type && $vote->getUser()?->getId() === $user->getId()
+        );
     }
 }

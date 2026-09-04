@@ -3,7 +3,9 @@
 namespace App\Controller;
 
 use App\Entity\Post;
+use App\Entity\PostVote;
 use App\Entity\Thread;
+use App\Entity\User;
 use App\Form\ThreadFormType;
 use App\Form\PostFormType;
 use App\Repository\CategoryRepository;
@@ -21,6 +23,60 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 #[Route('/forum', name: 'app_thread_')]
 class ThreadController extends AbstractController
 {
+    #[Route('/thread/{slug}/post/{postId}/vote/{type}', name: 'vote', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function vote(
+        string $slug,
+        int $postId,
+        string $type,
+        Request $request,
+        PostRepository $postRepository,
+        EntityManagerInterface $em
+    ): Response {
+        if (!in_array($type, [PostVote::TYPE_POSITIVE, PostVote::TYPE_HELPFUL], true)) {
+            throw $this->createNotFoundException('Type de vote introuvable');
+        }
+
+        if (!$this->isCsrfTokenValid('post_vote_' . $postId . '_' . $type, $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide');
+        }
+
+        $post = $postRepository->find($postId);
+        if (!$post || $post->getThread()?->getSlug() !== $slug) {
+            throw $this->createNotFoundException('Réponse introuvable');
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        if ($post->getAuthor()?->getId() === $user->getId()) {
+            $this->addFlash('warning', 'Vous ne pouvez pas voter pour votre propre réponse.');
+
+            return $this->redirectToRoute('app_thread_show', ['slug' => $slug]);
+        }
+
+        $existingVote = null;
+        foreach ($post->getVotes() as $vote) {
+            if ($vote->getUser()?->getId() === $user->getId() && $vote->getType() === $type) {
+                $existingVote = $vote;
+                break;
+            }
+        }
+
+        if ($existingVote) {
+            $em->remove($existingVote);
+        } else {
+            $vote = (new PostVote())
+                ->setPost($post)
+                ->setUser($user)
+                ->setType($type);
+            $em->persist($vote);
+        }
+
+        $em->flush();
+
+        return $this->redirectToRoute('app_thread_show', ['slug' => $slug]);
+    }
+
     #[Route('/thread/{slug}', name: 'show')]
     public function show(
         string $slug,
