@@ -306,6 +306,21 @@ class GroupController extends AbstractController
             ]
         );
 
+        foreach ($group->getMembers() as $member) {
+            if ($member->getUser() !== $user) {
+                $pusher->sendMessage(
+                    'user-' . $member->getUser()->getId(),
+                    'group-message',
+                    [
+                        'group' => $group->getName(),
+                        'slug' => $group->getSlug(),
+                        'channel' => $channel->getName(),
+                        'author' => $user->getUsername(),
+                    ]
+                );
+            }
+        }
+
         return $this->redirectToRoute('app_group_show', [
             'slug' => $slug,
             'channel' => $channelId

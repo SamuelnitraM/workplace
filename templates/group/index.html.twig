@@ -58,7 +58,7 @@
                             <a href="{{ path('app_group_show', {slug: group.slug}) }}"
                                class="bg-gray-700 rounded-xl border border-indigo-600 p-5 hover:border-indigo-400 transition">
                                 <div class="flex justify-between items-start">
-                                    <h3 class="font-bold text-white">{{ group.name }}</h3>
+                                    <h3 class="font-bold text-white flex items-center gap-2">{{ group.name }} <span id="group-card-badge-{{ group.slug }}" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></h3>
                                     <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-red-600 text-red-300' }}">
                                         {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
                                     </span>
@@ -85,7 +85,7 @@
                             <a href="{{ path('app_group_show', {slug: group.slug}) }}"
                                class="bg-gray-700 rounded-xl border border-gray-600 p-5 hover:border-indigo-500 transition">
                                 <div class="flex justify-between items-start">
-                                    <h3 class="font-bold text-white">{{ group.name }}</h3>
+                                    <h3 class="font-bold text-white flex items-center gap-2">{{ group.name }} <span id="group-card-badge-{{ group.slug }}" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></h3>
                                     <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-red-600 text-red-400' }}">
                                         {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
                                     </span>
@@ -115,7 +115,7 @@
                         <a href="{{ path('app_group_show', {slug: group.slug}) }}"
                            class="bg-gray-700 rounded-xl border border-gray-600 p-5 hover:border-indigo-500 transition">
                             <div class="flex justify-between items-start">
-                                <h3 class="font-bold text-white">{{ group.name }}</h3>
+                                <h3 class="font-bold text-white flex items-center gap-2">{{ group.name }} <span id="group-card-badge-{{ group.slug }}" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></h3>
                                 <span class="text-xs px-2 py-1 rounded bg-green-700 text-green-300">
                                     🌍 Public
                                 </span>
@@ -136,6 +136,14 @@
 </div>
 
 <script>
+document.querySelectorAll('[id^="group-card-badge-"]').forEach((badge) => {
+    const slug = badge.id.replace('group-card-badge-', '');
+    const notifications = JSON.parse(localStorage.getItem('hf-group-notifications') || '{}');
+    const count = notifications[slug] || 0;
+    badge.textContent = '';
+    badge.classList.toggle('hidden', count === 0);
+});
+
 function showTab(tab) {
     document.getElementById('panel-mygroups').classList.add('hidden');
     document.getElementById('panel-public').classList.add('hidden');

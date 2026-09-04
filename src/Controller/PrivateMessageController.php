@@ -29,7 +29,7 @@ class PrivateMessageController extends AbstractController
 
     // ─── Page liste des conversations ─────────────────────────
     #[Route('/', name: 'index')]
-    public function index(PrivateConversationRepository $conversationRepository): Response
+    public function index(PrivateConversationRepository $conversationRepository, EntityManagerInterface $em): Response
     {
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
@@ -236,6 +236,28 @@ class PrivateMessageController extends AbstractController
         $ids = array_map(fn($c) => $c->getId(), $conversations);
 
         return new JsonResponse($ids);
+    }
+
+    #[Route('/ajax/notification-context', name: 'ajax_notification_context', methods: ['GET'])]
+    public function ajaxNotificationContext(
+        PrivateConversationRepository $conversationRepository,
+        FriendshipRepository $friendshipRepository,
+    ): JsonResponse {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $unreadMessages = 0;
+
+        foreach ($conversationRepository->findUserConversations($user) as $conversation) {
+            $unreadMessages += $this->countUnread($conversation, $user);
+        }
+
+        return new JsonResponse([
+            'unreadMessages' => $unreadMessages,
+            'pendingFriendships' => $friendshipRepository->count([
+                'receiver' => $user,
+                'status' => 'pending',
+            ]),
+        ]);
     }
 
     // ─── Helpers privés ───────────────────────────────────────

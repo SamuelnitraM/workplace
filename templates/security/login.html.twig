@@ -64,6 +64,11 @@
             {# CSRF #}
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
 
+            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                <input type="checkbox" name="_remember_me" class="w-4 h-4 rounded border-gray-600 bg-gray-900 text-indigo-600 focus:ring-indigo-500">
+                <span>Se souvenir de moi pendant 30 jours</span>
+            </label>
+
             {# SUBMIT #}
             <button
                 type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-indigo-600/20">

@@ -226,6 +226,8 @@
 {% if activeChannel and currentMember %}
 <script>
 (function() {
+    window.activeGroupSlug = '{{ group.slug|e('js') }}';
+
     const chatMessages = document.getElementById('chat-messages');
     const scrollBtn = document.getElementById('scroll-btn');
     const scrollBadge = document.getElementById('scroll-badge');

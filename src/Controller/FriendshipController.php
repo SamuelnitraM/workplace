@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Friendship;
 use App\Repository\FriendshipRepository;
 use App\Repository\UserRepository;
+use App\Service\PusherService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,6 +28,7 @@ class FriendshipController extends AbstractController
         FriendshipRepository $friendshipRepository,
         EntityManagerInterface $em,
         CsrfTokenManagerInterface $csrfTokenManager,
+        PusherService $pusher,
     ): Response {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
@@ -59,6 +61,12 @@ class FriendshipController extends AbstractController
 
         $em->persist($friendship);
         $em->flush();
+
+        $pusher->sendMessage(
+            'user-' . $targetUser->getId(),
+            'friend-request',
+            ['requester' => $currentUser->getUsername()]
+        );
 
         $this->addFlash('success', 'Demande d\'ami envoyée à ' . $targetUser->getUsername() . ' !');
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);

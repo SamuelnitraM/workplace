@@ -34,8 +34,9 @@
                     💬 Forum
                 </a>
 
-                <a href="{{ path('app_group_index') }}" class="text-gray-300 hover:text-white transition text-sm py-2">
+                <a href="{{ path('app_group_index') }}" class="relative text-gray-300 hover:text-white transition text-sm py-2">
                     👥 Groupes
+                    <span id="group-notification-badge" class="notification-dot hidden ml-1 w-2 h-2 bg-red-500 rounded-full"></span>
                 </a>
 
                 {% if is_granted('ROLE_ADMIN') %}
@@ -48,8 +49,8 @@
             <div class="flex gap-2 sm:gap-4 items-center">
                 {% if app.user %}
                     <div class="relative" x-data="{ open: false }">
-                        <button @click="open = !open"
-                                class="flex items-center gap-2 text-gray-300 hover:text-white transition text-sm max-w-[13rem]">
+                        <button @click="if (!open) clearUserMenuNotifications(); open = !open"
+                            class="relative flex items-center gap-2 text-gray-300 hover:text-white transition text-sm max-w-[13rem]">
                             <div class="relative shrink-0">
                                 <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm">
                                     {% if app.user.avatar %}
@@ -69,6 +70,8 @@
                             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
+                                <span id="user-menu-notification-badge"
+                                    class="notification-dot hidden absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                         </button>
 
                         <div x-show="open"
@@ -87,8 +90,8 @@
                                 </a>
                                 <a href="{{ path('app_todo_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">📋 Todo liste</a>
                                 <a href="{{ path('app_army_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">⚔️ Listes d'armées</a>
-                                <a href="{{ path('app_friendship_list') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">👥 Mes amis</a>
-                                <a href="{{ path('app_message_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">✉️ Messages</a>
+                                <a href="{{ path('app_friendship_list') }}" onclick="clearFriendNotifications()" class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm"> <span>👥 Mes amis</span><span id="friend-notification-badge" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></a>
+                                <a href="{{ path('app_message_index') }}" class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm"> <span>✉️ Messages</span><span id="message-menu-badge" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></a>
                                 <div class="border-t border-gray-700 my-1"></div>
                                 <a href="{{ path('app_logout') }}" class="flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition text-sm">🚪 Déconnexion</a>
                             </div>
@@ -175,7 +178,7 @@
                     <span class="font-semibold text-white text-sm flex items-center gap-2">
                         💬 Messages
                         <span id="messenger-badge"
-                              class="hidden bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+                            class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full notification-blink">
                         </span>
                     </span>
                     <span id="messenger-main-arrow" class="text-gray-400 text-xs">▲</span>
@@ -202,13 +205,117 @@
             globalSource: null,
         };
 
+        const notificationState = {
+            privateMessages: 0,
+            friendRequests: 0,
+            userMenuNotifications: 0,
+            groupMessages: JSON.parse(localStorage.getItem('hf-group-notifications') || '{}'),
+        };
+
+        function groupNotificationCount() {
+            return Object.values(notificationState.groupMessages).reduce((total, count) => total + count, 0);
+        }
+
+        function saveGroupNotifications() {
+            localStorage.setItem('hf-group-notifications', JSON.stringify(notificationState.groupMessages));
+        }
+
+        function renderNotifications() {
+            const privateBadge = document.getElementById('message-menu-badge');
+            const friendBadge = document.getElementById('friend-notification-badge');
+            const groupBadge = document.getElementById('group-notification-badge');
+            const messengerBadge = document.getElementById('messenger-badge');
+            const userMenuBadge = document.getElementById('user-menu-notification-badge');
+            const total = notificationState.privateMessages;
+            const groupTotal = groupNotificationCount();
+
+            [[privateBadge, notificationState.privateMessages], [friendBadge, notificationState.friendRequests], [groupBadge, groupTotal]].forEach(([badge, count]) => {
+                if (!badge) return;
+                badge.textContent = '';
+                badge.classList.toggle('hidden', count === 0);
+            });
+
+            if (messengerBadge) {
+                messengerBadge.textContent = '';
+                messengerBadge.classList.toggle('hidden', total === 0);
+            }
+
+            if (userMenuBadge) {
+                userMenuBadge.textContent = '';
+                userMenuBadge.classList.toggle('hidden', notificationState.userMenuNotifications === 0);
+            }
+        }
+
+        function notifyUserMenu(count = 1) {
+            notificationState.userMenuNotifications += count;
+            renderNotifications();
+        }
+
+        window.clearUserMenuNotifications = function() {
+            notificationState.userMenuNotifications = 0;
+            renderNotifications();
+        };
+
+        window.clearPrivateNotifications = function() {
+            notificationState.privateMessages = 0;
+            renderNotifications();
+        };
+
+        window.clearFriendNotifications = function() {
+            notificationState.friendRequests = 0;
+            renderNotifications();
+        };
+
+        window.clearGroupNotifications = function() {
+            notificationState.groupMessages = {};
+            saveGroupNotifications();
+            renderNotifications();
+        };
+
+        window.clearGroupNotification = function(slug) {
+            if (!slug || !notificationState.groupMessages[slug]) return;
+            delete notificationState.groupMessages[slug];
+            saveGroupNotifications();
+            renderNotifications();
+        };
+
         // ─── Init Pusher global ────────────────────────────────
         // S'abonne à toutes les conversations existantes pour recevoir
         // les notifications même sans ouvrir le messenger
             function initGlobalPusher() {
+                if (window.activeGroupSlug) {
+                    clearGroupNotification(window.activeGroupSlug);
+                }
+
             const pusher = new Pusher('{{ pusher_key }}', {
                 cluster: '{{ pusher_cluster }}'
             });
+
+            const userChannel = pusher.subscribe('user-{{ app.user.id }}');
+            userChannel.bind('friend-request', function() {
+                notificationState.friendRequests++;
+                notifyUserMenu();
+            });
+            userChannel.bind('group-message', function(data) {
+                if (!data.slug || window.activeGroupSlug === data.slug) return;
+                notificationState.groupMessages[data.slug] = (notificationState.groupMessages[data.slug] || 0) + 1;
+                saveGroupNotifications();
+                renderNotifications();
+            });
+
+            fetch('/messages/ajax/notification-context')
+                .then(r => r.json())
+                .then(context => {
+                    const unreadMessages = context.unreadMessages || 0;
+                    const pendingFriendships = context.pendingFriendships || 0;
+                    notificationState.privateMessages = Math.max(notificationState.privateMessages, unreadMessages);
+                    notificationState.friendRequests = Math.max(notificationState.friendRequests, pendingFriendships);
+                    notificationState.userMenuNotifications = Math.max(
+                        notificationState.userMenuNotifications,
+                        unreadMessages + pendingFriendships
+                    );
+                    renderNotifications();
+                });
 
             fetch('/messages/ajax/conversation-ids')
                 .then(r => r.json())
@@ -224,26 +331,22 @@
 
                             const conv = state.openConvs.find(c => c.convId === data.conversationId);
 
-                            if (conv) {
-                                // Conversation ouverte et dépliée → ajouter sans notification
+                            if (conv && conv.open) {
+                                // Une conversation dépliée garde sa notification sur son onglet.
+                                conv.unread = (conv.unread || 0) + 1;
+                                data.isCurrentUser = false;
+                                conv.messages.push(data);
+                                renderTabs();
                                 if (conv.open) {
-                                    data.isCurrentUser = false;
-                                    conv.messages.push(data);
-                                    renderTabs();
                                     setTimeout(() => {
                                         const chatEl = document.getElementById(`chat-${conv.username}`);
                                         if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
                                     }, 50);
-                                } else {
-                                    // Conversation ouverte mais repliée → badge sur l'onglet
-                                    conv.unread = (conv.unread || 0) + 1;
-                                    data.isCurrentUser = false;
-                                    conv.messages.push(data);
-                                    renderTabs();
                                 }
                             } else {
-                                // Conversation pas ouverte → badge sur l'onglet principal
-                                updateMainBadge(1);
+                                // Conversation fermée ou absente → badge sur l'onglet principal.
+                                notificationState.privateMessages++;
+                                notifyUserMenu();
                             }
                         });
                     });
@@ -251,25 +354,8 @@
         }
 
         // ─── Badge onglet principal ────────────────────────────
-        function updateMainBadge(delta) {
-            const badge = document.getElementById('messenger-badge');
-            if (!badge) return;
-            const current = parseInt(badge.textContent) || 0;
-            const newCount = Math.max(0, current + delta);
-            if (newCount > 0) {
-                badge.textContent = newCount;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-
         function resetMainBadge() {
-            const badge = document.getElementById('messenger-badge');
-            if (badge) {
-                badge.textContent = '';
-                badge.classList.add('hidden');
-            }
+            clearPrivateNotifications();
         }
 
         // ─── Toggle onglet principal ───────────────────────────
@@ -316,22 +402,13 @@
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
                                 ${conv.unread > 0
-                                    ? `<span class="bg-red-500 text-white text-xs rounded-full px-1.5">${conv.unread}</span>`
+                                    ? '<span class="notification-dot w-2 h-2 bg-red-500 rounded-full"></span>'
                                     : ''
                                 }
                             </div>
                         </div>
                     `).join('');
 
-                    // Recalculer le badge global
-                    const totalUnread = data.reduce((sum, c) => sum + c.unread, 0);
-                    const badge = document.getElementById('messenger-badge');
-                    if (totalUnread > 0) {
-                        badge.textContent = totalUnread;
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
-                    }
                 });
         }
 
@@ -512,7 +589,7 @@
                     : '<div class="text-gray-500 text-xs text-center py-4">Chargement...</div>';
 
                 const unreadBadge = conv.unread > 0
-                    ? `<span class="w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">${conv.unread}</span>`
+                    ? '<span class="w-2 h-2 bg-red-500 rounded-full"></span>'
                     : '';
 
                 return `

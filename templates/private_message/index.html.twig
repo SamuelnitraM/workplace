@@ -15,6 +15,7 @@
         <div class="space-y-3">
             {% for conversation in conversations %}
                 {% set other = conversation.participant1 == app.user ? conversation.participant2 : conversation.participant1 %}
+                {% set unread = conversation.messages|filter(message => message.author != app.user and not message.isRead)|length %}
                 <a href="{{ path('app_message_show', {username: other.username}) }}"
                    class="flex items-center gap-4 bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-indigo-500 transition">
                     <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold shrink-0">
@@ -26,7 +27,12 @@
                         {% endif %}
                     </div>
                     <div class="flex-1">
-                        <div class="font-semibold text-white">{{ other.username }}</div>
+                        <div class="flex items-center gap-2">
+                            <div class="font-semibold text-white">{{ other.username }}</div>
+                            {% if unread > 0 %}
+                                <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                            {% endif %}
+                        </div>
                         {% if conversation.messages|last %}
                             <div class="text-gray-400 text-sm truncate">
                                 {{ conversation.messages|last.content|slice(0, 50) }}
