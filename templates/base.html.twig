@@ -36,7 +36,7 @@
 
                 <a href="{{ path('app_group_index') }}" class="relative text-gray-300 hover:text-white transition text-sm py-2">
                     👥 Groupes
-                    <span id="group-notification-badge" class="notification-dot hidden ml-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                    <span id="group-notification-badge" class="hidden ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 notification-blink"></span>
                 </a>
 
                 {% if is_granted('ROLE_ADMIN') %}
@@ -70,8 +70,8 @@
                             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
-                                <span id="user-menu-notification-badge"
-                                    class="notification-dot hidden absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            <span id="user-menu-notification-badge"
+                                  class="hidden absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red-500 rounded-full text-white text-[10px] leading-4 text-center notification-blink"></span>
                         </button>
 
                         <div x-show="open"
@@ -79,6 +79,15 @@
                              x-transition
                              class="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50">
                             <div class="py-2">
+                                <div class="px-4 pb-3 mb-1 border-b border-gray-700">
+                                    <div class="flex items-center justify-between text-xs mb-1">
+                                        <span class="text-indigo-300 font-semibold">Niveau {{ app.user.level }}</span>
+                                        <span class="text-gray-500">{{ app.user.experience }} XP</span>
+                                    </div>
+                                    <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden" title="Progression vers le niveau suivant">
+                                        <div class="h-full bg-indigo-500" style="width: {{ app.user.experienceProgress }}%"></div>
+                                    </div>
+                                </div>
                                 <a href="{{ path('app_profil_show', {username: app.user.username}) }}"
                                    class="flex items-center justify-between px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">
                                     <span>👤 Mon profil</span>
@@ -90,8 +99,8 @@
                                 </a>
                                 <a href="{{ path('app_todo_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">📋 Todo liste</a>
                                 <a href="{{ path('app_army_index') }}" class="flex items-center gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm">⚔️ Listes d'armées</a>
-                                <a href="{{ path('app_friendship_list') }}" onclick="clearFriendNotifications()" class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm"> <span>👥 Mes amis</span><span id="friend-notification-badge" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></a>
-                                <a href="{{ path('app_message_index') }}" class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm"> <span>✉️ Messages</span><span id="message-menu-badge" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></a>
+                                <a href="{{ path('app_friendship_list') }}" onclick="clearFriendNotifications()" class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm"> <span>👥 Mes amis</span><span id="friend-notification-badge" class="hidden bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 notification-blink"></span></a>
+                                <a href="{{ path('app_message_index') }}" onclick="clearPrivateNotifications()" class="flex items-center justify-between gap-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 transition text-sm"> <span>✉️ Messages</span><span id="message-menu-badge" class="hidden bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 notification-blink"></span></a>
                                 <div class="border-t border-gray-700 my-1"></div>
                                 <a href="{{ path('app_logout') }}" class="flex items-center gap-3 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-gray-700 transition text-sm">🚪 Déconnexion</a>
                             </div>
@@ -178,7 +187,7 @@
                     <span class="font-semibold text-white text-sm flex items-center gap-2">
                         💬 Messages
                         <span id="messenger-badge"
-                            class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full notification-blink">
+                            class="hidden bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 notification-blink">
                         </span>
                     </span>
                     <span id="messenger-main-arrow" class="text-gray-400 text-xs">▲</span>
@@ -226,22 +235,24 @@
             const groupBadge = document.getElementById('group-notification-badge');
             const messengerBadge = document.getElementById('messenger-badge');
             const userMenuBadge = document.getElementById('user-menu-notification-badge');
-            const total = notificationState.privateMessages;
+            const total = notificationState.privateMessages + notificationState.friendRequests;
             const groupTotal = groupNotificationCount();
 
             [[privateBadge, notificationState.privateMessages], [friendBadge, notificationState.friendRequests], [groupBadge, groupTotal]].forEach(([badge, count]) => {
                 if (!badge) return;
-                badge.textContent = '';
+                badge.textContent = count > 0 ? count : '';
                 badge.classList.toggle('hidden', count === 0);
             });
 
             if (messengerBadge) {
-                messengerBadge.textContent = '';
+                messengerBadge.textContent = total > 0 ? total : '';
                 messengerBadge.classList.toggle('hidden', total === 0);
             }
 
             if (userMenuBadge) {
-                userMenuBadge.textContent = '';
+                userMenuBadge.textContent = notificationState.userMenuNotifications > 0
+                    ? notificationState.userMenuNotifications
+                    : '';
                 userMenuBadge.classList.toggle('hidden', notificationState.userMenuNotifications === 0);
             }
         }
@@ -402,7 +413,7 @@
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
                                 ${conv.unread > 0
-                                    ? '<span class="notification-dot w-2 h-2 bg-red-500 rounded-full"></span>'
+                                    ? `<span class="bg-red-500 text-white text-xs rounded-full px-1.5">${conv.unread}</span>`
                                     : ''
                                 }
                             </div>
@@ -589,7 +600,7 @@
                     : '<div class="text-gray-500 text-xs text-center py-4">Chargement...</div>';
 
                 const unreadBadge = conv.unread > 0
-                    ? '<span class="w-2 h-2 bg-red-500 rounded-full"></span>'
+                    ? `<span class="w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">${conv.unread}</span>`
                     : '';
 
                 return `

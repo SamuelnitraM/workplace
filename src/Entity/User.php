@@ -56,6 +56,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $showActivity = true;
 
+    #[ORM\Column]
+    private int $experience = 0;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $lastDailyLoginAt = null;
+
+    #[ORM\Column]
+    private int $loginStreak = 0;
+
+    #[ORM\Column]
+    private bool $profileBonusAwarded = false;
+
     /**
      * @var Collection<int, Thread>
      */
@@ -345,6 +357,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
+    public function getExperience(): int { return $this->experience; }
+    public function addExperience(int $amount): static { $this->experience += max(0, $amount); return $this; }
+    public function getLevel(): int
+    {
+        $level = 1;
+        for ($candidate = 2; $candidate <= 50; $candidate++) {
+            if ($this->getExperienceForLevel($candidate) > $this->experience) break;
+            $level = $candidate;
+        }
+        return $level;
+    }
+    public function getExperienceForLevel(int $level): int { return $level <= 1 ? 0 : (int) round(100 * (($level - 1) ** 1.5)); }
+    public function getExperienceProgress(): int
+    {
+        if ($this->getLevel() >= 50) return 100;
+        $current = $this->getExperienceForLevel($this->getLevel());
+        $next = $this->getExperienceForLevel($this->getLevel() + 1);
+        return (int) min(100, floor(($this->experience - $current) / max(1, $next - $current) * 100));
+    }
+    public function getLastDailyLoginAt(): ?\DateTimeImmutable { return $this->lastDailyLoginAt; }
+    public function setLastDailyLoginAt(?\DateTimeImmutable $value): static { $this->lastDailyLoginAt = $value; return $this; }
+    public function getLoginStreak(): int { return $this->loginStreak; }
+    public function setLoginStreak(int $value): static { $this->loginStreak = max(0, $value); return $this; }
+    public function isProfileBonusAwarded(): bool { return $this->profileBonusAwarded; }
+    public function setProfileBonusAwarded(bool $value): static { $this->profileBonusAwarded = $value; return $this; }
 
     public function getGalleryPhotos(): Collection
     {

@@ -21,6 +21,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use App\Service\GamificationService;
 
 #[Route('/profil', name: 'app_profil_')]
 class ProfilController extends AbstractController
@@ -34,7 +35,8 @@ public function show(
     FriendshipRepository $friendshipRepository,
     GroupRepository $groupRepository,
     GroupMemberRepository $groupMemberRepository,
-    GalleryPhotoRepository $galleryPhotoRepository
+    GalleryPhotoRepository $galleryPhotoRepository,
+    GamificationService $gamification
 ): Response {
     $user = $userRepository->findOneBy(['username' => $username]);
 
@@ -121,6 +123,7 @@ public function show(
         'galleryPhotos' => $galleryPhotos,
         'friends' => $friends,
         'activities' => $activities,
+        'profileBadges' => $gamification->getProfileBadges($user),
     ]);
 }
 
