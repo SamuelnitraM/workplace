@@ -3,7 +3,7 @@
 {% block title %}Profil — {{ user.username }}{% endblock %}
 
 {% block body %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-5xl mx-auto">
 
     {# CARTE PROFIL #}
     <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 mb-6">
@@ -22,7 +22,9 @@
             {# INFOS #}
             <div>
                 <h1 class="text-2xl font-bold text-white">{{ user.username }}</h1>
-                <p class="text-gray-400">{{ user.email }}</p>
+                {% if user.favoriteFaction %}
+                    <p class="text-indigo-400">⚔️ {{ user.favoriteFaction }}</p>
+                {% endif %}
                 <p class="text-gray-500 text-sm mt-1">
                     Membre depuis le {{ user.createdAt|date('d/m/Y') }}
                 </p>
@@ -194,6 +196,207 @@
 </div>
         </div>
     </div>
+
+    <nav id="profile-tabs" class="flex justify-center gap-2 border-b border-gray-700 mb-6" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-tab="gallery" class="profile-tab px-4 py-3 border-b-2 border-indigo-500 text-white text-sm cursor-pointer">📷 Galerie</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="armies" class="profile-tab px-4 py-3 border-b-2 border-transparent text-gray-400 text-sm cursor-pointer">⚔️ Armées publiques</button>
+        {% if user.showActivity %}<button type="button" role="tab" aria-selected="false" data-tab="activity" class="profile-tab px-4 py-3 border-b-2 border-transparent text-gray-400 text-sm cursor-pointer">◷ Activité récente</button>{% endif %}
+    </nav>
+
+    <section data-panel="gallery">
+        <div class="grid grid-cols-4 md:grid-cols-6 gap-3">
+            {% if isOwner %}
+                <form method="post" enctype="multipart/form-data" action="{{ path('app_profil_gallery_upload', {username: user.username}) }}" class="profile-upload-zone relative aspect-square overflow-hidden bg-gray-800 border border-gray-700 rounded-xl text-center" data-upload-zone data-upload-locked="{{ galleryPhotos|length >= 10 ? 'true' : 'false' }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('gallery_upload') }}">
+                    <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" required class="sr-only" data-upload-input {% if galleryPhotos|length >= 10 %}disabled{% endif %}>
+                    <label for="profile-photo-upload" class="absolute inset-0 z-10 flex {% if galleryPhotos|length < 10 %}cursor-pointer{% else %}pointer-events-none{% endif %} flex-col items-center justify-center p-3 text-sm text-gray-300" data-upload-label>
+                        <span class="relative z-10 rounded-lg bg-gray-900/75 px-3 py-2">{% if galleryPhotos|length >= 10 %}Limite de 10 photos atteinte{% else %}＋ Ajouter une photo{% endif %}</span>
+                    </label>
+                    <button type="submit" class="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 {% if galleryPhotos|length >= 10 %}hidden{% endif %} bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm">Publier</button>
+                    <div class="absolute inset-0 bg-cover bg-center opacity-0 transition-opacity" data-upload-preview></div>
+                </form>
+            {% endif %}
+            {% for photo in galleryPhotos %}
+                <div class="gallery-photo group relative aspect-square overflow-hidden rounded-lg" data-photo-id="{{ photo.id }}">
+                    <button type="button" class="gallery-select absolute left-2 top-2 z-10 hidden h-7 w-7 items-center justify-center rounded-full border-2 border-white/80 bg-gray-900/70 text-white shadow hover:bg-red-600" aria-label="Sélectionner la photo">✓</button>
+                    {% if isOwner %}
+                        <form method="post" action="{{ path('app_profil_gallery_visibility', {username: user.username, id: photo.id}) }}" class="absolute right-2 top-2 z-20 opacity-0 transition-opacity group-hover:opacity-100">
+                            <input type="hidden" name="_token" value="{{ csrf_token('gallery_visibility_' ~ photo.id) }}">
+                            <button type="submit" class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white/80 bg-gray-900/70 text-white shadow hover:bg-gray-700" aria-label="{{ photo.isVisible ? 'Masquer la photo' : 'Rendre la photo visible' }}">
+                                {% if photo.isVisible %}
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+                                {% else %}
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m3 3 18 18M10.584 10.587a2 2 0 0 0 2.829 2.829M9.88 5.09A10.94 10.94 0 0 1 12 5c4.477 0 8.268 2.943 9.542 7a10.98 10.98 0 0 1-4.132 5.411M6.228 6.228C4.441 7.46 3.14 9.5 2.458 12c.605 1.927 1.651 3.614 3.04 4.94"/></svg>
+                                {% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
+                    <button type="button" class="h-full w-full cursor-zoom-in" data-gallery-image="{{ asset('uploads/gallery/' ~ photo.filename) }}" aria-label="Ouvrir la photo en grand">
+                        <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}" alt="Photo de {{ user.username }}" class="h-full w-full object-cover {% if isOwner and not photo.isVisible %}blur-sm transition duration-200 hover:blur-none{% endif %}">
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+        {% if isOwner and galleryPhotos|length >= 10 %}<p class="mt-3 text-center text-sm text-gray-500">Limite de 10 photos atteinte.</p>{% endif %}
+        {% if not isOwner and galleryPhotos is empty %}<div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-500">Aucune photo dans la galerie.</div>{% endif %}
+        {% if isOwner %}
+            <form id="gallery-delete-form" method="post" action="{{ path('app_profil_gallery_delete', {username: user.username}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('gallery_delete') }}">
+            </form>
+        {% endif %}
+    </section>
+
+    <div id="gallery-lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 p-6" role="dialog" aria-modal="true" aria-label="Photo agrandie">
+        <button type="button" class="absolute right-5 top-4 text-4xl text-white" data-lightbox-close aria-label="Fermer">&times;</button>
+        <img src="" alt="Photo agrandie" class="max-h-[90vh] max-w-[90vw] object-contain" data-lightbox-image>
+    </div>
+
+    <section data-panel="armies" hidden>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% if isOwner %}<a href="{{ path('app_army_new') }}" class="bg-indigo-600/20 border border-indigo-500 rounded-xl p-5 hover:bg-indigo-600/30 transition flex items-center justify-center text-center min-h-36"><span class="text-indigo-300 font-semibold">＋ Créer une armée</span></a>{% endif %}
+            {% for list in publicArmyLists %}<a href="{{ path('app_army_show', {id: list.id}) }}" class="bg-gray-800 rounded-xl border border-gray-700 p-5 hover:border-indigo-500 transition block"><div class="flex justify-between items-start gap-3 mb-3"><h3 class="font-bold text-white text-lg">{{ list.name }}</h3><span class="text-xs px-2 py-1 rounded bg-green-700 text-green-300">🌍 Public</span></div><p class="text-indigo-400 text-sm font-semibold">{{ list.faction }}</p><p class="text-gray-500 text-sm mt-2">{{ list.units|length }} unité(s) — <span class="text-yellow-400 font-semibold">{{ list.totalPoints }} pts</span></p></a>{% endfor %}
+        </div>
+        {% if not isOwner and publicArmyLists is empty %}<div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-500">Aucune liste d'armée publique.</div>{% endif %}
+    </section>
+
+    {% if user.showActivity %}<section data-panel="activity" hidden>
+        <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700">
+            {% if activities is empty %}<p class="p-6 text-center text-gray-500">Pas d'activité récente.</p>{% endif %}
+            {% for activity in activities %}<div class="p-4 flex justify-between gap-4 text-sm"><span class="text-gray-300">{{ user.username }} {{ activity.label }} <span class="text-white">{% if activity.subject %}« {{ activity.subject }} »{% else %}une photo{% endif %}</span></span><time class="text-gray-500 whitespace-nowrap">{{ activity.time }}</time></div>{% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <script>
+        document.querySelectorAll('[data-upload-zone]').forEach(function (zone) {
+            var input = zone.querySelector('[data-upload-input]');
+            var preview = zone.querySelector('[data-upload-preview]');
+            var label = zone.querySelector('[data-upload-label]');
+
+            label.setAttribute('for', input.id = 'profile-photo-upload-' + Math.random().toString(36).slice(2));
+
+            function showPreview(file) {
+                if (!file || !file.type.startsWith('image/')) return;
+                var reader = new FileReader();
+                reader.onload = function (event) {
+                    preview.style.backgroundImage = 'url("' + event.target.result + '")';
+                    preview.classList.remove('opacity-0');
+                    label.querySelector('span').textContent = file.name;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            input.addEventListener('change', function () { showPreview(input.files[0]); });
+            zone.addEventListener('dragover', function (event) {
+                if (zone.dataset.uploadLocked === 'true') return;
+                event.preventDefault();
+                zone.classList.add('border-indigo-500');
+            });
+            zone.addEventListener('dragleave', function () { zone.classList.remove('border-indigo-500'); });
+            zone.addEventListener('drop', function (event) {
+                if (zone.dataset.uploadLocked === 'true') return;
+                event.preventDefault();
+                zone.classList.remove('border-indigo-500');
+                if (event.dataTransfer.files.length) {
+                    input.files = event.dataTransfer.files;
+                    showPreview(input.files[0]);
+                }
+            });
+        });
+
+        var selectedPhotos = new Set();
+        var deleteForm = document.getElementById('gallery-delete-form');
+        var uploadZone = document.querySelector('[data-upload-zone]');
+        var uploadLabel = uploadZone && uploadZone.querySelector('[data-upload-label]');
+        var uploadPreview = uploadZone && uploadZone.querySelector('[data-upload-preview]');
+        var uploadSubmit = uploadZone && uploadZone.querySelector('button[type="submit"]');
+
+        document.querySelectorAll('.gallery-photo').forEach(function (photo) {
+            var selector = photo.querySelector('.gallery-select');
+            var imageButton = photo.querySelector('[data-gallery-image]');
+            {% if isOwner %}
+            photo.addEventListener('mouseenter', function () { selector.classList.remove('hidden'); selector.classList.add('flex'); });
+            photo.addEventListener('mouseleave', function () { if (!selectedPhotos.has(photo.dataset.photoId)) selector.classList.add('hidden'); });
+            selector.addEventListener('click', function (event) {
+                event.stopPropagation();
+                var id = photo.dataset.photoId;
+                if (selectedPhotos.has(id)) {
+                    selectedPhotos.delete(id);
+                    photo.classList.remove('ring-4', 'ring-red-500');
+                    selector.classList.add('hidden');
+                    selector.classList.remove('flex');
+                } else {
+                    selectedPhotos.add(id);
+                    photo.classList.add('ring-4', 'ring-red-500');
+                    selector.classList.remove('hidden');
+                }
+                updateDeleteMode();
+            });
+            {% endif %}
+            imageButton.addEventListener('click', function () {
+                if (selectedPhotos.size > 0) return;
+                var lightbox = document.getElementById('gallery-lightbox');
+                lightbox.querySelector('[data-lightbox-image]').src = imageButton.dataset.galleryImage;
+                lightbox.classList.remove('hidden');
+                lightbox.classList.add('flex');
+            });
+        });
+
+        function updateDeleteMode() {
+            if (!uploadZone) return;
+            var hasSelection = selectedPhotos.size > 0;
+            uploadZone.classList.toggle('bg-red-700', hasSelection);
+            uploadZone.classList.toggle('border-red-400', hasSelection);
+            uploadZone.classList.toggle('bg-gray-800', !hasSelection);
+            var uploadLocked = uploadZone.dataset.uploadLocked === 'true';
+            uploadLabel.classList.toggle('pointer-events-none', hasSelection || uploadLocked);
+            uploadZone.querySelector('[data-upload-label] span').textContent = hasSelection ? '' : (uploadLocked ? 'Limite de 10 photos atteinte' : '＋ Ajouter une photo');
+            uploadSubmit.textContent = hasSelection ? 'Supprimer' : 'Publier';
+            uploadSubmit.classList.toggle('bg-red-600', hasSelection);
+            uploadSubmit.classList.toggle('hover:bg-red-700', hasSelection);
+            uploadSubmit.classList.toggle('bg-indigo-600', !hasSelection);
+            uploadSubmit.classList.toggle('hover:bg-indigo-700', !hasSelection);
+            uploadSubmit.classList.toggle('hidden', !hasSelection && uploadLocked);
+            uploadSubmit.classList.toggle('bottom-3', !hasSelection);
+            uploadSubmit.classList.toggle('top-1/2', hasSelection);
+            uploadSubmit.classList.toggle('-translate-y-1/2', hasSelection);
+            if (hasSelection) {
+                uploadSubmit.setAttribute('form', 'gallery-delete-form');
+            } else {
+                uploadSubmit.removeAttribute('form');
+            }
+            uploadSubmit.type = 'submit';
+            uploadSubmit.onclick = hasSelection ? function () {
+                deleteForm.querySelectorAll('input[name="photo_ids[]"]').forEach(function (input) { input.remove(); });
+                selectedPhotos.forEach(function (id) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = 'photo_ids[]'; input.value = id;
+                    deleteForm.appendChild(input);
+                });
+            } : null;
+        }
+
+        var lightbox = document.getElementById('gallery-lightbox');
+        if (lightbox) {
+            lightbox.addEventListener('click', function (event) { if (event.target === lightbox || event.target.closest('[data-lightbox-close]')) { lightbox.classList.add('hidden'); lightbox.classList.remove('flex'); } });
+        }
+
+        document.querySelectorAll('#profile-tabs .profile-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                document.querySelectorAll('#profile-tabs .profile-tab').forEach(function (item) {
+                    var selected = item === tab;
+                    item.setAttribute('aria-selected', selected ? 'true' : 'false');
+                    item.classList.toggle('border-indigo-500', selected);
+                    item.classList.toggle('text-white', selected);
+                    item.classList.toggle('border-transparent', !selected);
+                    item.classList.toggle('text-gray-400', !selected);
+                });
+                document.querySelectorAll('[data-panel]').forEach(function (panel) {
+                    panel.hidden = panel.dataset.panel !== tab.dataset.tab;
+                });
+            });
+        });
+    </script>
 
 </div>
 {% endblock %}

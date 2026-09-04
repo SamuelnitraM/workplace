@@ -50,6 +50,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $bio = null;
 
+    #[ORM\Column(length: 155, nullable: true)]
+    private ?string $favoriteFaction = null;
+
+    #[ORM\Column]
+    private bool $showActivity = true;
+
     /**
      * @var Collection<int, Thread>
      */
@@ -139,6 +145,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\OneToMany(targetEntity: ArmyList::class, mappedBy: 'owner')]
     private Collection $armyLists;
+
+    #[ORM\OneToMany(targetEntity: GalleryPhoto::class, mappedBy: 'owner', orphanRemoval: true)]
+    private Collection $galleryPhotos;
 
     public function __toString(): string
     {
@@ -269,6 +278,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->conversationAsParticipant2 = new ArrayCollection();
         $this->privateMessages = new ArrayCollection();
         $this->armyLists = new ArrayCollection();
+        $this->galleryPhotos = new ArrayCollection();
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable
@@ -305,6 +315,40 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->bio = $bio;
 
         return $this;
+    }
+
+    public function getFavoriteFaction(): ?string
+    {
+        return $this->favoriteFaction;
+    }
+
+    public function setFavoriteFaction(?string $favoriteFaction): static
+    {
+        $this->favoriteFaction = $favoriteFaction;
+
+        return $this;
+    }
+
+    public function getShowActivity(): bool
+    {
+        return $this->showActivity;
+    }
+
+    public function isShowActivity(): bool
+    {
+        return $this->showActivity;
+    }
+
+    public function setShowActivity(bool $showActivity): static
+    {
+        $this->showActivity = $showActivity;
+
+        return $this;
+    }
+
+    public function getGalleryPhotos(): Collection
+    {
+        return $this->galleryPhotos;
     }
 
     /**

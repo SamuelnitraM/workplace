@@ -5,6 +5,7 @@ namespace App\Form;
 use App\Entity\User;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -32,6 +33,25 @@ class UserProfileFormType extends AbstractType
                     'placeholder' => 'Parlez-nous de vous...',
                     'rows' => 4
                 ],
+            ])
+            ->add('favoriteFaction', ChoiceType::class, [
+                'label' => 'Faction favorite', 'required' => false,
+                'placeholder' => '-- Choisir une faction --',
+                'choices' => [
+                    'Space marines' => ['Space Marines' => 'Space Marines', 'Blood Angels' => 'Blood Angels', 'Dark Angels' => 'Dark Angels', 'Space Wolves' => 'Space Wolves', 'Grey Knights' => 'Grey Knights', 'Deathwatch' => 'Deathwatch'],
+                    'Imperium' => ['Adeptus Custodes' => 'Adeptus Custodes', 'Sisters of Battle' => 'Sisters of Battle', 'Astra Militarum' => 'Astra Militarum', 'Adeptus Mechanicus' => 'Adeptus Mechanicus', 'Imperial Knights' => 'Imperial Knights'],
+                    'Chaos' => ['Chaos Space Marines' => 'Chaos Space Marines', 'Death Guard' => 'Death Guard', 'Thousand Sons' => 'Thousand Sons', 'World Eaters' => 'World Eaters', "Emperor's Children" => "Emperor's Children", 'Chaos Knights' => 'Chaos Knights', 'Daemons' => 'Daemons'],
+                    'Xenos' => ['Orks' => 'Orks', 'Eldar' => 'Eldar', 'Drukhari' => 'Drukhari', 'Tyranids' => 'Tyranids', 'Genestealer Cults' => 'Genestealer Cults', 'Tau' => 'Tau', 'Necrons' => 'Necrons', 'Leagues of Votann' => 'Leagues of Votann'],
+                ],
+            ])
+            ->add('showActivity', ChoiceType::class, [
+                'label' => 'Afficher mon activité récente sur mon profil',
+                'choices' => [
+                    'Oui' => true,
+                    'Non' => false,
+                ],
+                'expanded' => true,
+                'multiple' => false,
             ])
             ->add('avatarFile', FileType::class, [
                 'label' => 'Photo de profil',

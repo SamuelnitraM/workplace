@@ -16,6 +16,11 @@ class ArmyListRepository extends ServiceEntityRepository
         parent::__construct($registry, ArmyList::class);
     }
 
+    public function findPublicByOwner(object $owner): array
+    {
+        return $this->findBy(['owner' => $owner, 'isPublic' => true], ['createdAt' => 'DESC']);
+    }
+
     //    /**
     //     * @return ArmyList[] Returns an array of ArmyList objects
     //     */

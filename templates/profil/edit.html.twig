@@ -25,6 +25,22 @@
                 </div>
 
                 <div>
+                    {{ form_label(form.favoriteFaction, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
+                    {{ form_widget(form.favoriteFaction, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500'}}) }}
+                    {{ form_errors(form.favoriteFaction) }}
+                </div>
+
+                <div>
+                    {{ form_label(form.showActivity, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-2'}}) }}
+                    <div class="flex gap-5 text-sm text-gray-300">
+                        {% for choice in form.showActivity %}
+                            <label class="inline-flex items-center gap-2">{{ form_widget(choice) }} {{ choice.vars.label }}</label>
+                        {% endfor %}
+                    </div>
+                    {{ form_errors(form.showActivity) }}
+                </div>
+
+                <div>
                     {{ form_label(form.avatarFile, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
                     {% if user.avatar %}
                         <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" 
