@@ -36,13 +36,17 @@ public function show(
     GroupRepository $groupRepository,
     GroupMemberRepository $groupMemberRepository,
     GalleryPhotoRepository $galleryPhotoRepository,
-    GamificationService $gamification
+    GamificationService $gamification,
+    EntityManagerInterface $em
 ): Response {
     $user = $userRepository->findOneBy(['username' => $username]);
 
     if (!$user) {
         throw $this->createNotFoundException('Utilisateur introuvable');
     }
+
+	$gamification->syncLevelBadges($user);
+	$em->flush();
 
     $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();
     $galleryPhotos = $isOwner ? $galleryPhotoRepository->findByOwner($user) : $galleryPhotoRepository->findVisibleByOwner($user);
