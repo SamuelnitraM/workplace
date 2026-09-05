@@ -14,8 +14,10 @@
 
                 <div>
                     {{ form_label(form.username, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
-                    {{ form_widget(form.username, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500'}}) }}
-                    {{ form_errors(form.username) }}
+                    {{ form_widget(form.username, {'attr': {'class': 'w-full bg-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none transition ' ~ (form.username.vars.errors|length > 0 ? 'border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border border-gray-600 focus:border-indigo-500')}}) }}
+                    <div class="mt-2 text-sm text-red-400">
+                        {{ form_errors(form.username) }}
+                    </div>
                 </div>
 
                 <div>

@@ -23,7 +23,11 @@ class UserProfileFormType extends AbstractType
                 'label' => "Nom d'utilisateur",
                 'constraints' => [
                     new NotBlank(message: 'Veuillez entrer un nom d\'utilisateur'),
-                    new Length(min: 3, max: 50),
+                    new Length(
+                        min: 3,
+                        max: 50,
+                        maxMessage: 'Votre pseudo ne peut pas dépasser {{ limit }} caractères',
+                    ),
                 ],
             ])
             ->add('bio', TextareaType::class, [

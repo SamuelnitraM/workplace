@@ -43,12 +43,14 @@
 
                 {{ form_widget(registrationForm.email, {
                     attr: {
-                        class: 'w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition',
+                        class: 'w-full rounded-xl bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition ' ~ (registrationForm.email.vars.errors|length > 0 ? 'border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'),
                         placeholder: 'exemple@email.com'
                     }
                 }) }}
 
-                {{ form_errors(registrationForm.email) }}
+                <div class="mt-2 text-sm text-red-400">
+                    {{ form_errors(registrationForm.email) }}
+                </div>
             </div>
 
             {# USERNAME #}
@@ -61,12 +63,14 @@
 
                 {{ form_widget(registrationForm.username, {
                     attr: {
-                        class: 'w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition',
+                        class: 'w-full rounded-xl bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition ' ~ (registrationForm.username.vars.errors|length > 0 ? 'border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'),
                         placeholder: 'Pseudo'
                     }
                 }) }}
 
-                {{ form_errors(registrationForm.username) }}
+                <div class="mt-2 text-sm text-red-400">
+                    {{ form_errors(registrationForm.username) }}
+                </div>
             </div>
 
             {# MOT DE PASSE #}
