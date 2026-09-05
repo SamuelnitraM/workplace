@@ -19,6 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use App\Service\GamificationService;
 
 #[Route('/forum', name: 'app_thread_')]
 class ThreadController extends AbstractController
@@ -31,7 +32,8 @@ class ThreadController extends AbstractController
         string $type,
         Request $request,
         PostRepository $postRepository,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        GamificationService $gamification
     ): Response {
         if (!in_array($type, [PostVote::TYPE_POSITIVE, PostVote::TYPE_HELPFUL], true)) {
             throw $this->createNotFoundException('Type de vote introuvable');
@@ -73,6 +75,10 @@ class ThreadController extends AbstractController
         }
 
         $em->flush();
+        if (in_array($type, [PostVote::TYPE_POSITIVE, PostVote::TYPE_HELPFUL], true) && $post->getAuthor()) {
+            $gamification->syncAllBadges($post->getAuthor());
+            $em->flush();
+        }
 
         return $this->redirectToRoute('app_thread_show', ['slug' => $slug]);
     }
@@ -84,12 +90,21 @@ class ThreadController extends AbstractController
         EntityManagerInterface $em,
         ThreadRepository $threadRepository,
         PostRepository $postRepository,
-        PaginatorInterface $paginator
+        PaginatorInterface $paginator,
+        GamificationService $gamification
     ): Response {
         $thread = $threadRepository->findOneBy(['slug' => $slug]);
 
         if (!$thread) {
             throw $this->createNotFoundException('Sujet introuvable');
+        }
+
+        if ($this->getUser() && $thread->getCreatedAt() < new \DateTimeImmutable('-1 year')) {
+            /** @var User $visitor */
+            $visitor = $this->getUser();
+            $gamification->recordActivity($visitor, 'archaeologist');
+            $gamification->syncAllBadges($visitor);
+            $em->flush();
         }
 
         $sessionKey = 'viewed_thread_' . $thread->getId();
@@ -127,6 +142,17 @@ class ThreadController extends AbstractController
 
                 $em->persist($post);
                 $em->flush();
+                if ($post->getCreatedAt()?->format('H:i') >= '05:00' && $post->getCreatedAt()?->format('H:i') <= '06:30') {
+                    $gamification->recordActivity($user, 'early_bird');
+                }
+                if ($post->getCreatedAt()?->format('H:i') >= '02:00' && $post->getCreatedAt()?->format('H:i') <= '04:00') {
+                    $gamification->recordActivity($user, 'night_owl');
+                }
+                if ($thread->getCreatedAt() && $thread->getCreatedAt() >= new \DateTimeImmutable('-24 hours') && $postRepository->count(['thread' => $thread]) === 2) {
+                    $gamification->recordActivity($user, 'first_in_class');
+                }
+                $gamification->syncAllBadges($user);
+                $em->flush();
 
                 $this->addFlash('success', 'Réponse ajoutée avec succès !');
                 return $this->redirectToRoute('app_thread_show', ['slug' => $thread->getSlug()]);
@@ -147,7 +173,8 @@ class ThreadController extends AbstractController
         Request $request,
         EntityManagerInterface $em,
         CategoryRepository $categoryRepository,
-        SluggerInterface $slugger
+        SluggerInterface $slugger,
+        GamificationService $gamification
     ): Response {
         $category = $categoryRepository->findOneBy(['slug' => $slug]);
 
@@ -177,6 +204,14 @@ class ThreadController extends AbstractController
 
             $em->persist($thread);
             $em->persist($post);
+            $em->flush();
+            if ($post->getCreatedAt()?->format('H:i') >= '05:00' && $post->getCreatedAt()?->format('H:i') <= '06:30') {
+                $gamification->recordActivity($user, 'early_bird');
+            }
+            if ($post->getCreatedAt()?->format('H:i') >= '02:00' && $post->getCreatedAt()?->format('H:i') <= '04:00') {
+                $gamification->recordActivity($user, 'night_owl');
+            }
+            $gamification->syncAllBadges($user);
             $em->flush();
 
             $this->addFlash('success', 'Sujet créé avec succès !');

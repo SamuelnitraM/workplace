@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ title }} — HighlightForge{% endblock %}
+
+{% block body %}
+<article class="max-w-3xl mx-auto bg-gray-800 border border-gray-700 rounded-xl p-8">
+    <h1 class="text-3xl font-bold text-white mb-8">{{ title }}</h1>
+    <div class="space-y-8 text-gray-300 leading-relaxed">
+        <p>Cette page présente les informations légales et les règles applicables à l’utilisation de HighlightForge.</p>
+        <section><h2 class="text-xl font-semibold text-white mb-3">Informations générales</h2><p>HighlightForge est une plateforme communautaire dédiée aux passionnés de figurines miniatures.</p></section>
+        <section><h2 class="text-xl font-semibold text-white mb-3">Utilisation du site</h2><p>Chaque membre s’engage à respecter les autres utilisateurs et à publier du contenu approprié.</p></section>
+        <section><h2 class="text-xl font-semibold text-white mb-3">Données et responsabilité</h2><p>Les informations publiées par les membres restent sous leur responsabilité. Le site peut modérer les contenus qui contreviennent à ses règles.</p></section>
+        <div class="h-48"></div>
+        <p id="legal-end" class="border-t border-gray-700 pt-6 text-indigo-300">Vous êtes arrivé à la fin de la page.</p>
+    </div>
+</article>
+<script>
+(() => {
+    const end = document.getElementById('legal-end');
+    if (!end) return;
+    new IntersectionObserver((entries) => {
+        if (entries.some(entry => entry.isIntersecting)) {
+            fetch('{{ path('app_gamification_activity', {key: 'legal_bottom'}) }}', {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({_token: '{{ csrf_token('gamification_legal_bottom') }}'})
+            });
+        }
+    }).observe(end);
+})();
+</script>
+{% endblock %}

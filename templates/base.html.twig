@@ -157,7 +157,9 @@
 
     {# FOOTER #}
     <footer class="bg-gray-800 border-t border-gray-700 text-center text-gray-500 text-sm py-4">
-        © {{ "now"|date("Y") }} HighlightForge — Communauté Miniaturiste
+        © {{ "now"|date("Y") }} HighlightForge — Communauté Miniaturiste ·
+        <a href="{{ path('app_legal') }}" class="hover:text-gray-300">Mentions légales</a> ·
+        <a href="{{ path('app_terms') }}" class="hover:text-gray-300">Conditions d’utilisation</a>
     </footer>
 
     {% if app.user %}

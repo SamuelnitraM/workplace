@@ -45,7 +45,7 @@ public function show(
         throw $this->createNotFoundException('Utilisateur introuvable');
     }
 
-	$gamification->syncLevelBadges($user);
+    $gamification->syncAllBadges($user);
 	$em->flush();
 
     $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();

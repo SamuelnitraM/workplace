@@ -15,6 +15,12 @@
             Par <span class="text-gray-400">{{ thread.author.username }}</span>
             le {{ thread.createdAt|date('d/m/Y à H:i') }}
             — {{ thread.views }} vue(s)
+            {% if app.user %}
+                <form method="post" action="{{ path('app_gamification_activity', {key: 'share'}) }}" class="inline-block ml-2">
+                    <input type="hidden" name="_token" value="{{ csrf_token('gamification_share') }}">
+                    <button type="submit" class="text-indigo-400 hover:text-indigo-300">↗ Partager</button>
+                </form>
+            {% endif %}
         </div>
     </div>
 
