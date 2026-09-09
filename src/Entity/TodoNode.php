@@ -38,6 +38,9 @@ class TodoNode
     #[ORM\Column(length: 20)]
     private ?string $type = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $progress = null;
+
     #[ORM\ManyToOne(inversedBy: 'todoNodes')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $owner = null;
@@ -138,6 +141,21 @@ class TodoNode
     public function setType(string $type): static
     {
         $this->type = $type;
+
+        return $this;
+    }
+
+    public function getProgress(): ?int
+    {
+        return $this->progress;
+    }
+
+    public function setProgress(?int $progress): static
+    {
+        if ($progress !== null && ($progress < 0 || $progress > 100)) {
+            throw new \InvalidArgumentException('Progress must be between 0 and 100.');
+        }
+        $this->progress = $progress;
 
         return $this;
     }

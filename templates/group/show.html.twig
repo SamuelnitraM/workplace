@@ -26,7 +26,7 @@
         <div class="flex flex-wrap gap-2 sm:gap-3">
             {% if currentMember %}
                 <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}"
-                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition hidden">
+                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
                     📋 Todo
                 </a>
                 {% if currentMember.role in ['owner', 'admin'] %}

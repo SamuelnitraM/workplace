@@ -254,4 +254,137 @@ class GroupTodoController extends AbstractController
             'assignedTo' => $node->getAssignedTo()?->getUsername() ?? null
         ]);
     }
+
+    // Augmenter la progression d'une tâche
+    #[Route('/progress/up/{id}', name: 'progress_up', methods: ['POST'])]
+    public function progressUp(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupRepository $groupRepository,
+        GroupMemberRepository $groupMemberRepository,
+        TodoNodeRepository $todoNodeRepository,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $node = $todoNodeRepository->find($id);
+        $currentMember = $groupMemberRepository->findOneBy([
+            'user' => $user,
+            'usergroup' => $group,
+        ]);
+
+        if (!$node || $node->getUsergroup() !== $group || !$currentMember) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $currentProgress = $node->getProgress() ?? 0;
+        $newProgress = min(100, $currentProgress + 25);
+        $node->setProgress($newProgress);
+
+        if ($newProgress === 100) {
+            $node->setIsDone(true);
+            $node->setDoneAt(new \DateTimeImmutable());
+        }
+
+        $em->flush();
+
+        return new JsonResponse([
+            'progress' => $newProgress,
+            'isDone' => $node->isDone(),
+            'type' => 'increment'
+        ]);
+    }
+
+    // Réduire la progression d'une tâche
+    #[Route('/progress/down/{id}', name: 'progress_down', methods: ['POST'])]
+    public function progressDown(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupRepository $groupRepository,
+        GroupMemberRepository $groupMemberRepository,
+        TodoNodeRepository $todoNodeRepository,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $node = $todoNodeRepository->find($id);
+        $currentMember = $groupMemberRepository->findOneBy([
+            'user' => $user,
+            'usergroup' => $group,
+        ]);
+
+        if (!$node || $node->getUsergroup() !== $group || !$currentMember) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $currentProgress = $node->getProgress() ?? 0;
+        $newProgress = max(0, $currentProgress - 25);
+        $node->setProgress($newProgress);
+
+        if ($newProgress < 100) {
+            $node->setIsDone(false);
+            $node->setDoneAt(null);
+        }
+
+        $em->flush();
+
+        return new JsonResponse([
+            'progress' => $newProgress,
+            'isDone' => $node->isDone(),
+            'type' => 'decrement'
+        ]);
+    }
+
+    // Valider/compléter une tâche (passer à 100%)
+    #[Route('/progress/validate/{id}', name: 'progress_validate', methods: ['POST'])]
+    public function progressValidate(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupRepository $groupRepository,
+        GroupMemberRepository $groupMemberRepository,
+        TodoNodeRepository $todoNodeRepository,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $node = $todoNodeRepository->find($id);
+        $currentMember = $groupMemberRepository->findOneBy([
+            'user' => $user,
+            'usergroup' => $group,
+        ]);
+
+        if (!$node || $node->getUsergroup() !== $group || !$currentMember) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $node->setProgress(100);
+        $node->setIsDone(true);
+        $node->setDoneAt(new \DateTimeImmutable());
+
+        $em->flush();
+
+        return new JsonResponse([
+            'progress' => 100,
+            'isDone' => true,
+            'type' => 'validate'
+        ]);
+    }
 }

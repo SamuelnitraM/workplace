@@ -54,13 +54,29 @@ class TodoNodeRepository extends ServiceEntityRepository
 //        ;
 //    }
 
-//    public function findOneBySomeField($value): ?TodoNode
-//    {
-//        return $this->createQueryBuilder('t')
-//            ->andWhere('t.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->getQuery()
-//            ->getOneOrNullResult()
-//        ;
-//    }
+    public function findOneBySomeField($value): ?TodoNode
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.exampleField = :val')
+            ->setParameter('val', $value)
+            ->getQuery()
+            ->getOneOrNullResult()
+        ;
+    }
+
+    public function calculateProjectProgress(TodoNode $project): int
+    {
+        if ($project->getType() !== TodoNode::TYPE_LIST) {
+            return 0;
+        }
+
+        $qb = $this->createQueryBuilder('n')
+            ->select('COALESCE(AVG(n.progress), 0) as avgProgress')
+            ->where('n.parent = :parent')
+            ->setParameter('parent', $project);
+
+        $result = $qb->getQuery()->getOneOrNullResult();
+
+        return (int) $result['avgProgress'];
+    }
 }

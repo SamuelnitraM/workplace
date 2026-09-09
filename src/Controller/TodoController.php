@@ -135,4 +135,120 @@ class TodoController extends AbstractController
 
         return new JsonResponse(['title' => $node->getTitle()]);
     }
+
+    // Augmenter la progression d'une tâche
+    #[Route('/progress/up/{id}', name: 'progress_up', methods: ['POST'])]
+    public function progressUp(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $node = $todoNodeRepository->find($id);
+
+        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_ITEM) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $currentProgress = $node->getProgress() ?? 0;
+        $newProgress = min(100, $currentProgress + 25);
+        $node->setProgress($newProgress);
+
+        // Si progression à 100%, cocher la tâche automatiquement
+        if ($newProgress === 100) {
+            $node->setIsDone(true);
+            $node->setDoneAt(new \DateTimeImmutable());
+        }
+
+        $em->flush();
+
+        return new JsonResponse([
+            'progress' => $newProgress,
+            'isDone' => $node->isDone(),
+            'type' => 'increment'
+        ]);
+    }
+
+    // Réduire la progression d'une tâche
+    #[Route('/progress/down/{id}', name: 'progress_down', methods: ['POST'])]
+    public function progressDown(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $node = $todoNodeRepository->find($id);
+
+        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_ITEM) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $currentProgress = $node->getProgress() ?? 0;
+        $newProgress = max(0, $currentProgress - 25);
+        $node->setProgress($newProgress);
+
+        // Si progression < 100%, décocher la tâche
+        if ($newProgress < 100) {
+            $node->setIsDone(false);
+            $node->setDoneAt(null);
+        }
+
+        $em->flush();
+
+        return new JsonResponse([
+            'progress' => $newProgress,
+            'isDone' => $node->isDone(),
+            'type' => 'decrement'
+        ]);
+    }
+
+    // Valider/compléter une tâche (passer à 100%)
+    #[Route('/progress/validate/{id}', name: 'progress_validate', methods: ['POST'])]
+    public function progressValidate(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $node = $todoNodeRepository->find($id);
+
+        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_ITEM) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $node->setProgress(100);
+        $node->setIsDone(true);
+        $node->setDoneAt(new \DateTimeImmutable());
+
+        $em->flush();
+
+        return new JsonResponse([
+            'progress' => 100,
+            'isDone' => true,
+            'type' => 'validate'
+        ]);
+    }
+
+    // Calculer la progression agrégée d'un projet
+    #[Route('/progress/calculate/{id}', name: 'progress_calculate', methods: ['GET'])]
+    public function progressCalculate(int $id, TodoNodeRepository $todoNodeRepository): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $node = $todoNodeRepository->find($id);
+
+        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_LIST) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $qb = $todoNodeRepository->createQueryBuilder('n')
+            ->select('COALESCE(AVG(n.progress), 0) as avgProgress')
+            ->where('n.parent = :parent')
+            ->andWhere('n.type = :type')
+            ->setParameter('parent', $node)
+            ->setParameter('type', TodoNode::TYPE_ITEM);
+
+        $result = $qb->getQuery()->getOneOrNullResult();
+        $projectProgress = (int) $result['avgProgress'];
+
+        return new JsonResponse([
+            'projectProgress' => $projectProgress,
+            'projectId' => $id,
+            'projectTitle' => $node->getTitle()
+        ]);
+    }
 }
