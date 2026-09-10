@@ -39,4 +39,126 @@
     </div>
 
 </div>
+
+<div class="max-w-7xl mx-auto px-6 py-12 space-y-16">
+    
+    {# Idée 2: Statistiques #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {% for label, value in stats %}
+            <div class="bg-gray-800/50 border border-gray-700 p-6 rounded-2xl text-center transition hover:border-indigo-500/50 group">
+                <p class="text-gray-400 text-sm uppercase tracking-wider mb-1 group-hover:text-indigo-300 transition">{{ label|replace({'users_count': 'Membres', 'threads_count': 'Sujets', 'posts_count': 'Messages'}) }}</p>
+                <p class="text-3xl font-bold text-white">{{ value }}</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    {# Idée 3: Accès rapide catégories #}
+    <section>
+        <h2 class="text-2xl font-bold text-white mb-8 text-center">Explorer les sections</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {% for category in categories %}
+                <a href="{{ path('app_forum_category', {slug: category.slug}) }}" 
+                   class="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition group text-center">
+                    <div class="w-12 h-12 bg-indigo-900/50 rounded-lg mx-auto mb-3 flex items-center justify-center text-2xl group-hover:scale-110 transition">
+                        📂
+                    </div>
+                    <span class="text-white font-medium block">{{ category.name }}</span>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {# Idée 4: Dernières activités (2/3 de la largeur) #}
+        <div class="lg:col-span-2 space-y-6">
+            <h2 class="text-2xl font-bold text-white mb-4">Dernières discussions</h2>
+            <div class="space-y-4">
+                {% for post in latestPosts %}
+                    <div class="relative bg-gray-800/40 border border-gray-700 p-4 rounded-xl flex items-start gap-4 hover:bg-gray-800/60 transition group">
+                        {# Lien invisible couvrant tout le bloc pour rediriger vers le thread #}
+                        <a href="{{ path('app_thread_show', {slug: post.thread.slug}) }}" class="absolute inset-0"></a>
+                        
+                        <div class="flex-shrink-0">
+                            {% if post.author.avatar %}
+                                <a href="{{ path('app_profil_show', {username: post.author.username}) }}">
+                                    <img src="{{ asset('uploads/avatars/' ~ post.author.avatar) }}" class="w-10 h-10 rounded-full object-cover border border-gray-600 hover:opacity-80 transition">
+                                </a>
+                            {% else %}
+                                <a href="{{ path('app_profil_show', {username: post.author.username}) }}">
+                                    <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold hover:opacity-80 transition">
+                                        {{ post.author.username|slice(0,1) }}
+                                    </div>
+                                </a>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <a href="{{ path('app_profil_show', {username: post.author.username}) }}" class="text-indigo-400 font-semibold text-sm hover:underline">
+                                    {{ post.author.username }}
+                                </a>
+                                <span class="text-gray-500 text-xs">• {{ post.createdAt|date('d M Y H:i') }}</span>
+                            </div>
+                            <span class="text-white group-hover:text-indigo-300 transition block font-medium">
+                                {{ post.thread.title }}
+                            </span>
+                            <p class="text-gray-400 text-sm line-clamp-2 mt-1">
+                                {{ post.content|slice(0, 150) }}{% if post.content|length > 150 %}...{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                {% endfor %}
+                {% if latestPosts is empty %}
+                    <p class="text-gray-500 text-center py-8">Aucune activité récente.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Idée 5: Espace personnalisé #}
+        <div class="space-y-6">
+            <h2 class="text-2xl font-bold text-white mb-4">Mon Espace</h2>
+            {% if app.user %}
+                <div class="bg-indigo-900/20 border border-indigo-500/30 p-6 rounded-2xl space-y-6">
+                    <div class="flex items-center gap-4 mb-6">
+                        {% if app.user.avatar %}
+                            <a href="{{ path('app_profil_show', {username: app.user.username}) }}">
+                                <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}" class="w-14 h-14 rounded-full object-cover border-2 border-indigo-500 hover:opacity-80 transition">
+                            </a>
+                        {% else %}
+                            <a href="{{ path('app_profil_show', {username: app.user.username}) }}">
+                                <div class="w-14 h-14 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xl font-bold hover:opacity-80 transition">
+                                    {{ app.user.username|slice(0,1) }}
+                                </div>
+                            </a>
+                        {% endif %}
+                        <div>
+                            <a href="{{ path('app_profil_show', {username: app.user.username}) }}" class="text-white font-bold hover:underline">
+                                {{ app.user.username }}
+                            </a>
+                            <p class="text-indigo-300 text-xs uppercase tracking-wider">Membre</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <p class="text-gray-300 text-sm font-semibold">Mes derniers sujets :</p>
+                        {% for thread in userDashboard.myThreads %}
+                            <a href="{{ path('app_thread_show', {slug: thread.slug}) }}" 
+                               class="block p-3 bg-gray-800/60 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition truncate">
+                                {{ thread.title }}
+                            </a>
+                        {% else %}
+                            <p class="text-gray-500 text-xs">Vous n'avez pas encore créé de sujets.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="bg-gray-800/50 border border-gray-700 p-6 rounded-2xl text-center space-y-4">
+                    <p class="text-gray-400 text-sm">Connectez-vous pour accéder à vos raccourcis personnalisés.</p>
+                    <a href="{{ path('app_login') }}" class="inline-block bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm text-white transition">
+                        Se connecter
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}
