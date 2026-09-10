@@ -43,6 +43,16 @@ class GroupRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    public function searchByName(string $query): array
+    {
+        return $this->createQueryBuilder('g')
+            ->where('g.name LIKE :query')
+            ->setParameter('query', '%' . $query . '%')
+            ->setMaxResults(10)
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return Group[] Returns an array of Group objects
     //     */

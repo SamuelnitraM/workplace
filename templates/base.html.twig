@@ -23,6 +23,95 @@
                 ⚔️ HighlightForge
             </a>
 
+            {# SEARCH BAR #}
+            <div class="relative flex-1 max-w-md mx-4" 
+                 x-data="{ 
+                    query: '', 
+                    results: { users: [], groups: [] }, 
+                    showResults: false,
+                    async fetchResults() {
+                        if (this.query.length < 2) {
+                            this.results = { users: [], groups: [] };
+                            this.showResults = false;
+                            return;
+                        }
+                        try {
+                            const response = await fetch(`/search/api?q=${encodeURIComponent(this.query)}`);
+                            this.results = await response.json();
+                            this.showResults = true;
+                        } catch (e) {
+                            console.error('Search error:', e);
+                        }
+                    }
+                 }" 
+                 @keydown.escape="showResults = false">
+                
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-4 w-4 text-gray-400 group-focus-within:text-indigo-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        x-model="query" 
+                        @input.debounce.300ms="fetchResults()" 
+                        placeholder="Rechercher un utilisateur ou groupe..." 
+                        class="block w-full pl-10 pr-3 py-2 bg-gray-700/50 border border-gray-600 text-gray-200 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition placeholder-gray-400"
+                    >
+                </div>
+
+                {# RESULTS DROPDOWN #}
+                <div x-show="showResults && (results.users.length > 0 || results.groups.length > 0)" 
+                     x-cloak
+                     @click.outside="showResults = false"
+                     x-transition
+                     class="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                    
+                    {# USERS SECTION #}
+                    <template x-if="results.users.length > 0">
+                        <div>
+                            <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-700/30">
+                                Utilisateurs
+                            </div>
+                            <div class="max-h-48 overflow-y-auto">
+                                <template x-for="user in results.users" :key="user.username">
+                                    <a :href="user.url" class="flex items-center gap-3 px-3 py-2 hover:bg-gray-700 transition cursor-pointer">
+                                        <div class="w-6 h-6 rounded-full bg-indigo-600 flex-shrink-0 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                                            <template x-if="user.avatar">
+                                                <img :src="user.avatar" class="w-full h-full object-cover">
+                                            </template>
+                                            <template x-if="!user.avatar">
+                                                <span x-text="user.username[0].toUpperCase()"></span>
+                                            </template>
+                                        </div>
+                                        <span class="text-sm text-gray-200 truncate" x-text="user.username"></span>
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    {# GROUPS SECTION #}
+                    <template x-if="results.groups.length > 0">
+                        <div>
+                            <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-700/30" 
+                                 :class="results.users.length > 0 ? 'border-t border-gray-700' : ''">
+                                Groupes
+                            </div>
+                            <div class="max-h-48 overflow-y-auto">
+                                <template x-for="group in results.groups" :key="group.name">
+                                    <a :href="group.url" class="flex items-center gap-3 px-3 py-2 hover:bg-gray-700 transition cursor-pointer">
+                                        <span class="text-sm opacity-70">👥</span>
+                                        <span class="text-sm text-gray-200 truncate" x-text="group.name"></span>
+                                    </a>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <button @click="menuOpen = !menuOpen" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition" aria-label="Ouvrir le menu" :aria-expanded="menuOpen">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>

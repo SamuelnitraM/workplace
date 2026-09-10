@@ -247,16 +247,10 @@ public function show(
     {
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
-        $formUser = clone $user;
-        $form = $this->createForm(UserProfileFormType::class, $formUser);
+        $form = $this->createForm(UserProfileFormType::class, $user);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $user->setUsername($formUser->getUsername());
-            $user->setBio($formUser->getBio());
-            $user->setFavoriteFaction($formUser->getFavoriteFaction());
-            $user->setShowActivity($formUser->isShowActivity());
-
             $avatarFile = $form->get('avatarFile')->getData();
             if ($avatarFile) {
                 $originalFilename = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
