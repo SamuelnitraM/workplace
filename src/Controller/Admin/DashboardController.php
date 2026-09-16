@@ -59,7 +59,7 @@ class DashboardController extends AbstractDashboardController
     public function configureDashboard(): Dashboard
     {
         return Dashboard::new()
-            ->setTitle('⚔️ HighlightForge Admin')
+            ->setTitle('SprueHub Admin')
             ->setFaviconPath('favicon.ico')
             ->renderContentMaximized();
     }

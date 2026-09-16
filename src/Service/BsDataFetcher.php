@@ -30,7 +30,7 @@ class BsDataFetcher
                 'per_page' => 1,
             ],
             'headers' => [
-                'User-Agent' => 'HighlightForge-ArmyBuilder',
+                'User-Agent' => 'SprueHub-ArmyBuilder',
                 'Accept' => 'application/vnd.github+json',
             ],
         ]);
@@ -51,7 +51,7 @@ class BsDataFetcher
             self::BRANCH,
             rawurlencode($sourceFile)
         ), [
-            'headers' => ['User-Agent' => 'HighlightForge-ArmyBuilder'],
+            'headers' => ['User-Agent' => 'SprueHub-ArmyBuilder'],
         ]);
 
         return $response->toArray(false);

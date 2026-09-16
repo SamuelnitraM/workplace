@@ -238,7 +238,7 @@
             {% if isOwner %}
                 <form method="post" enctype="multipart/form-data" action="{{ path('app_profil_gallery_upload', {username: user.username}) }}" class="profile-upload-zone relative aspect-square overflow-hidden bg-gray-800 border border-gray-700 rounded-xl text-center" data-upload-zone data-upload-locked="{{ galleryPhotos|length >= 10 ? 'true' : 'false' }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('gallery_upload') }}">
-                    <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" required class="sr-only" data-upload-input {% if galleryPhotos|length >= 10 %}disabled{% endif %}>
+                    <input type="file" id="profile-photo-upload" name="photo" accept="image/jpeg,image/png,image/webp" required class="sr-only" data-upload-input {% if galleryPhotos|length >= 10 %}disabled{% endif %}>
                     <label for="profile-photo-upload" class="absolute inset-0 z-10 flex {% if galleryPhotos|length < 10 %}cursor-pointer{% else %}pointer-events-none{% endif %} flex-col items-center justify-center p-3 text-sm text-gray-300" data-upload-label>
                         <span class="relative z-10 rounded-lg bg-gray-900/75 px-3 py-2">{% if galleryPhotos|length >= 10 %}Limite de 10 photos atteinte{% else %}＋ Ajouter une photo{% endif %}</span>
                     </label>

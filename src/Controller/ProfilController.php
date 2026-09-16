@@ -252,6 +252,11 @@ public function show(
 
         if ($form->isSubmitted() && $form->isValid()) {
             $avatarFile = $form->get('avatarFile')->getData();
+            
+            if ($request->request->get('delete_avatar') === '1') {
+                $user->setAvatar(null);
+            }
+
             if ($avatarFile) {
                 $originalFilename = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
                 $safeFilename = $slugger->slug($originalFilename);

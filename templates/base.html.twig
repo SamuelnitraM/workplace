@@ -6,7 +6,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>[x-cloak] { display: none !important; }</style>
-    <title>{% block title %}HighlightForge{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/SprueHub-W-1-min.png') }}">
+    <title>{% block title %}SprueHub{% endblock %}</title>
     {% block stylesheets %}
         {{ encore_entry_link_tags('app') }}
     {% endblock %}
@@ -17,10 +18,10 @@
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
 
     {# NAVBAR #}
-    <nav class="bg-gray-800/95 border-b border-gray-700 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-40 backdrop-blur" x-data="{ menuOpen: false }">
+    <nav class="bg-gray-800/95 border-b border-gray-700 px-4 sm:px-6 py-2 sm:py-2 sticky top-0 z-40 backdrop-blur" x-data="{ menuOpen: false }">
         <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
             <a href="{{ path('app_home') }}" class="text-lg sm:text-xl font-bold text-indigo-400 shrink-0">
-                ⚔️ HighlightForge
+                <img src="{{ asset('images/SprueHub-W-0.png') }}" alt="SprueHub" class="h-12 w-auto">
             </a>
 
             {# SEARCH BAR #}
@@ -120,17 +121,17 @@
 
             <div class="site-nav-links items-center gap-5 order-3 md:order-none w-full md:w-auto" :class="{ 'is-open': menuOpen }">
                 <a href="{{ path('app_forum_index') }}" class="text-gray-300 hover:text-white transition text-sm py-2">
-                    💬 Forum
+                    Forum
                 </a>
 
                 <a href="{{ path('app_group_index') }}" class="relative text-gray-300 hover:text-white transition text-sm py-2">
-                    👥 Groupes
+                    Groupes
                     <span id="group-notification-badge" class="hidden ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 notification-blink"></span>
                 </a>
 
                 {% if is_granted('ROLE_ADMIN') %}
                 <a href="{{ path('admin') }}" class="text-gray-300 hover:text-white transition text-sm py-2">
-                    👥 Admin
+                    Admin
                 </a>
                 {% endif %}
             </div>
@@ -246,7 +247,7 @@
 
     {# FOOTER #}
     <footer class="bg-gray-800 border-t border-gray-700 text-center text-gray-500 text-sm py-4">
-        © {{ "now"|date("Y") }} HighlightForge — Communauté Miniaturiste ·
+        © {{ "now"|date("Y") }} SprueHub — Le réseau des hobbyistes ·
         <a href="{{ path('app_legal') }}" class="hover:text-gray-300">Mentions légales</a> ·
         <a href="{{ path('app_terms') }}" class="hover:text-gray-300">Conditions d’utilisation</a>
     </footer>

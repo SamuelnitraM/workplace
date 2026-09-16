@@ -10,7 +10,65 @@
 
         {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
 
+            <input type="hidden" name="delete_avatar" id="delete-avatar" value="0">
+
             <div class="space-y-5">
+
+                <div class="flex flex-col items-center gap-4 py-4">
+                    <label class="block text-sm text-gray-400 mb-1">Photo de profil</label>
+                    
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="relative group w-32 h-32">
+                            {# Selection Checkbox - Top Left #}
+                            {% if user.avatar %}
+                                <div id="select-avatar-container" class="absolute -top-2 -left-2 z-30">
+                                    <input type="checkbox" id="select-avatar" 
+                                           class="w-6 h-6 rounded-full border-2 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
+                                           onchange="toggleDeleteButton()">
+                                </div>
+                            {% endif %}
+
+                            {# Avatar Preview #}
+                            <div class="w-full h-full rounded-full bg-gray-700 border-2 border-gray-600 overflow-hidden relative">
+                                {% if user.avatar %}
+                                    <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" 
+                                         alt="Avatar actuel" 
+                                         id="avatar-preview"
+                                         class="w-full h-full object-cover transition group-hover:opacity-50">
+                                {% endif %}
+                                
+                                <div id="avatar-placeholder" class="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-500 {% if user.avatar %}hidden{% endif %}">
+                                    {{ user.username|first|upper }}
+                                </div>
+                                
+                                {# Overlay with icon #}
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 cursor-pointer">
+                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            {# Hidden Input linked by label #}
+                            <div class="absolute inset-0">
+                                {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'onchange': 'previewAvatar(this)'}, 'id': 'avatar-upload-input'}) }}
+                                <label for="avatar-upload-input" class="absolute inset-0 cursor-pointer"></label>
+                            </div>
+                        </div>
+
+                        {% if user.avatar %}
+                            <button type="button" 
+                                    id="btn-delete-avatar"
+                                    onclick="markAvatarForDeletion()" 
+                                    class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-xs transition font-medium">
+                                🗑️ Supprimer la photo
+                            </button>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-gray-500 italic">Cliquez sur la photo pour la modifier</p>
+                    {{ form_errors(form.avatarFile) }}
+                </div>
 
                 <div>
                     {{ form_label(form.username, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
@@ -42,17 +100,6 @@
                     {{ form_errors(form.showActivity) }}
                 </div>
 
-                <div>
-                    {{ form_label(form.avatarFile, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
-                    {% if user.avatar %}
-                        <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" 
-                             alt="Avatar actuel" 
-                             class="w-16 h-16 rounded-full object-cover mb-2">
-                    {% endif %}
-                    {{ form_widget(form.avatarFile, {'attr': {'class': 'w-full text-gray-400 text-sm'}}) }}
-                    {{ form_errors(form.avatarFile) }}
-                </div>
-
                 <a href="{{ path('app_profil_change_password') }}" class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
                     🔒 Changer le mot de passe
                 </a>
@@ -73,5 +120,84 @@
         {{ form_end(form) }}
     </div>
 
+    <script>
+        function previewAvatar(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('avatar-preview');
+                    const placeholder = document.getElementById('avatar-placeholder');
+                    const selectContainer = document.getElementById('select-avatar-container');
+                    const selectCheckbox = document.getElementById('select-avatar');
+                    const deleteBtn = document.getElementById('btn-delete-avatar');
+                    
+                    if (preview) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    }
+                    
+                    if (placeholder) {
+                        placeholder.style.display = 'none';
+                    }
+                    
+                    if (selectContainer) {
+                        selectContainer.style.display = 'block';
+                    }
+
+                    if (selectCheckbox) {
+                        selectCheckbox.checked = false;
+                    }
+
+                    if (deleteBtn) {
+                        deleteBtn.classList.add('hidden');
+                    }
+                    
+                    document.getElementById('delete-avatar').value = '0';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function toggleDeleteButton() {
+            const isSelected = document.getElementById('select-avatar').checked;
+            const btn = document.getElementById('btn-delete-avatar');
+            if (btn) {
+                btn.classList.toggle('hidden', !isSelected);
+            }
+        }
+
+        function markAvatarForDeletion() {
+            const preview = document.getElementById('avatar-preview');
+            const placeholder = document.getElementById('avatar-placeholder');
+            const deleteInput = document.getElementById('delete-avatar');
+            const selectContainer = document.getElementById('select-avatar-container');
+            const selectCheckbox = document.getElementById('select-avatar');
+            const deleteBtn = document.getElementById('btn-delete-avatar');
+            
+            if (preview) {
+                preview.style.display = 'none';
+            }
+            
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
+            
+            if (selectContainer) {
+                selectContainer.style.display = 'none';
+            }
+
+            if (selectCheckbox) {
+                selectCheckbox.checked = false;
+            }
+
+            if (deleteBtn) {
+                deleteBtn.classList.add('hidden');
+            }
+            
+            if (deleteInput) {
+                deleteInput.value = '1';
+            }
+        }
+    </script>
 </div>
 {% endblock %}
