@@ -1,0 +1,178 @@
+{# Statistiques d'activité : attend la variable `activity` (AdminStatsService::getDashboardStats) #}
+{% set periodLabels = {1: '24h', 7: '7 jours', 30: '30 jours'} %}
+{% set users = activity.users %}
+{% import _self as m %}
+
+{% macro periods_row(values, periodLabels, periods) %}
+    <div class="hf-periods">
+        {% for n in periods %}
+            <div class="hf-period">
+                <span class="hf-period-label">{{ periodLabels[n] }}</span>
+                <strong class="hf-period-value">{{ values[n]|number_format(0, ',', ' ') }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+{% endmacro %}
+
+<style>
+    .hf-admin-dashboard .hf-periods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+    .hf-admin-dashboard .hf-period { background: #f7f8fb; border-radius: 10px; padding: .55rem .6rem; text-align: center; min-width: 0; }
+    .hf-admin-dashboard .hf-period-label { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: #6b7280; }
+    .hf-admin-dashboard .hf-period-value { display: block; font-size: 1.2rem; line-height: 1.2; color: #111827; overflow-wrap: anywhere; }
+    .hf-admin-dashboard .hf-period-sub { display: block; font-size: .72rem; color: #6b7280; }
+    .hf-admin-dashboard .hf-total-badge { font-size: .78rem; background: #f1f3f7; color: #374151; border-radius: 999px; padding: .2rem .6rem; white-space: nowrap; }
+    .hf-admin-dashboard .hf-split { font-size: .78rem; color: #6b7280; }
+    .hf-admin-dashboard .hf-bar { height: 4px; background: #e5e7eb; border-radius: 4px; margin-top: .35rem; overflow: hidden; }
+    .hf-admin-dashboard .hf-bar > span { display: block; height: 100%; background: #4f46e5; }
+    .hf-admin-dashboard .hf-online { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: .6rem .75rem; margin-bottom: .75rem; }
+    .hf-admin-dashboard .hf-online-count { display: flex; align-items: center; gap: .5rem; font-weight: 600; color: #065f46; white-space: nowrap; }
+    .hf-admin-dashboard .hf-online-dot { position: relative; width: .7rem; height: .7rem; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+    .hf-admin-dashboard .hf-online-dot.is-empty { background: #9ca3af; }
+    .hf-admin-dashboard .hf-online-dot:not(.is-empty)::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #10b981; animation: hf-pulse 2s ease-out infinite; }
+    @keyframes hf-pulse { from { transform: scale(1); opacity: .6; } to { transform: scale(2.4); opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .hf-admin-dashboard .hf-online-dot::after { animation: none; } }
+    .hf-admin-dashboard .hf-online-users { display: flex; flex-wrap: wrap; gap: .3rem; font-size: .78rem; min-width: 0; }
+    .hf-admin-dashboard .hf-online-user { background: #fff; border: 1px solid #d1fae5; color: #047857; border-radius: 999px; padding: .05rem .5rem; text-decoration: none; overflow-wrap: anywhere; }
+</style>
+
+<section class="mb-4" aria-label="Statistiques d'activité">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-end gap-1 mb-3">
+        <div>
+            <h2 class="h5 fw-bold mb-1">Activité de la communauté</h2>
+            <p class="text-muted small mb-0">Périodes glissantes calculées à partir de maintenant.</p>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        {# Rétention #}
+        <div class="col-12 col-lg-6">
+            <div class="hf-card p-3 p-md-4 h-100">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="hf-icon hf-indigo flex-shrink-0"><i class="fa fa-rotate-left"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Rétention des utilisateurs</h3>
+                </div>
+                <div class="hf-periods">
+                    {% for n in activity.periods %}
+                        {% set r = users.retention[n] %}
+                        <div class="hf-period">
+                            <span class="hf-period-label">{{ periodLabels[n] }}</span>
+                            {% if r.rate is null %}
+                                <strong class="hf-period-value">—</strong>
+                                <span class="hf-period-sub">cohorte vide</span>
+                            {% else %}
+                                <strong class="hf-period-value">{{ r.rate|number_format(1, ',', ' ') }} %</strong>
+                                <span class="hf-period-sub">{{ r.retained }}/{{ r.cohort }}</span>
+                                <div class="hf-bar"><span style="width: {{ r.rate }}%"></span></div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <p class="text-muted small mb-0 mt-3">
+                    <i class="fa fa-circle-info me-1"></i>
+                    Rétention glissante : parmi les inscrits depuis au moins N jours, part de ceux dont la dernière activité
+                    (heartbeat ou connexion quotidienne) a eu lieu au moins N jours après leur inscription.
+                </p>
+            </div>
+        </div>
+
+        {# Actifs + inscriptions #}
+        <div class="col-12 col-lg-6">
+            <div class="hf-card p-3 p-md-4 h-100">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <span class="hf-icon hf-emerald flex-shrink-0"><i class="fa fa-user-check"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Utilisateurs actifs</h3>
+                    <span class="hf-total-badge">{{ users.total|number_format(0, ',', ' ') }} au total</span>
+                </div>
+
+                {# Connectés en ce moment (heartbeat) #}
+                {% set online = activity.online %}
+                <div class="hf-online" title="Heartbeat reçu il y a moins de {{ online.windowSeconds }} secondes (onglet du site ouvert et visible).">
+                    <span class="hf-online-count">
+                        <span class="hf-online-dot{{ online.count == 0 ? ' is-empty' }}" aria-hidden="true"></span>
+                        {{ online.count|number_format(0, ',', ' ') }} connecté{{ online.count > 1 ? 's' }} en ce moment
+                    </span>
+                    {% if online.users is not empty %}
+                        <span class="hf-online-users">
+                            {% for u in online.users %}
+                                <a class="hf-online-user" href="{{ path('app_profil_show', {username: u.username}) }}" target="_blank" rel="noopener">{{ u.username }}</a>
+                            {% endfor %}
+                            {% if online.count > online.users|length %}
+                                <span class="hf-online-user">+{{ online.count - online.users|length }}</span>
+                            {% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+
+                {{ m.periods_row(users.active, periodLabels, activity.periods) }}
+
+                <div class="d-flex align-items-center gap-3 mt-4 mb-3">
+                    <span class="hf-icon hf-blue flex-shrink-0"><i class="fa fa-user-plus"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Nouveaux utilisateurs</h3>
+                </div>
+                {{ m.periods_row(users.new, periodLabels, activity.periods) }}
+            </div>
+        </div>
+
+        {# Réponses #}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="hf-card p-3 h-100">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="hf-icon hf-emerald flex-shrink-0"><i class="fa fa-message"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Réponses publiées</h3>
+                    <span class="hf-total-badge">{{ activity.posts.total|number_format(0, ',', ' ') }}</span>
+                </div>
+                {{ m.periods_row(activity.posts, periodLabels, activity.periods) }}
+            </div>
+        </div>
+
+        {# Messages #}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="hf-card p-3 h-100">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="hf-icon hf-violet flex-shrink-0"><i class="fa fa-paper-plane"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Messages envoyés</h3>
+                    <span class="hf-total-badge">{{ activity.messages.sum.total|number_format(0, ',', ' ') }}</span>
+                </div>
+                <div class="hf-periods">
+                    {% for n in activity.periods %}
+                        <div class="hf-period">
+                            <span class="hf-period-label">{{ periodLabels[n] }}</span>
+                            <strong class="hf-period-value">{{ activity.messages.sum[n]|number_format(0, ',', ' ') }}</strong>
+                            <span class="hf-period-sub" title="Messages privés / messages de groupe">
+                                <i class="fa fa-envelope"></i> {{ activity.messages.private[n] }} · <i class="fa fa-users"></i> {{ activity.messages.group[n] }}
+                            </span>
+                        </div>
+                    {% endfor %}
+                </div>
+                <p class="hf-split mb-0 mt-2">
+                    <i class="fa fa-envelope"></i> Privés : {{ activity.messages.private.total|number_format(0, ',', ' ') }}
+                    · <i class="fa fa-users"></i> Groupes : {{ activity.messages.group.total|number_format(0, ',', ' ') }}
+                </p>
+            </div>
+        </div>
+
+        {# Groupes #}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="hf-card p-3 h-100">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="hf-icon hf-amber flex-shrink-0"><i class="fa fa-users-rectangle"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Groupes créés</h3>
+                    <span class="hf-total-badge">{{ activity.groups.total|number_format(0, ',', ' ') }}</span>
+                </div>
+                {{ m.periods_row(activity.groups, periodLabels, activity.periods) }}
+            </div>
+        </div>
+
+        {# Listes d'armée #}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="hf-card p-3 h-100">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="hf-icon hf-rose flex-shrink-0"><i class="fa fa-shield-halved"></i></span>
+                    <h3 class="h6 fw-bold mb-0 flex-grow-1">Listes d'armée</h3>
+                    <span class="hf-total-badge">{{ activity.armyLists.total|number_format(0, ',', ' ') }}</span>
+                </div>
+                {{ m.periods_row(activity.armyLists, periodLabels, activity.periods) }}
+            </div>
+        </div>
+    </div>
+</section>
