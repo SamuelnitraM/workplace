@@ -1,0 +1,99 @@
+{#
+    Thème de formulaire du design system (docs/design-system.md).
+    - form_row      → .field (label + widget + aide + erreurs)
+    - widgets texte → .input / .textarea / .select (classe ajoutée automatiquement, surchargeable via attr.class)
+    - cases à cocher / boutons radio → .checkbox / .radio dans .check
+    - erreurs       → .field-error (reliées au champ par aria-describedby, champ marqué aria-invalid)
+    Utilisation : activé globalement (config/packages/twig.yaml → form_themes).
+    Un attr.class fourni par un template est AJOUTÉ à la classe de base (pas de remplacement).
+#}
+{% extends 'form_div_layout.html.twig' %}
+
+{# ─── Classe de base selon le type de widget ─── #}
+{%- block widget_attributes -%}
+    {%- set base_class = '' -%}
+    {%- if block_prefixes is defined -%}
+        {%- if 'textarea' in block_prefixes -%}
+            {%- set base_class = 'textarea' -%}
+        {%- elseif 'choice' in block_prefixes and not expanded|default(false) -%}
+            {%- set base_class = 'select' -%}
+        {%- elseif 'checkbox' in block_prefixes -%}
+            {%- set base_class = 'checkbox' -%}
+        {%- elseif 'radio' in block_prefixes -%}
+            {%- set base_class = 'radio' -%}
+        {%- elseif 'file' in block_prefixes -%}
+            {%- set base_class = 'input-file' -%}
+        {%- elseif 'hidden' not in block_prefixes and 'submit' not in block_prefixes and 'button' not in block_prefixes -%}
+            {%- set base_class = 'input' -%}
+        {%- endif -%}
+    {%- endif -%}
+    {%- set attr = attr|merge({class: (base_class ~ ' ' ~ attr.class|default(''))|trim}) -%}
+    {#- Aide et erreurs reliées au champ (lecteurs d'écran), aussi quand le template appelle form_widget seul -#}
+    {%- set described_by = attr['aria-describedby'] is defined ? [attr['aria-describedby']] : [] -%}
+    {%- if help is defined and help is not empty -%}
+        {%- set described_by = described_by|merge([id ~ '_help']) -%}
+    {%- endif -%}
+    {%- if errors is defined and errors|length > 0 -%}
+        {%- set described_by = described_by|merge(errors|map((_, index) => id ~ '_error' ~ (index + 1))) -%}
+        {%- set attr = attr|merge({'aria-invalid': 'true'}) -%}
+    {%- endif -%}
+    {%- if described_by|length > 0 -%}
+        {%- set attr = attr|merge({'aria-describedby': described_by|join(' ')}) -%}
+    {%- endif -%}
+    {{- parent() -}}
+{%- endblock widget_attributes -%}
+
+{# ─── Ligne de formulaire ─── #}
+{%- block form_row -%}
+    {%- set row_attr = row_attr|merge({class: ('field ' ~ row_attr.class|default(''))|trim}) -%}
+    <div{% with {attr: row_attr} %}{{ block('attributes') }}{% endwith %}>
+        {{- form_label(form) -}}
+        {{- form_widget(form) -}}
+        {{- form_help(form) -}}
+        {{- form_errors(form) -}}
+    </div>
+{%- endblock form_row -%}
+
+{%- block checkbox_row -%}
+    {%- set row_attr = row_attr|merge({class: ('field ' ~ row_attr.class|default(''))|trim}) -%}
+    <div{% with {attr: row_attr} %}{{ block('attributes') }}{% endwith %}>
+        <label class="check" for="{{ id }}">
+            {{- form_widget(form) -}}
+            <span>{{ label is not same as(false) ? (translation_domain is same as(false) ? label : label|trans(label_translation_parameters, translation_domain)) : '' }}</span>
+        </label>
+        {{- form_help(form) -}}
+        {{- form_errors(form) -}}
+    </div>
+{%- endblock checkbox_row -%}
+
+{%- block form_label -%}
+    {%- if label is not same as(false) -%}
+        {%- set label_attr = label_attr|merge({class: ('label ' ~ label_attr.class|default(''))|trim}) -%}
+        {{- parent() -}}
+    {%- endif -%}
+{%- endblock form_label -%}
+
+{%- block form_help -%}
+    {%- if help is not empty -%}
+        {%- set help_attr = help_attr|merge({class: ('help ' ~ help_attr.class|default(''))|trim}) -%}
+        {{- parent() -}}
+    {%- endif -%}
+{%- endblock form_help -%}
+
+{# ─── Erreurs : icône + message, identifiant relié au champ ─── #}
+{%- block form_errors -%}
+    {%- if errors|length > 0 -%}
+        {%- if compound and form.parent is null -%}
+            <div class="alert alert-danger" role="alert">
+                {%- for error in errors -%}<p>{{ error.message }}</p>{%- endfor -%}
+            </div>
+        {%- else -%}
+            {%- import '_macros/ui.html.twig' as ui -%}
+            {%- for error in errors -%}
+                <p class="field-error" id="{{ id }}_error{{ loop.index }}">
+                    {{ ui.icon('alert-circle') }}<span>{{ error.message }}</span>
+                </p>
+            {%- endfor -%}
+        {%- endif -%}
+    {%- endif -%}
+{%- endblock form_errors -%}

@@ -1,0 +1,75 @@
+{# Recherche globale (utilisateurs + groupes) — API app_search_api.
+   Desktop : champ dans la barre. Mobile (< 768 px) : masquée, ouverte en pleine largeur par la loupe
+   (searchOpen, porté par le x-data de l'en-tête ; voir .site-search dans app.css). #}
+{% import '_macros/ui.html.twig' as ui %}
+<div id="site-search" class="site-search" :class="{ 'is-open': searchOpen }" role="search"
+     x-effect="if (searchOpen) $nextTick(() => $refs.searchInput.focus())"
+     x-data="{
+        query: '',
+        results: { users: [], groups: [] },
+        showResults: false,
+        async fetchResults() {
+            if (this.query.length < 2) {
+                this.results = { users: [], groups: [] };
+                this.showResults = false;
+                return;
+            }
+            try {
+                const response = await fetch(`{{ path('app_search_api') }}?q=${encodeURIComponent(this.query)}`);
+                this.results = await response.json();
+                this.showResults = true;
+            } catch (e) {
+                console.error('Search error:', e);
+            }
+        }
+     }"
+     @keydown.escape="showResults = false; searchOpen = false">
+    {{ ui.icon('search', 'site-search-icon') }}
+    <input
+        type="search"
+        x-ref="searchInput"
+        aria-label="Rechercher un utilisateur ou un groupe"
+        x-model="query"
+        @input.debounce.300ms="fetchResults()"
+        placeholder="Rechercher un membre, un groupe…"
+        autocomplete="off"
+        class="input site-search-input">
+
+    <div x-show="showResults && (results.users.length > 0 || results.groups.length > 0)"
+         x-cloak
+         @click.outside="showResults = false"
+         x-transition.opacity.duration.150ms
+         class="menu left-0 right-0 min-w-0 p-1.5">
+        <template x-if="results.users.length > 0">
+            <div>
+                <p class="eyebrow menu-label">Membres</p>
+                <div class="max-h-48 overflow-y-auto">
+                    <template x-for="user in results.users" :key="user.username">
+                        <a :href="user.url" class="menu-item">
+                            <span class="avatar avatar-xs">
+                                <template x-if="user.avatar"><img :src="user.avatar" alt=""></template>
+                                <template x-if="!user.avatar"><span aria-hidden="true" x-text="user.username[0].toUpperCase()"></span></template>
+                            </span>
+                            <span class="truncate text-fg" x-text="user.username"></span>
+                        </a>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="results.groups.length > 0">
+            <div>
+                <div x-show="results.users.length > 0" class="menu-separator"></div>
+                <p class="eyebrow menu-label">Groupes</p>
+                <div class="max-h-48 overflow-y-auto">
+                    <template x-for="group in results.groups" :key="group.name">
+                        <a :href="group.url" class="menu-item">
+                            {{ ui.icon('users') }}
+                            <span class="truncate text-fg" x-text="group.name"></span>
+                        </a>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>

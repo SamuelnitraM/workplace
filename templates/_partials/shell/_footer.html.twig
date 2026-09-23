@@ -1,0 +1,19 @@
+{# Pied de page. Membre connecté (desktop) : marge basse pour que le messenger fixe ne masque pas les liens. #}
+{% import '_macros/ui.html.twig' as ui %}
+<footer class="app-footer{{ app.user ? ' md:pb-14' : '' }}">
+    <div class="container-app flex flex-col items-center gap-3 py-6 text-center md:flex-row md:justify-between md:text-left">
+        <p>© {{ "now"|date("Y") }} SprueHub — le réseau des hobbyistes</p>
+        <nav aria-label="Liens du pied de page" class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <a href="{{ path('app_legal') }}">Mentions légales</a>
+            <a href="{{ path('app_terms') }}">Conditions d’utilisation</a>
+            {% if app.user %}
+                <form method="post" action="{{ path('app_onboarding_restart') }}" class="contents">
+                    <input type="hidden" name="_token" value="{{ csrf_token('onboarding') }}">
+                    <button type="submit" class="inline-flex items-center gap-1.5">
+                        {{ ui.icon('compass', 'size-4') }}Relancer la présentation
+                    </button>
+                </form>
+            {% endif %}
+        </nav>
+    </div>
+</footer>

@@ -1,0 +1,52 @@
+{# Messenger flottant (assets/controllers/messenger_controller.js) — desktop uniquement (≥ 768 px).
+   Sur mobile il reste dans le DOM (compteur des messages non lus) mais masqué : la messagerie passe par
+   l'icône « Messages » de l'en-tête et le menu du compte (la barre d'onglets occupe le bas de l'écran). #}
+{% import '_macros/ui.html.twig' as ui %}
+<div id="messenger"
+     class="fixed bottom-0 right-4 z-(--z-messenger) hidden md:flex items-end gap-2 max-w-[calc(100vw-2rem)]"
+     data-controller="messenger"
+     data-messenger-conversations-url-value="{{ path('app_message_ajax_conversations') }}"
+     data-messenger-messages-url-value="{{ path('app_message_ajax_messages', {username: '__USER__'}) }}"
+     data-messenger-send-url-value="{{ path('app_message_ajax_send', {username: '__USER__'}) }}"
+     data-messenger-read-url-value="{{ path('app_message_ajax_read', {id: 0}) }}"
+     data-messenger-context-url-value="{{ path('app_message_ajax_notification_context') }}"
+     data-messenger-avatar-base-value="{{ asset('uploads/avatars/') }}">
+
+    {# Bouton flèche gauche #}
+    <button type="button" data-messenger-target="prev" data-action="messenger#prev" aria-label="Conversations précédentes"
+            class="hidden btn btn-secondary btn-icon btn-sm self-end mb-1 rounded-pill">
+        {{ ui.icon('chevron-left') }}
+    </button>
+
+    {# Onglets de conversation (générés dynamiquement) #}
+    <div data-messenger-target="tabs"
+         data-action="click->messenger#tabsClick keydown->messenger#tabsKeydown"
+         class="flex items-end gap-2"></div>
+
+    {# Bouton flèche droite #}
+    <button type="button" data-messenger-target="next" data-action="messenger#next" aria-label="Conversations suivantes"
+            class="hidden btn btn-secondary btn-icon btn-sm self-end mb-1 rounded-pill">
+        {{ ui.icon('chevron-right') }}
+    </button>
+
+    {# Onglet principal (toujours à droite) #}
+    <div class="w-64">
+        <div class="bg-surface border border-line border-b-0 rounded-t-card shadow-overlay">
+            <div class="flex justify-between items-center gap-2 px-4 min-h-11 cursor-pointer rounded-t-card hover:bg-surface-raised transition-colors"
+                 data-action="click->messenger#toggleMain">
+                <span class="font-semibold text-fg text-small flex items-center gap-2">
+                    {{ ui.icon('message-circle', 'size-[1.125rem] text-primary-text') }}
+                    Messages
+                    <span id="messenger-badge" data-controller="counter" data-counter-kind-value="messages"
+                          class="count-badge hidden"></span>
+                </span>
+                <span data-messenger-target="mainArrow" class="text-muted text-caption" aria-hidden="true">▲</span>
+            </div>
+            <div data-messenger-target="mainBody" class="hidden border-t border-line max-h-80 overflow-y-auto">
+                <div data-messenger-target="conversations" data-action="click->messenger#openFromList" class="p-2 space-y-1">
+                    <div class="text-muted text-small text-center py-4">Chargement…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

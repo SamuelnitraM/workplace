@@ -1,0 +1,389 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Guide de style — SprueHub{% endblock %}
+
+{% block body %}
+{% set icon_names = include('_partials/_icon.html.twig', {name: '__names'}, with_context = false)|split(',') %}
+{% set demo_user = {username: 'Morgane', avatar: null} %}
+
+<header class="page-header">
+    <div>
+        <p class="page-header-eyebrow">{{ ui.icon('layout-grid', 'size-4') }}Environnement de développement</p>
+        <h1 class="page-header-title">Guide de style</h1>
+        <p class="page-header-subtitle">Tokens, composants et icônes du design system SprueHub. Référence : <code class="kbd">docs/design-system.md</code> · CSS : <code class="kbd">assets/styles/app.css</code>.</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="#icones" class="btn btn-secondary">{{ ui.icon('image') }}Icônes</a>
+        <a href="#composants" class="btn btn-primary">{{ ui.icon('layout-grid') }}Composants</a>
+    </div>
+</header>
+
+<nav aria-label="Sommaire du guide" class="tabs mb-10">
+    <a class="tab" href="#couleurs">Couleurs</a>
+    <a class="tab" href="#typo">Typographie</a>
+    <a class="tab" href="#fondations">Rayons & ombres</a>
+    <a class="tab" href="#composants">Boutons</a>
+    <a class="tab" href="#formulaires">Formulaires</a>
+    <a class="tab" href="#donnees">Données</a>
+    <a class="tab" href="#retours">Retours</a>
+    <a class="tab" href="#exemples">Exemples</a>
+    <a class="tab" href="#icones">Icônes</a>
+</nav>
+
+<div class="space-y-16">
+
+{# ───────────────────────── COULEURS ───────────────────────── #}
+<section id="couleurs" class="scroll-mt-24">
+    <h2 class="section-title">{{ ui.icon('sparkles') }}Couleurs</h2>
+
+    <h3 class="text-h3 mb-3">Surfaces</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        {% for name, hex in surfaces %}
+            <div class="rounded-card border border-line overflow-hidden">
+                <div class="h-16" style="background: {{ hex }}"></div>
+                <div class="px-3 py-2 bg-surface">
+                    <p class="text-small font-semibold">bg-{{ name }}</p>
+                    <p class="text-caption text-muted font-mono">{{ hex }}</p>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="rounded-card border border-line overflow-hidden">
+            <div class="h-16 bg-canvas flex items-center justify-center"><div class="w-3/4 h-0 border-t border-line"></div></div>
+            <div class="px-3 py-2 bg-surface"><p class="text-small font-semibold">border-line</p><p class="text-caption text-muted font-mono">#2c3444 · décoratif</p></div>
+        </div>
+        <div class="rounded-card border border-line overflow-hidden">
+            <div class="h-16 bg-canvas flex items-center justify-center"><div class="w-3/4 h-0 border-t border-line-strong"></div></div>
+            <div class="px-3 py-2 bg-surface"><p class="text-small font-semibold">border-line-strong</p><p class="text-caption text-muted font-mono">#5a647a · contrôles</p></div>
+        </div>
+    </div>
+
+    <h3 class="text-h3 mb-3">Texte — ratios de contraste WCAG (AA texte courant ≥ 4,5)</h3>
+    <div class="card overflow-x-auto mb-8">
+        <table class="w-full text-small">
+            <thead>
+                <tr class="text-left border-b border-line">
+                    <th scope="col" class="px-4 py-3 font-semibold">Token</th>
+                    {% for name, hex in surfaces %}<th scope="col" class="px-4 py-3 font-semibold">sur {{ name }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in texts %}
+                    <tr class="border-b border-line last:border-0">
+                        <th scope="row" class="px-4 py-2.5 text-left font-medium"><span class="inline-block size-3 rounded-pill align-middle mr-2" style="background: {{ t.hex }}"></span>text-{{ t.name }} <span class="text-muted font-mono text-caption">{{ t.hex }}</span></th>
+                        {% for bgName, ratio in t.ratios %}
+                            <td class="px-4 py-2.5" style="background: {{ surfaces[bgName] }}; color: {{ t.hex }}">
+                                Aa {{ ratio|number_format(2, ',') }}{% if ratio < 4.5 %} ✗{% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="text-h3 mb-3">Aplats (fond + texte posé dessus)</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+        {% for s in solids %}
+            <div class="rounded-card overflow-hidden border border-line">
+                <div class="h-14 flex items-center justify-center font-semibold" style="background: {{ s.bg }}; color: {{ s.fg }}">{{ s.ratio|number_format(2, ',') }}:1</div>
+                <div class="px-3 py-2 bg-surface"><p class="text-small font-semibold">bg-{{ s.name }}</p><p class="text-caption text-muted font-mono">{{ s.bg }}</p></div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <h3 class="text-h3 mb-3">Fonds teintés (-soft) + texte sémantique (-text)</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
+        {% for s in softs %}
+            <div class="rounded-card p-4 border border-line bg-{{ s.name }}-soft">
+                <p class="font-semibold text-{{ s.name }}-text">bg-{{ s.name }}-soft · text-{{ s.name }}-text</p>
+                <p class="text-caption text-fg-secondary mt-1">sur surface : {{ s.surface|number_format(2, ',') }} · texte fg : {{ s.fg|number_format(2, ',') }} · sur overlay : {{ s.overlay|number_format(2, ',') }}</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <h3 class="text-h3 mb-3">Composants non textuels (WCAG 1.4.11 ≥ 3:1)</h3>
+    <ul class="flex flex-wrap gap-2">
+        {% for label, ratio in ui_contrast %}<li class="chip">{{ label }} : {{ ratio|number_format(2, ',') }}:1</li>{% endfor %}
+    </ul>
+</section>
+
+{# ───────────────────────── TYPOGRAPHIE ───────────────────────── #}
+<section id="typo" class="scroll-mt-24">
+    <h2 class="section-title">{{ ui.icon('file-text') }}Typographie</h2>
+    <div class="card card-body space-y-5">
+        <div><p class="eyebrow mb-1">text-display · 30→42 px / 800</p><p class="text-display">Peignez, partagez, progressez</p></div>
+        <div><p class="eyebrow mb-1">text-h1 · 24→30 px / 700</p><p class="text-h1">Galerie de Morgane</p></div>
+        <div><p class="eyebrow mb-1">text-h2 · 20 px / 650</p><p class="text-h2">Derniers sujets du forum</p></div>
+        <div><p class="eyebrow mb-1">text-h3 · 17 px / 600</p><p class="text-h3">Space Marines — liste à 2000 points</p></div>
+        <div><p class="eyebrow mb-1">text-body · 16 px / 1,6</p><p class="text-body text-fg-secondary max-w-prose">Le sous-couchage au pinceau aérographe donne une base uniforme ; un lavis sépia vient ensuite souligner les creux de l'armure avant les éclaircissements.</p></div>
+        <div><p class="eyebrow mb-1">text-small · 14 px</p><p class="text-small text-fg-secondary">Publié dans « Peinture » · 12 réponses</p></div>
+        <div><p class="eyebrow mb-1">text-caption · 12 px</p><p class="text-caption text-muted">il y a 3 heures</p></div>
+        <div><p class="eyebrow mb-1">.eyebrow</p><p class="eyebrow">Membres</p></div>
+        <p class="text-small">Lien : <a href="#typo" class="link">voir les règles de la communauté</a> · Raccourci <kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">K</kbd></p>
+    </div>
+</section>
+
+{# ───────────────────────── FONDATIONS ───────────────────────── #}
+<section id="fondations" class="scroll-mt-24">
+    <h2 class="section-title">{{ ui.icon('layout-grid') }}Rayons, ombres, conteneurs</h2>
+    <div class="grid sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-surface border border-line rounded-control p-4"><p class="font-semibold">rounded-control</p><p class="text-caption text-muted">0,5 rem — boutons, champs</p></div>
+        <div class="bg-surface border border-line rounded-card p-4"><p class="font-semibold">rounded-card</p><p class="text-caption text-muted">0,75 rem — cartes, menus</p></div>
+        <div class="bg-surface border border-line rounded-pill px-5 py-4"><p class="font-semibold">rounded-pill</p><p class="text-caption text-muted">chips, avatars</p></div>
+    </div>
+    <div class="grid sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-surface rounded-card p-4 shadow-raised"><p class="font-semibold">shadow-raised</p><p class="text-caption text-muted">cartes, boutons primaires</p></div>
+        <div class="bg-overlay rounded-card p-4 shadow-overlay"><p class="font-semibold">shadow-overlay</p><p class="text-caption text-muted">menus, toasts</p></div>
+        <div class="bg-overlay rounded-card p-4 shadow-modal"><p class="font-semibold">shadow-modal</p><p class="text-caption text-muted">feuilles, modales</p></div>
+    </div>
+    <div class="space-y-2 text-small">
+        <div class="max-w-form bg-surface-raised rounded-control px-3 py-2">max-w-form · 32 rem (connexion, réglages)</div>
+        <div class="max-w-reading bg-surface-raised rounded-control px-3 py-2">max-w-reading · 48 rem (sujet, texte long)</div>
+        <div class="max-w-app bg-surface-raised rounded-control px-3 py-2">max-w-app · 80 rem (pages applicatives — container-app ajoute la gouttière)</div>
+    </div>
+</section>
+
+{# ───────────────────────── BOUTONS ───────────────────────── #}
+<section id="composants" class="scroll-mt-24">
+    <h2 class="section-title">{{ ui.icon('plus') }}Boutons</h2>
+    <div class="card card-body space-y-6">
+        {% for size in ['sm', 'md', 'lg'] %}
+            <div>
+                <p class="eyebrow mb-2">.btn-{{ size }}</p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="button" class="btn btn-primary btn-{{ size }}">{{ ui.icon('plus') }}Publier</button>
+                    <button type="button" class="btn btn-secondary btn-{{ size }}">Secondaire</button>
+                    <button type="button" class="btn btn-ghost btn-{{ size }}">Discret</button>
+                    <button type="button" class="btn btn-danger btn-{{ size }}">{{ ui.icon('trash') }}Supprimer</button>
+                    <button type="button" class="btn btn-success btn-{{ size }}">{{ ui.icon('check') }}Valider</button>
+                    <button type="button" class="btn btn-accent btn-{{ size }}">{{ ui.icon('crown') }}Premium</button>
+                    <button type="button" class="btn btn-link btn-{{ size }}">Lien</button>
+                    <button type="button" class="btn btn-secondary btn-icon btn-{{ size }}" aria-label="Modifier">{{ ui.icon('pencil') }}</button>
+                    <button type="button" class="btn btn-ghost btn-icon btn-{{ size }}" aria-label="Plus d'actions">{{ ui.icon('more-horizontal') }}</button>
+                </div>
+            </div>
+        {% endfor %}
+        <div>
+            <p class="eyebrow mb-2">États : désactivé · aria-disabled · bloc</p>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button" class="btn btn-primary" disabled>Désactivé</button>
+                <a class="btn btn-secondary" aria-disabled="true">Lien désactivé</a>
+                <button type="button" class="btn btn-primary">{{ ui.icon('loader', 'size-[1.125rem] animate-spin') }}Envoi…</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-block mt-3">Pleine largeur (.btn-block)</button>
+        </div>
+    </div>
+</section>
+
+{# ───────────────────────── FORMULAIRES ───────────────────────── #}
+<section id="formulaires" class="scroll-mt-24">
+    <h2 class="section-title">{{ ui.icon('pencil') }}Formulaires</h2>
+    <div class="card max-w-form">
+        <div class="card-header"><h3 class="text-h3">Modifier le profil</h3></div>
+        <div class="card-body space-y-5">
+            <div class="field">
+                <label class="label" for="sg-username">Pseudo</label>
+                <input class="input" id="sg-username" type="text" value="Morgane" aria-describedby="sg-username-help">
+                <p class="help" id="sg-username-help">Visible par tous les membres.</p>
+            </div>
+            <div class="field">
+                <label class="label" for="sg-email">E-mail</label>
+                <input class="input" id="sg-email" type="email" value="morgane@" aria-invalid="true" aria-describedby="sg-email-error">
+                <p class="field-error" id="sg-email-error">{{ ui.icon('alert-circle') }}Adresse e-mail invalide.</p>
+            </div>
+            <div class="field">
+                <label class="label" for="sg-faction">Faction <span class="label-hint">(facultatif)</span></label>
+                <select class="select" id="sg-faction"><option>Adeptus Astartes</option><option>Nécrons</option><option>Tyranides</option></select>
+            </div>
+            <div class="field">
+                <label class="label" for="sg-bio">Présentation</label>
+                <textarea class="textarea" id="sg-bio" placeholder="Quelques mots sur vous et vos armées…"></textarea>
+            </div>
+            <div class="field">
+                <label class="label" for="sg-disabled">Champ désactivé</label>
+                <input class="input" id="sg-disabled" type="text" value="Non modifiable" disabled>
+            </div>
+            <div>
+                <label class="check"><input type="checkbox" class="checkbox" checked> Afficher mon activité récente</label><br>
+                <label class="check"><input type="radio" name="sg-r" class="radio" checked> Profil public</label>
+                <label class="check ml-4"><input type="radio" name="sg-r" class="radio"> Amis seulement</label>
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="button" class="btn btn-ghost">Annuler</button>
+            <button type="button" class="btn btn-primary">Enregistrer</button>
+        </div>
+    </div>
+</section>
+
+{# ───────────────────────── DONNÉES ───────────────────────── #}
+<section id="donnees" class="scroll-mt-24 space-y-8">
+    <h2 class="section-title">{{ ui.icon('users') }}Chips, compteurs, avatars, onglets, menus</h2>
+
+    <div class="flex flex-wrap items-center gap-2">
+        <span class="chip">Neutre</span>
+        <span class="chip chip-primary">{{ ui.icon('star') }}Primaire</span>
+        <span class="chip chip-accent">{{ ui.icon('crown') }}Laiton</span>
+        <span class="chip chip-success">{{ ui.icon('check') }}Validé</span>
+        <span class="chip chip-warning">En attente</span>
+        <span class="chip chip-danger">Signalé</span>
+        <span class="chip chip-info">Info</span>
+        <button type="button" class="chip" aria-pressed="false">Filtre</button>
+        <button type="button" class="chip" aria-pressed="true">Filtre actif</button>
+        <span class="count-badge">3</span>
+        <span class="count-badge">99+</span>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Notifications (4 non lues)">{{ ui.icon('bell') }}<span class="count-badge count-badge-float">4</span></button>
+    </div>
+
+    <div class="flex flex-wrap items-end gap-4">
+        {% for size in ['xs', 'sm', 'md', 'lg', 'xl'] %}
+            <div class="text-center">{{ ui.avatar(demo_user, size) }}<p class="text-caption text-muted mt-1">{{ size }}</p></div>
+        {% endfor %}
+        <div class="text-center"><span class="avatar avatar-lg avatar-ring">MG</span><p class="text-caption text-muted mt-1">ring</p></div>
+    </div>
+
+    <div data-controller="tabs">
+        <div class="tabs" role="tablist" aria-label="Démo d'onglets">
+            <button type="button" role="tab" class="tab" aria-selected="true" data-tab="sg-gallery" data-tabs-target="tab" data-action="tabs#select">{{ ui.icon('camera') }}Galerie</button>
+            <button type="button" role="tab" class="tab" aria-selected="false" data-tab="sg-armies" data-tabs-target="tab" data-action="tabs#select">{{ ui.icon('swords') }}Armées</button>
+            <button type="button" role="tab" class="tab" aria-selected="false" data-tab="sg-badges" data-tabs-target="tab" data-action="tabs#select">{{ ui.icon('medal') }}Badges <span class="chip">12</span></button>
+        </div>
+        <div class="py-4 text-small text-fg-secondary" data-tabs-target="panel" data-panel="sg-gallery">Panneau Galerie (tabs_controller : aria-selected suffit au style).</div>
+        <div class="py-4 text-small text-fg-secondary" data-tabs-target="panel" data-panel="sg-armies" hidden>Panneau Armées.</div>
+        <div class="py-4 text-small text-fg-secondary" data-tabs-target="panel" data-panel="sg-badges" hidden>Panneau Badges.</div>
+    </div>
+
+    <div class="tabs tabs-pills inline-flex" role="group" aria-label="Période">
+        <a href="#donnees" class="tab" aria-current="page">Semaine</a>
+        <a href="#donnees" class="tab">Mois</a>
+        <a href="#donnees" class="tab">Tout</a>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 items-start">
+        <div class="relative h-80">
+            <p class="eyebrow mb-2">.menu (affiché statiquement)</p>
+            <div class="menu static w-64">
+                <p class="eyebrow menu-label">Publier</p>
+                <a href="#donnees" class="menu-item">{{ ui.icon('message-square') }}Nouveau sujet</a>
+                <a href="#donnees" class="menu-item" aria-current="page">{{ ui.icon('image-plus') }}Ajouter une photo</a>
+                <a href="#donnees" class="menu-item">{{ ui.icon('swords') }}Nouvelle liste d’armée</a>
+                <div class="menu-separator"></div>
+                <a href="#donnees" class="menu-item menu-item-danger">{{ ui.icon('log-out') }}Déconnexion</a>
+            </div>
+        </div>
+        <div>
+            <p class="eyebrow mb-2">.progress</p>
+            <div class="space-y-3">
+                <div class="progress" role="progressbar" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100" aria-label="Démo"><div class="progress-bar" style="width: 35%"></div></div>
+                <div class="progress progress-sm progress-accent" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" aria-label="Démo"><div class="progress-bar" style="width: 80%"></div></div>
+                <div class="progress progress-success" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Démo"><div class="progress-bar" style="width: 100%"></div></div>
+            </div>
+            <hr class="divider">
+            <p class="divider-label">ou</p>
+            <p class="eyebrow mb-2">.skeleton</p>
+            <div class="flex items-center gap-3" aria-hidden="true">
+                <div class="skeleton skeleton-circle size-10"></div>
+                <div class="flex-1 space-y-2"><div class="skeleton skeleton-text w-1/2"></div><div class="skeleton skeleton-text w-4/5"></div></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# ───────────────────────── RETOURS ───────────────────────── #}
+<section id="retours" class="scroll-mt-24 space-y-4">
+    <h2 class="section-title">{{ ui.icon('bell') }}Alertes et toasts</h2>
+    <div class="alert alert-info">{{ ui.icon('info') }}<div><p class="alert-title">Information</p><p>Votre galerie accepte jusqu'à 10 photos.</p></div></div>
+    <div class="alert alert-success">{{ ui.icon('check-circle') }}<p>Profil mis à jour.</p></div>
+    <div class="alert alert-warning">{{ ui.icon('alert-triangle') }}<p>Votre e-mail n'est pas encore vérifié.</p></div>
+    <div class="alert alert-danger">{{ ui.icon('alert-circle') }}<p>Impossible d'envoyer le message.</p></div>
+    <div class="grid sm:grid-cols-2 gap-3 pt-2">
+        {% for kind, icon in {success: 'check-circle', error: 'alert-circle', warning: 'alert-triangle', info: 'info'} %}
+            <div class="toast toast-{{ kind }}" role="status">
+                {{ ui.icon(icon, 'toast-icon') }}
+                <p class="toast-body">Toast {{ kind }} — message flash.</p>
+                <button type="button" class="btn btn-ghost btn-icon btn-sm -my-1 shrink-0" aria-label="Fermer ce message">{{ ui.icon('x') }}</button>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+{# ───────────────────────── EXEMPLES ───────────────────────── #}
+<section id="exemples" class="scroll-mt-24 space-y-10">
+    <h2 class="section-title">{{ ui.icon('layout-grid') }}Exemples de composition</h2>
+
+    <div class="card card-body">
+        <header class="page-header mb-0 md:mb-0">
+            <div>
+                <p class="page-header-eyebrow"><a href="#exemples" class="link">Forum</a>{{ ui.icon('chevron-right', 'size-4') }}Peinture</p>
+                <h3 class="page-header-title">Peinture</h3>
+                <p class="page-header-subtitle">Techniques, schémas de couleurs et retours sur vos figurines.</p>
+            </div>
+            <div class="page-header-actions">
+                <a href="#exemples" class="btn btn-ghost">{{ ui.icon('filter') }}Filtrer</a>
+                <a href="#exemples" class="btn btn-primary">{{ ui.icon('plus') }}Nouveau sujet</a>
+            </div>
+        </header>
+    </div>
+
+    <div class="card overflow-hidden">
+        <div class="card-header"><h3 class="text-h3">Sujets récents</h3><a href="#exemples" class="btn btn-link btn-sm">Tout voir</a></div>
+        {% for row in [
+            {t: 'Quel apprêt pour du résine ?', a: 'Kaelen', n: 12, pinned: true},
+            {t: 'Schéma Ultramarines 2e compagnie', a: 'Morgane', n: 4, pinned: false},
+            {t: 'Retour sur le kit Boarding Actions', a: 'Tobias', n: 0, pinned: false},
+        ] %}
+            <a href="#exemples" class="list-row">
+                {{ ui.avatar({username: row.a, avatar: null}, 'sm') }}
+                <div class="list-row-main">
+                    <p class="font-medium truncate">{% if row.pinned %}{{ ui.icon('pin', 'size-4 inline text-accent-text mr-1 -mt-0.5', 'Épinglé') }}{% endif %}{{ row.t }}</p>
+                    <p class="text-caption text-muted">par {{ row.a }} · il y a 2 h</p>
+                </div>
+                <span class="chip">{{ ui.icon('message-circle') }}{{ row.n }}</span>
+            </a>
+        {% endfor %}
+    </div>
+
+    <div class="grid sm:grid-cols-3 gap-4">
+        {% for i in 1..3 %}
+            <a href="#exemples" class="card card-interactive overflow-hidden block">
+                <div class="aspect-video bg-surface-raised flex items-center justify-center text-muted">{{ ui.icon('image', 'size-8') }}</div>
+                <div class="card-body"><p class="font-semibold">Groupe de jeu n° {{ i }}</p><p class="text-small text-muted">{{ 10 * i }} membres · Lyon</p></div>
+            </a>
+        {% endfor %}
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'camera',
+            title: 'Votre galerie est vide',
+            text: 'Partagez vos figurines peintes pour recevoir des avis et gagner de l’XP.',
+            hint: '+20 XP pour la première photo',
+            cta: {label: 'Ajouter une photo', url: '#exemples', icon: 'image-plus'},
+            secondary: {label: 'Voir des exemples', url: '#exemples'},
+        }) }}
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: '💬',
+            title: 'Aucune conversation',
+            text: 'Emoji historique converti automatiquement en icône SVG.',
+            compact: true,
+        }) }}
+    </div>
+</section>
+
+{# ───────────────────────── ICÔNES ───────────────────────── #}
+<section id="icones" class="scroll-mt-24">
+    <h2 class="section-title">{{ ui.icon('image') }}Icônes ({{ icon_names|length }})</h2>
+    <p class="text-small text-fg-secondary mb-4">Style Lucide (licence ISC). <code class="kbd">{{ "{{ ui.icon('bell', 'size-5') }}" }}</code> — décoratives par défaut (aria-hidden) ; 3ᵉ argument = libellé accessible.</p>
+    <ul class="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 gap-2">
+        {% for name in icon_names %}
+            <li class="card flex flex-col items-center gap-2 px-2 py-3 text-center shadow-none">
+                {{ ui.icon(name, 'size-6 text-fg') }}
+                <span class="text-caption text-muted break-all">{{ name }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+</section>
+
+</div>
+{% endblock %}

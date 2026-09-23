@@ -1,0 +1,6 @@
+{# Actions de création (menu « Publier » desktop et feuille mobile). Membre connecté uniquement. #}
+{% import '_macros/ui.html.twig' as ui %}
+<p class="eyebrow menu-label">Publier</p>
+<a href="{{ path('app_forum_index') }}" class="menu-item">{{ ui.icon('message-square') }}Nouveau sujet</a>
+<a href="{{ path('app_profil_show', {username: app.user.username}) }}#gallery" class="menu-item">{{ ui.icon('image-plus') }}Ajouter une photo</a>
+<a href="{{ path('app_army_new') }}" class="menu-item">{{ ui.icon('swords') }}Nouvelle liste d’armée</a>

@@ -1,0 +1,122 @@
+{# En-tête de l'application (desktop : logo, navigation, recherche, Publier, messages, notifications, compte ;
+   mobile : logo, loupe, messages, notifications — la navigation passe dans la barre d'onglets du bas).
+   Variables : shell_section (calculée dans base.html.twig). #}
+{% import '_macros/ui.html.twig' as ui %}
+<header class="app-header" x-data="{ searchOpen: false }">
+    <div class="app-header-inner container-app">
+        <a href="{{ path('app_home') }}" class="app-logo"{% if shell_section == 'home' %} aria-current="page"{% endif %}>
+            <img src="{{ asset('images/SprueHub-W-0.png') }}" alt="SprueHub — accueil" width="1254" height="437">
+        </a>
+
+        <nav class="app-nav" aria-label="Navigation principale">
+            <a href="{{ path('app_forum_index') }}" class="app-nav-link"{% if shell_section == 'forum' %} aria-current="page"{% endif %}>
+                {{ ui.icon('messages-square') }}Forum
+            </a>
+            <a href="{{ path('app_group_index') }}" class="app-nav-link"{% if shell_section == 'groups' %} aria-current="page"{% endif %}>
+                {{ ui.icon('users') }}Groupes
+            </a>
+            <a href="{{ path('app_leaderboard') }}" class="app-nav-link"{% if shell_section == 'leaderboard' %} aria-current="page"{% endif %}>
+                {{ ui.icon('trophy') }}Classement
+            </a>
+        </nav>
+
+        {{ include('_partials/shell/_search.html.twig') }}
+
+        <div class="app-actions">
+            {# Loupe mobile : ouvre la recherche en pleine largeur sous la barre #}
+            <button type="button" @click="searchOpen = !searchOpen"
+                    class="btn btn-ghost btn-icon md:hidden"
+                    :class="{ 'bg-white/10 text-fg': searchOpen }"
+                    aria-controls="site-search" aria-expanded="false" :aria-expanded="searchOpen.toString()"
+                    aria-label="Rechercher" :aria-label="searchOpen ? 'Fermer la recherche' : 'Rechercher'">
+                <span x-show="!searchOpen">{{ ui.icon('search') }}</span>
+                <span x-show="searchOpen" x-cloak>{{ ui.icon('x') }}</span>
+            </button>
+
+            {% if app.user %}
+                {# Publier (desktop) — sur mobile : bouton central de la barre du bas #}
+                <div class="dropdown hidden md:block" x-data="{ open: false }"
+                     @click.outside="open = false" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+                    <button type="button" x-ref="trigger" @click="open = !open" class="btn btn-primary btn-sm"
+                            aria-expanded="false" :aria-expanded="open.toString()" aria-controls="publish-menu">
+                        {{ ui.icon('plus') }}Publier{{ ui.icon('chevron-down', 'size-4 opacity-80') }}
+                    </button>
+                    <div id="publish-menu" class="menu w-60" x-show="open" x-cloak x-transition.opacity.duration.150ms>
+                        {{ include('_partials/shell/_publish_items.html.twig') }}
+                    </div>
+                </div>
+
+                {# Messages : lien vers la messagerie + compteur temps réel (le messenger flottant reste sur desktop) #}
+                <a href="{{ path('app_message_index') }}" class="btn btn-ghost btn-icon"{% if shell_section == 'messages' %} aria-current="page"{% endif %}>
+                    {{ ui.icon('message-circle') }}
+                    <span class="sr-only">Messages</span>
+                    <span id="message-menu-badge" data-controller="counter" data-counter-kind-value="messages"
+                          class="count-badge count-badge-float hidden"></span>
+                </a>
+
+                {# Cloche de notifications (assets/controllers/notifications_controller.js) — lien vers la page complète sans JavaScript #}
+                {% set unreadNotifications = notification_unread_count() %}
+                <div class="relative"
+                     data-controller="notifications"
+                     data-notifications-recent-url-value="{{ path('app_notification_recent') }}"
+                     data-notifications-read-url-value="{{ path('app_notification_read', {id: 0}) }}"
+                     data-notifications-read-all-url-value="{{ path('app_notification_read_all') }}"
+                     data-notifications-avatar-base-value="{{ asset('uploads/avatars/') }}"
+                     data-notifications-unread-value="{{ unreadNotifications }}">
+                    <a href="{{ path('app_notification_index') }}"
+                       data-notifications-target="button"
+                       data-action="notifications#toggle"
+                       role="button"
+                       aria-haspopup="true"
+                       aria-expanded="false"
+                       aria-label="Notifications{{ unreadNotifications > 0 ? ' (' ~ unreadNotifications ~ ' non lues)' : '' }}"
+                       class="btn btn-ghost btn-icon">
+                        {{ ui.icon('bell') }}
+                        <span data-notifications-target="badge"
+                              class="count-badge count-badge-float {{ unreadNotifications > 0 ? '' : 'hidden' }}">{{ unreadNotifications > 99 ? '99+' : unreadNotifications }}</span>
+                    </a>
+
+                    <div data-notifications-target="panel"
+                         class="menu hidden w-[min(22rem,calc(100vw-1rem))] p-0 overflow-hidden max-md:fixed max-md:left-2 max-md:right-2 max-md:top-[calc(var(--header-h)+0.25rem)] max-md:w-auto">
+                        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-line">
+                            <span class="font-semibold text-fg text-small">Notifications</span>
+                            <button type="button"
+                                    data-notifications-target="markAll"
+                                    data-action="notifications#markAllRead"
+                                    class="btn btn-link text-caption disabled:text-muted disabled:no-underline disabled:cursor-default"
+                                    {{ unreadNotifications > 0 ? '' : 'disabled' }}>
+                                Tout marquer comme lu
+                            </button>
+                        </div>
+                        <div data-notifications-target="list"
+                             data-action="click->notifications#openItem auxclick->notifications#openItem"
+                             class="max-h-96 overflow-y-auto overscroll-contain"></div>
+                        <a href="{{ path('app_notification_index') }}"
+                           class="flex items-center justify-center gap-1.5 min-h-11 text-small font-medium text-primary-text hover:bg-white/5 border-t border-line">
+                            Voir tout{{ ui.icon('arrow-right', 'size-4') }}
+                        </a>
+                    </div>
+                </div>
+
+                {# Menu du compte (desktop) — sur mobile : onglet « Menu » de la barre du bas #}
+                <div class="dropdown hidden md:block" x-data="{ open: false }"
+                     @click.outside="open = false" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
+                    <button type="button" x-ref="trigger" @click="open = !open"
+                            class="flex items-center gap-2 min-h-10 rounded-pill p-1 pr-2 text-fg-secondary hover:bg-white/5 hover:text-fg transition-colors"
+                            aria-expanded="false" :aria-expanded="open.toString()" aria-controls="account-menu">
+                        {{ ui.avatar(app.user, 'sm') }}
+                        <span class="hidden lg:inline max-w-32 truncate text-small font-medium">{{ app.user.username }}</span>
+                        {{ ui.icon('chevron-down', 'size-4') }}
+                        <span class="sr-only">Menu du compte</span>
+                    </button>
+                    <div id="account-menu" class="menu w-72" x-show="open" x-cloak x-transition.opacity.duration.150ms>
+                        {{ include('_partials/shell/_account_items.html.twig') }}
+                    </div>
+                </div>
+            {% else %}
+                <a href="{{ path('app_login') }}" class="btn btn-ghost btn-sm max-[359px]:hidden"{% if shell_section == 'login' %} aria-current="page"{% endif %}>Connexion</a>
+                <a href="{{ path('app_register') }}" class="btn btn-primary btn-sm"{% if shell_section == 'register' %} aria-current="page"{% endif %}>Inscription</a>
+            {% endif %}
+        </div>
+    </div>
+</header>

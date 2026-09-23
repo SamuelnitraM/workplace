@@ -1,0 +1,26 @@
+{# Messages flash affichés en toasts (haut-droite desktop, haut-centre mobile).
+   Disparition automatique et fermeture : assets/controllers/flash_controller.js.
+   Types : success | error | warning | info (tout autre type → info). #}
+{% import '_macros/ui.html.twig' as ui %}
+{% set flashes = app.flashes %}
+{% if flashes is not empty %}
+    <div id="flash-container" class="toast-region">
+        {% for type, messages in flashes %}
+            {% set kind = type in ['success', 'error', 'warning', 'info'] ? type : (type == 'danger' ? 'error' : 'info') %}
+            {% set icon = {success: 'check-circle', error: 'alert-circle', warning: 'alert-triangle', info: 'info'}[kind] %}
+            {% for message in messages %}
+                {# Les erreurs restent affichées plus longtemps (temps de lecture) #}
+                <div data-controller="flash"
+                     data-flash-delay-value="{{ (kind == 'error' ? 8000 : 5000) + (loop.parent.loop.index0 * 500) + (loop.index0 * 500) }}"
+                     class="toast toast-{{ kind }} flash-message"
+                     role="{{ kind == 'error' ? 'alert' : 'status' }}">
+                    {{ ui.icon(icon, 'toast-icon') }}
+                    <p class="toast-body">{{ message }}</p>
+                    <button type="button" data-action="flash#close" class="btn btn-ghost btn-icon btn-sm -my-1 shrink-0" aria-label="Fermer ce message">
+                        {{ ui.icon('x') }}
+                    </button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+{% endif %}

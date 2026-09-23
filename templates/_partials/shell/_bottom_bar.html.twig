@@ -1,0 +1,64 @@
+{# Barre d'onglets mobile (< 768 px), fixe en bas, zone de sécurité iOS incluse (.bottom-bar dans app.css).
+   Membre : Accueil · Forum · Publier (feuille) · Groupes · Menu (feuille du compte).
+   Visiteur : Accueil · Forum · Groupes · Classement · Connexion.
+   Variables : shell_section. #}
+{% import '_macros/ui.html.twig' as ui %}
+{% if app.user %}
+    <div x-data="{ sheet: null }" @keydown.escape.window="sheet = null" class="md:hidden">
+        <nav class="bottom-bar" aria-label="Navigation principale (mobile)">
+            <a href="{{ path('app_home') }}" class="bottom-bar-item"{% if shell_section == 'home' %} aria-current="page"{% endif %}>
+                {{ ui.icon('home') }}Accueil
+            </a>
+            <a href="{{ path('app_forum_index') }}" class="bottom-bar-item"{% if shell_section == 'forum' %} aria-current="page"{% endif %}>
+                {{ ui.icon('messages-square') }}Forum
+            </a>
+            <button type="button" class="bottom-bar-item" @click="sheet = sheet === 'publish' ? null : 'publish'"
+                    aria-expanded="false" :aria-expanded="(sheet === 'publish').toString()" aria-controls="publish-sheet">
+                <span class="bottom-bar-fab">{{ ui.icon('plus') }}</span>Publier
+            </button>
+            <a href="{{ path('app_group_index') }}" class="bottom-bar-item"{% if shell_section == 'groups' %} aria-current="page"{% endif %}>
+                {{ ui.icon('users') }}Groupes
+            </a>
+            <button type="button" class="bottom-bar-item{{ shell_section == 'me' ? ' is-active' : '' }}" @click="sheet = sheet === 'account' ? null : 'account'"
+                    aria-expanded="false" :aria-expanded="(sheet === 'account').toString()" aria-controls="account-sheet">
+                {{ ui.avatar(app.user, 'xs', 'size-[1.375rem]') }}Menu
+            </button>
+        </nav>
+
+        <div class="sheet-backdrop" x-show="sheet" x-cloak x-transition.opacity.duration.150ms @click="sheet = null"></div>
+
+        <div id="publish-sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Publier"
+             x-show="sheet === 'publish'" x-cloak x-transition.opacity.duration.150ms
+             x-effect="if (sheet === 'publish') $nextTick(() => $el.querySelector('a')?.focus())">
+            <div class="sheet-handle" aria-hidden="true"></div>
+            {{ include('_partials/shell/_publish_items.html.twig') }}
+            <button type="button" class="btn btn-secondary btn-block mt-3" @click="sheet = null">Fermer</button>
+        </div>
+
+        <div id="account-sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Menu du compte"
+             x-show="sheet === 'account'" x-cloak x-transition.opacity.duration.150ms
+             x-effect="if (sheet === 'account') $nextTick(() => $el.querySelector('a')?.focus())">
+            <div class="sheet-handle" aria-hidden="true"></div>
+            {{ include('_partials/shell/_account_items.html.twig') }}
+            <button type="button" class="btn btn-secondary btn-block mt-3" @click="sheet = null">Fermer</button>
+        </div>
+    </div>
+{% else %}
+    <nav class="bottom-bar" aria-label="Navigation principale (mobile)">
+        <a href="{{ path('app_home') }}" class="bottom-bar-item"{% if shell_section == 'home' %} aria-current="page"{% endif %}>
+            {{ ui.icon('home') }}Accueil
+        </a>
+        <a href="{{ path('app_forum_index') }}" class="bottom-bar-item"{% if shell_section == 'forum' %} aria-current="page"{% endif %}>
+            {{ ui.icon('messages-square') }}Forum
+        </a>
+        <a href="{{ path('app_group_index') }}" class="bottom-bar-item"{% if shell_section == 'groups' %} aria-current="page"{% endif %}>
+            {{ ui.icon('users') }}Groupes
+        </a>
+        <a href="{{ path('app_leaderboard') }}" class="bottom-bar-item"{% if shell_section == 'leaderboard' %} aria-current="page"{% endif %}>
+            {{ ui.icon('trophy') }}Classement
+        </a>
+        <a href="{{ path('app_login') }}" class="bottom-bar-item"{% if shell_section == 'login' %} aria-current="page"{% endif %}>
+            {{ ui.icon('log-in') }}Connexion
+        </a>
+    </nav>
+{% endif %}

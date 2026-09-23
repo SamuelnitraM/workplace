@@ -1,0 +1,43 @@
+{# Contenu du menu du compte (menu déroulant desktop et feuille « Menu » mobile). Membre connecté uniquement.
+   Variables : shell_section. #}
+{% import '_macros/ui.html.twig' as ui %}
+{% set me = app.user %}
+<div class="flex items-center gap-3 px-3 pt-2 pb-1">
+    {{ ui.avatar(me, 'md') }}
+    <div class="min-w-0">
+        <p class="font-semibold text-fg truncate">{{ me.username }}</p>
+        {% if me.titleBadge %}<div class="mt-0.5 flex">{{ include('gamification/_user_title.html.twig', {user: me}) }}</div>{% endif %}
+    </div>
+</div>
+<div class="xp-mini">
+    <div class="flex items-center justify-between text-caption mb-1.5">
+        <span class="font-semibold text-primary-text">Niveau {{ me.level }}</span>
+        {% if me.maxLevel %}
+            <span class="font-semibold text-accent-text">Niveau max</span>
+        {% else %}
+            <span class="text-muted tabular-nums">{{ me.experience }} / {{ me.nextLevelExperience }} XP</span>
+        {% endif %}
+    </div>
+    <div class="progress progress-sm{{ me.maxLevel ? ' progress-accent' : '' }}" role="progressbar" aria-valuenow="{{ me.experienceProgress }}" aria-valuemin="0" aria-valuemax="100"
+         aria-label="{{ me.maxLevel ? 'Niveau maximum atteint' : 'Progression vers le niveau suivant' }}"
+         title="{{ me.maxLevel ? 'Niveau maximum atteint (' ~ me.experience ~ ' XP)' : 'Progression vers le niveau suivant' }}">
+        <div class="progress-bar" style="width: {{ me.experienceProgress }}%"></div>
+    </div>
+</div>
+<div class="menu-separator"></div>
+{% set my_profile = app.current_route starts with 'app_profil_show' and (app.current_route_parameters.username ?? '') == me.username %}
+<a href="{{ path('app_profil_show', {username: me.username}) }}" class="menu-item"{% if my_profile %} aria-current="page"{% endif %}>{{ ui.icon('user') }}Mon profil</a>
+<a href="{{ path('app_todo_index') }}" class="menu-item"{% if app.current_route starts with 'app_todo' %} aria-current="page"{% endif %}>{{ ui.icon('list-checks') }}Mes tâches</a>
+<a href="{{ path('app_army_index') }}" class="menu-item"{% if app.current_route starts with 'app_army' %} aria-current="page"{% endif %}>{{ ui.icon('swords') }}Listes d’armée</a>
+<a href="{{ path('app_friendship_list') }}" class="menu-item"{% if app.current_route starts with 'app_friendship' %} aria-current="page"{% endif %}>{{ ui.icon('users') }}Amis</a>
+<a href="{{ path('app_message_index') }}" class="menu-item"{% if shell_section == 'messages' %} aria-current="page"{% endif %}>
+    {{ ui.icon('message-circle') }}<span class="flex-1">Messages</span>
+    <span data-controller="counter" data-counter-kind-value="messages" class="count-badge hidden"></span>
+</a>
+<a href="{{ path('app_leaderboard') }}" class="menu-item"{% if shell_section == 'leaderboard' %} aria-current="page"{% endif %}>{{ ui.icon('trophy') }}Classement</a>
+<a href="{{ path('app_profil_edit') }}" class="menu-item"{% if app.current_route in ['app_profil_edit', 'app_profil_change_password', 'app_profil_title'] %} aria-current="page"{% endif %}>{{ ui.icon('settings') }}Paramètres</a>
+{% if is_granted('ROLE_ADMIN') %}
+    <a href="{{ path('admin') }}" class="menu-item">{{ ui.icon('shield-check') }}Administration</a>
+{% endif %}
+<div class="menu-separator"></div>
+<a href="{{ logout_path() }}" data-turbo="false" class="menu-item menu-item-danger">{{ ui.icon('log-out') }}Déconnexion</a>

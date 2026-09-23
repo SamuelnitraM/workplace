@@ -1,0 +1,58 @@
+{# État vide transformé en appel à l'action (rendu commun à tout le site — design system : .empty-state).
+   Paramètres :
+     icon        (string, facultatif) nom d'icône du jeu SVG (ex. 'camera', 'users' — voir /_styleguide) ;
+                 les anciens emojis sont convertis automatiquement (📷 → camera…), sinon affichés tels quels
+     title       (string, obligatoire)                text  (string, facultatif)
+     hint        (string, facultatif — ex. récompense XP réelle, affichée en couleur accent)
+     cta         ({label, url}, {label, for} ou {label, tab} — `for` = id d'un champ de la page : rend un <label> qui le focalise ;
+                  `tab` = nom d'un onglet du contrôleur Stimulus « tabs » englobant : rend un bouton qui l'affiche ;
+                  clé facultative `icon` : nom d'icône affichée avant le libellé)
+     secondary   (même forme que cta, facultatif — bouton discret)
+     variant     ('card' par défaut : carte autonome ; 'plain' : sans cadre, à l'intérieur d'un panneau existant)
+     compact     (bool, défaut false : marges réduites)
+     heading     (niveau de titre, défaut 2)
+   Tout le texte est échappé (autoescape). #}
+{% import '_macros/ui.html.twig' as ui %}
+{% set variant = variant ?? 'card' %}
+{% set compact = compact ?? false %}
+{% set heading = heading ?? 2 %}
+{% set _legacy_icons = {
+    '◷': 'clock', '⚔️': 'swords', '✉️': 'mail', '✏️': 'pencil', '🌍': 'globe', '🏅': 'medal', '👋': 'sparkles',
+    '👥': 'users', '💬': 'message-circle', '📂': 'folder', '📋': 'clipboard-list', '📢': 'message-square', '📬': 'mail',
+    '📷': 'camera', '🔒': 'lock', '🔔': 'bell', '🛡️': 'shield', '🤝': 'user-plus', '🏆': 'trophy', '⭐': 'star',
+} %}
+{% set _icon_names = include('_partials/_icon.html.twig', {name: '__names'}, with_context = false)|split(',') %}
+{% set _icon = (icon ?? null) ? (_legacy_icons[icon] ?? icon) : null %}
+
+{% macro action(item, classes) %}
+    {%- import '_macros/ui.html.twig' as ui -%}
+    {%- set inner -%}{% if item.icon ?? false %}{{ ui.icon(item.icon) }}{% endif %}{{ item.label }}{%- endset -%}
+    {%- if item.for is defined and item.for -%}
+        <label for="{{ item.for }}" class="{{ classes }}">{{ inner }}</label>
+    {%- elseif item.tab is defined and item.tab -%}
+        <button type="button" data-action="tabs#select" data-tab="{{ item.tab }}" class="{{ classes }}">{{ inner }}</button>
+    {%- else -%}
+        <a href="{{ item.url }}" class="{{ classes }}">{{ inner }}</a>
+    {%- endif -%}
+{% endmacro %}
+
+<div class="empty-state{{ compact ? ' empty-state-compact' : '' }}{{ variant == 'card' ? ' card' : '' }}" data-empty-state>
+    {% if _icon %}
+        <div class="empty-state-icon" aria-hidden="true">
+            {%- if _icon in _icon_names %}{{ ui.icon(_icon) }}{% else %}{{ _icon }}{% endif -%}
+        </div>
+    {% endif %}
+    <h{{ heading }} class="empty-state-title">{{ title }}</h{{ heading }}>
+    {% if text is defined and text %}
+        <p class="empty-state-text">{{ text }}</p>
+    {% endif %}
+    {% if hint is defined and hint %}
+        <p class="empty-state-hint">{{ hint }}</p>
+    {% endif %}
+    {% if (cta is defined and cta) or (secondary is defined and secondary) %}
+        <div class="empty-state-actions">
+            {% if cta is defined and cta %}{{ _self.action(cta, 'btn btn-primary') }}{% endif %}
+            {% if secondary is defined and secondary %}{{ _self.action(secondary, 'btn btn-ghost') }}{% endif %}
+        </div>
+    {% endif %}
+</div>

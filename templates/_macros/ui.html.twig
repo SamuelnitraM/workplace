@@ -1,0 +1,22 @@
+{#
+  Macros d'interface du design system (docs/design-system.md).
+  {% import '_macros/ui.html.twig' as ui %}
+#}
+
+{# Icône SVG inline. label → role="img" + aria-label ; sans label : décorative (aria-hidden).
+   {{ ui.icon('bell') }} · {{ ui.icon('trash', 'size-4') }} · {{ ui.icon('lock', 'size-4', 'Privé') }} #}
+{% macro icon(name, class = 'size-5', label = null) -%}
+    {{- include('_partials/_icon.html.twig', {name: name, class: class, label: label}, with_context = false) -}}
+{%- endmacro %}
+
+{# Avatar d'un utilisateur (photo ou initiale). size : xs | sm | md | lg | xl.
+   {{ ui.avatar(app.user, 'sm') }} · alt vide : l'avatar accompagne le pseudo affiché à côté. #}
+{% macro avatar(user, size = 'md', class = '') -%}
+    <span class="avatar avatar-{{ size }} {{ class }}">
+        {%- if user.avatar -%}
+            <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" alt="" loading="lazy" decoding="async">
+        {%- else -%}
+            <span aria-hidden="true">{{ user.username|first|upper }}</span>
+        {%- endif -%}
+    </span>
+{%- endmacro %}
