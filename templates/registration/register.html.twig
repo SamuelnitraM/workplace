@@ -1,135 +1,139 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
-{% block title %}Créer un compte{% endblock %}
+{% block title %}Créer un compte — SprueHub{% endblock %}
+
+{% set formType = 'App\\Form\\RegistrationFormType' %}
+{% set usernameMin = constant(formType ~ '::USERNAME_MIN_LENGTH') %}
+{% set usernameMax = constant(formType ~ '::USERNAME_MAX_LENGTH') %}
+{% set emailMax = constant(formType ~ '::EMAIL_MAX_LENGTH') %}
+{% set passwordMin = constant(formType ~ '::PASSWORD_MIN_LENGTH') %}
+
+{# Règle affichée sous un champ, mise à jour en direct par assets/controllers/field_rules_controller.js
+   (couleur : text-muted → text-success-text, puce « • » → « ✓ »). #}
+{% macro rule(kind, param, label) %}
+    <li class="flex items-start gap-2 text-muted transition-colors" data-field-rules-target="rule" data-rule="{{ kind }}" data-param="{{ param }}">
+        <span data-icon aria-hidden="true" class="w-3 shrink-0 text-center font-bold">•</span>
+        <span>{{ label }}<span data-state class="sr-only"></span></span>
+    </li>
+{% endmacro %}
 
 {% block body %}
+{% import _self as reg %}
+{% set form = registrationForm %}
 
-<div class="max-w-md mx-auto">
+<div class="container-form">
 
-    {# CARTE #}
-    <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-xl">
+    <header class="mb-6 text-center">
+        <h1 class="text-h1 text-fg">Rejoindre SprueHub</h1>
+        <p class="mt-2 text-fg-secondary">Crée ton compte gratuit et rejoins la communauté des passionnés de figurines.</p>
+    </header>
 
-        {# HEADER #}
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-white mb-2">
-                Rejoindre SprueHub
-            </h1>
+    <div class="card">
+        <div class="card-body space-y-6 sm:p-8">
 
-            <p class="text-gray-400">
-                Crée ton compte et rejoins la communauté des passionnés de figurines.
-            </p>
+            {# Pourquoi rejoindre ? #}
+            <section class="rounded-control bg-surface-raised p-4" aria-labelledby="why-join">
+                <h2 id="why-join" class="eyebrow text-primary-text">Pourquoi rejoindre ?</h2>
+                <ul class="mt-3 space-y-2 text-small text-fg-secondary">
+                    <li class="flex items-center gap-3"><span class="text-primary-text">{{ ui.icon('camera', 'size-4') }}</span>Partager tes figurines et tes peintures</li>
+                    <li class="flex items-center gap-3"><span class="text-primary-text">{{ ui.icon('swords', 'size-4') }}</span>Discuter stratégie et listes d'armée</li>
+                    <li class="flex items-center gap-3"><span class="text-accent-text">{{ ui.icon('medal', 'size-4') }}</span>Progresser avec l'XP et les badges</li>
+                </ul>
+            </section>
+
+            {# Erreurs de vérification d'e-mail #}
+            {% for flash_error in app.flashes('verify_email_error') %}
+                <div class="alert alert-danger" role="alert">{{ ui.icon('alert-circle') }}<p>{{ flash_error }}</p></div>
+            {% endfor %}
+
+            {{ form_start(form, {attr: {class: 'space-y-5'}}) }}
+                {{ form_errors(form) }}
+
+                {# E-MAIL #}
+                {% set emailRulesId = form.email.vars.id ~ '_rules' %}
+                <div class="field" data-controller="field-rules">
+                    {{ form_label(form.email, 'Adresse e-mail') }}
+                    {{ form_widget(form.email, {
+                        attr: form.email.vars.attr|merge({
+                            placeholder: 'exemple@email.com',
+                            autofocus: 'autofocus',
+                            'aria-describedby': emailRulesId,
+                            'data-field-rules-target': 'input',
+                            'data-action': 'input->field-rules#check'
+                        })
+                    }) }}
+                    <ul id="{{ emailRulesId }}" class="space-y-0.5 text-caption">
+                        {{ reg.rule('email', '', 'Adresse valide (ex. nom@domaine.fr), ' ~ emailMax ~ ' caractères max') }}
+                    </ul>
+                    {{ form_errors(form.email) }}
+                </div>
+
+                {# PSEUDO #}
+                {% set usernameRulesId = form.username.vars.id ~ '_rules' %}
+                <div class="field" data-controller="field-rules">
+                    {{ form_label(form.username, 'Pseudo') }}
+                    {{ form_widget(form.username, {
+                        attr: form.username.vars.attr|merge({
+                            placeholder: 'Ton pseudo',
+                            title: 'Lettres sans accent, chiffres, _ . -',
+                            autocapitalize: 'none',
+                            spellcheck: 'false',
+                            'aria-describedby': usernameRulesId,
+                            'data-field-rules-target': 'input',
+                            'data-action': 'input->field-rules#check'
+                        })
+                    }) }}
+                    <ul id="{{ usernameRulesId }}" class="space-y-0.5 text-caption">
+                        {{ reg.rule('minlength', usernameMin, 'Au moins ' ~ usernameMin ~ ' caractères') }}
+                        {{ reg.rule('maxlength', usernameMax, usernameMax ~ ' caractères maximum') }}
+                        {{ reg.rule('pattern', '^' ~ constant(formType ~ '::USERNAME_HTML_PATTERN') ~ '$', 'Lettres sans accent, chiffres, _ . -') }}
+                    </ul>
+                    {{ form_errors(form.username) }}
+                </div>
+
+                {# MOT DE PASSE #}
+                {% set passwordRulesId = form.plainPassword.vars.id ~ '_rules' %}
+                <div class="field" data-controller="field-rules password-visibility">
+                    {{ form_label(form.plainPassword, 'Mot de passe') }}
+                    <div class="relative">
+                        {{ form_widget(form.plainPassword, {
+                            attr: form.plainPassword.vars.attr|merge({
+                                class: 'pr-12',
+                                placeholder: '••••••••',
+                                'aria-describedby': passwordRulesId,
+                                'data-field-rules-target': 'input',
+                                'data-password-visibility-target': 'input',
+                                'data-action': 'input->field-rules#check'
+                            })
+                        }) }}
+                        {{ include('security/_password_toggle.html.twig', {controls: form.plainPassword.vars.id}, with_context = false) }}
+                    </div>
+                    <ul id="{{ passwordRulesId }}" class="space-y-0.5 text-caption">
+                        {{ reg.rule('minlength', passwordMin, 'Au moins ' ~ passwordMin ~ ' caractères (une phrase facile à retenir est idéale)') }}
+                    </ul>
+                    {{ form_errors(form.plainPassword) }}
+                </div>
+
+                {# CONDITIONS #}
+                <div class="field">
+                    <label class="check" for="{{ form.agreeTerms.vars.id }}">
+                        {{ form_widget(form.agreeTerms) }}
+                        <span class="text-fg-secondary">J'accepte les <a href="{{ path('app_terms') }}" class="link" target="_blank" rel="noopener">conditions d'utilisation</a> de la plateforme.</span>
+                    </label>
+                    {{ form_errors(form.agreeTerms) }}
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block">Créer mon compte</button>
+
+            {{ form_end(form) }}
         </div>
 
-        {# ERREURS EMAIL VERIFY #}
-        {% for flash_error in app.flashes('verify_email_error') %}
-            <div class="mb-6 bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg">
-                {{ flash_error }}
-            </div>
-        {% endfor %}
-
-        {{ form_start(registrationForm, {
-            attr: {
-                class: 'space-y-6'
-            }
-        }) }}
-
-            {# EMAIL #}
-            <div>
-                {{ form_label(registrationForm.email, 'Adresse email', {
-                    label_attr: {
-                        class: 'block text-sm font-medium text-gray-300 mb-2'
-                    }
-                }) }}
-
-                {{ form_widget(registrationForm.email, {
-                    attr: {
-                        class: 'w-full rounded-xl bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition ' ~ (registrationForm.email.vars.errors|length > 0 ? 'border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'),
-                        placeholder: 'exemple@email.com'
-                    }
-                }) }}
-
-                <div class="mt-2 text-sm text-red-400">
-                    {{ form_errors(registrationForm.email) }}
-                </div>
-            </div>
-
-            {# USERNAME #}
-            <div>
-                {{ form_label(registrationForm.username, 'Pseudo', {
-                    label_attr: {
-                        class: 'block text-sm font-medium text-gray-300 mb-2'
-                    }
-                }) }}
-
-                {{ form_widget(registrationForm.username, {
-                    attr: {
-                        class: 'w-full rounded-xl bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition ' ~ (registrationForm.username.vars.errors|length > 0 ? 'border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'),
-                        placeholder: 'Pseudo'
-                    }
-                }) }}
-
-                <div class="mt-2 text-sm text-red-400">
-                    {{ form_errors(registrationForm.username) }}
-                </div>
-            </div>
-
-            {# MOT DE PASSE #}
-            <div>
-                {{ form_label(registrationForm.plainPassword, 'Mot de passe', {
-                    label_attr: {
-                        class: 'block text-sm font-medium text-gray-300 mb-2'
-                    }
-                }) }}
-
-                {{ form_widget(registrationForm.plainPassword, {
-                    attr: {
-                        class: 'w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition',
-                        placeholder: '••••••••'
-                    }
-                }) }}
-
-                <p class="text-xs text-gray-500 mt-2">
-                    Utilise un mot de passe sécurisé.
-                </p>
-
-                {{ form_errors(registrationForm.plainPassword) }}
-            </div>
-
-            {# CONDITIONS #}
-            <div class="flex items-start gap-3">
-                {{ form_widget(registrationForm.agreeTerms, {
-                    attr: {
-                        class: 'mt-1 rounded border-gray-600 bg-gray-900 text-indigo-600 focus:ring-indigo-500'
-                    }
-                }) }}
-
-                <label for="{{ registrationForm.agreeTerms.vars.id }}"
-                       class="text-sm text-gray-400 leading-relaxed">
-                    J’accepte les conditions d’utilisation de la plateforme.
-                </label>
-            </div>
-
-            {{ form_errors(registrationForm.agreeTerms) }}
-
-            {# BOUTON #}
-            <button type="submit"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-indigo-600/20">
-                Créer mon compte
-            </button>
-
-        {{ form_end(registrationForm) }}
-
-        {# FOOTER #}
-        <div class="mt-6 text-center text-sm text-gray-500">
+        <div class="card-footer justify-center text-small text-fg-secondary">
             Déjà membre ?
-            <a href="{{ path('app_login') }}"
-               class="text-indigo-400 hover:text-indigo-300 transition">
-                Se connecter
-            </a>
+            <a href="{{ path('app_login') }}" class="link font-semibold">Se connecter</a>
         </div>
-
     </div>
 
 </div>
-
 {% endblock %}

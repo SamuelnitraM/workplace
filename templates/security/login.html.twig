@@ -1,91 +1,76 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
-{% block title %}Connexion{% endblock %}
+{% block title %}Connexion — SprueHub{% endblock %}
 
 {% block body %}
+<div class="container-form">
 
-<div class="max-w-md mx-auto">
-    <div class="bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-xl">
+    <header class="mb-6 text-center">
+        <h1 class="text-h1 text-fg">Connexion</h1>
+        <p class="mt-2 text-fg-secondary">Content de te revoir ! Connecte-toi à ton compte SprueHub.</p>
+    </header>
 
-        {# HEADER #}
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-white mb-2">
-                Connexion
-            </h1>
+    <div class="card">
+        <div class="card-body space-y-5 sm:p-8">
 
-            <p class="text-gray-400">
-                Connectez-vous à votre compte SprueHub
-            </p>
+            {# ERREUR #}
+            {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    {{ ui.icon('alert-circle') }}
+                    <p>{{ error.messageKey|trans(error.messageData, 'security') }}</p>
+                </div>
+            {% endif %}
+
+            {# DÉJÀ CONNECTÉ #}
+            {% if app.user %}
+                <div class="alert alert-info">
+                    {{ ui.icon('info') }}
+                    <p>
+                        Tu es connecté en tant que <strong class="font-semibold text-fg">{{ app.user.userIdentifier }}</strong>.
+                        <a href="{{ logout_path() }}" class="link">Déconnexion</a>
+                    </p>
+                </div>
+            {% endif %}
+
+            <form method="post" class="space-y-5">
+
+                <div class="field">
+                    <label for="username" class="label">E-mail ou pseudo</label>
+                    <input type="text" value="{{ last_username }}" name="_username" id="username" class="input"
+                           autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus
+                           placeholder="Pseudo ou adresse e-mail"
+                           {% if error %}aria-invalid="true"{% endif %}>
+                </div>
+
+                <div class="field" data-controller="password-visibility">
+                    <label for="password" class="label">Mot de passe</label>
+                    <div class="relative">
+                        <input type="password" name="_password" id="password" class="input pr-12"
+                               autocomplete="current-password" required placeholder="Ton mot de passe"
+                               data-password-visibility-target="input"
+                               {% if error %}aria-invalid="true"{% endif %}>
+                        {{ include('security/_password_toggle.html.twig', {controls: 'password'}, with_context = false) }}
+                    </div>
+                </div>
+
+                {# CSRF #}
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                <label class="check">
+                    <input type="checkbox" name="_remember_me" class="checkbox">
+                    <span>Se souvenir de moi pendant 30 jours</span>
+                </label>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block">{{ ui.icon('log-in') }}Se connecter</button>
+            </form>
         </div>
 
-        {# ERREUR #}
-        {% if error %}
-            <div class="mb-6 bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 rounded-lg">
-                {{ error.messageKey|trans(error.messageData, 'security') }}
-            </div>
-        {% endif %}
-
-        {# DÉJÀ CONNECTÉ #}
-        {% if app.user %}
-            <div class="mb-6 bg-green-500/10 border border-green-500 text-green-400 px-4 py-3 rounded-lg">
-                Vous êtes connecté en tant que
-                <span class="font-semibold">{{ app.user.userIdentifier }}</span>
-
-                <a href="{{ logout_path() }}"
-                   class="underline hover:text-green-300 ml-2">
-                    Déconnexion
-                </a>
-            </div>
-        {% endif %}
-
-        <form method="post" class="space-y-6">
-
-            {# EMAIL / USERNAME #}
-            <div>
-                <label for="username" class="block text-sm font-medium text-gray-300 mb-2">
-                    Email ou pseudo
-                </label>
-
-                <input
-                    type="text" value="{{ last_username }}" name="_username" id="username" autocomplete="username" required autofocus placeholder="Pseudo ou adresse email" class="w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                >
-            </div>
-
-            {# PASSWORD #}
-            <div>
-                <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
-                    Mot de passe
-                </label>
-
-                <input
-                    type="password" name="_password" id="password" autocomplete="current-password" required placeholder="Votre mot de passe" class="w-full rounded-xl bg-gray-900 border border-gray-700 px-4 py-3 text-white  laceholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-            </div>
-
-            {# CSRF #}
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-
-            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
-                <input type="checkbox" name="_remember_me" class="w-4 h-4 rounded border-gray-600 bg-gray-900 text-indigo-600 focus:ring-indigo-500">
-                <span>Se souvenir de moi pendant 30 jours</span>
-            </label>
-
-            {# SUBMIT #}
-            <button
-                type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-lg shadow-indigo-600/20">
-                Se connecter
-            </button>
-
-        </form>
-
-        {# FOOTER #}
-        <div class="mt-6 text-center text-sm text-gray-500">
+        <div class="card-footer justify-center text-small text-fg-secondary">
             Pas encore de compte ?
-            <a href="{{ path('app_register') }}" class="text-indigo-400 hover:text-indigo-300 transition">
-                Créer un compte
-            </a>
+            <a href="{{ path('app_register') }}" class="link font-semibold">Créer un compte</a>
         </div>
-
     </div>
-</div>
 
+</div>
 {% endblock %}

@@ -34,7 +34,15 @@ class UserProvider implements UserProviderInterface
             throw new UnsupportedUserException(sprintf('Instances of "%s" are not supported.', $user::class));
         }
 
-        return $this->loadUserByIdentifier($user->getUserIdentifier());
+        $refreshedUser = $user->getId() !== null ? $this->userRepository->find($user->getId()) : null;
+        if (!$refreshedUser) {
+            $exception = new UserNotFoundException();
+            $exception->setUserIdentifier($user->getUserIdentifier());
+
+            throw $exception;
+        }
+
+        return $refreshedUser;
     }
 
     public function supportsClass(string $class): bool

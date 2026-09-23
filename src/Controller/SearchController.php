@@ -7,23 +7,24 @@ use App\Repository\GroupRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/search', name: 'app_search_api')]
+#[Route('/search', name: 'app_search_')]
 class SearchController extends AbstractController
 {
-    #[Route('/api', methods: ['GET'])]
+    #[Route('/api', name: 'api', methods: ['GET'])]
     public function search(Request $request, UserRepository $userRepository, GroupRepository $groupRepository): JsonResponse
     {
-        $query = $request->query->get('q', '');
+        $query = trim((string) $request->query->get('q', ''));
 
-        if (strlen($query) < 2) {
+        if (mb_strlen($query) < 2) {
             return new JsonResponse([
                 'users' => [],
                 'groups' => []
             ]);
         }
 
+        $query = mb_substr($query, 0, 100);
         $users = $userRepository->searchByUsername($query);
         $groups = $groupRepository->searchByName($query);
 

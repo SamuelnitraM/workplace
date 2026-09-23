@@ -33,21 +33,24 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
+    /**
+     * Un identifiant contenant « @ » est toujours traité comme un email (un pseudo ne peut pas en contenir),
+     * sinon comme un pseudo : un pseudo égal à l'email d'un autre membre ne peut donc pas détourner la connexion.
+     */
     public function findOneByEmailOrUsername(string $identifier): ?User
     {
-        return $this->createQueryBuilder('user')
-            ->andWhere('user.email = :identifier OR user.username = :identifier')
-            ->setParameter('identifier', $identifier)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+        if (str_contains($identifier, '@')) {
+            return $this->findOneBy(['email' => $identifier]);
+        }
+
+        return $this->findOneBy(['username' => $identifier]);
     }
 
     public function searchByUsername(string $query): array
     {
         return $this->createQueryBuilder('u')
             ->where('u.username LIKE :query')
-            ->setParameter('query', '%' . $query . '%')
+            ->setParameter('query', '%' . addcslashes($query, '%_\\') . '%')
             ->setMaxResults(10)
             ->getQuery()
             ->getResult();

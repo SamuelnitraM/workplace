@@ -1,0 +1,60 @@
+{% extends 'onboarding/_layout.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block step_intro %}
+    Un visage (ou une figurine !) et quelques mots aident les autres membres à te reconnaître.
+{% endblock %}
+
+{% block step_body %}
+{{ form_start(form, {attr: {id: 'onboarding-form', class: 'space-y-8', novalidate: 'novalidate'}}) }}
+    {{ form_errors(form) }}
+
+    {# ─── Photo de profil (aperçu : assets/controllers/avatar_controller.js) ─── #}
+    <div data-controller="avatar" class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+        <div class="relative size-28 shrink-0 overflow-hidden rounded-pill border-2 border-line-strong bg-surface-raised">
+            <img {% if user.avatar %}src="{{ asset('uploads/avatars/' ~ user.avatar) }}" {% endif %}alt="Aperçu de ta photo de profil"
+                 data-avatar-target="preview" class="size-full object-cover {{ user.avatar ? '' : 'hidden' }}">
+            <div data-avatar-target="placeholder" class="size-full items-center justify-center text-4xl font-bold text-muted {{ user.avatar ? 'hidden' : 'flex' }}" aria-hidden="true">
+                {{ user.username|first|upper }}
+            </div>
+        </div>
+        <div class="field w-full">
+            {{ form_label(form.avatarFile) }}
+            {{ form_widget(form.avatarFile, {attr: form.avatarFile.vars.attr|merge({'data-action': 'change->avatar#preview'})}) }}
+            {{ form_help(form.avatarFile) }}
+            {{ form_errors(form.avatarFile) }}
+        </div>
+    </div>
+
+    {# ─── Bio ─── #}
+    {{ form_row(form.bio) }}
+
+    {# ─── Première photo de galerie (aperçu : assets/controllers/profile_gallery_controller.js) ─── #}
+    <fieldset class="space-y-3 rounded-card border border-dashed border-line-strong p-4" data-controller="profile-gallery">
+        <legend class="flex items-center gap-2 px-2 font-semibold text-fg">{{ ui.icon('camera', 'size-4') }}{{ form.photoFile.vars.label }}</legend>
+        {% if galleryFull %}
+            <p class="text-small text-fg-secondary">Ta galerie est déjà complète ({{ constant('App\\Service\\GalleryPhotoUploader::MAX_PHOTOS') }} photos) : tu pourras la gérer depuis ton profil.</p>
+        {% else %}
+            {{ form_widget(form.photoFile, {attr: form.photoFile.vars.attr|merge({class: 'sr-only peer', 'data-profile-gallery-target': 'input', 'data-action': 'change->profile-gallery#fileChanged'})}) }}
+            <div class="relative aspect-video overflow-hidden rounded-control border border-line bg-surface-raised peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus">
+                <div class="absolute inset-0 bg-cover bg-center opacity-0 transition-opacity" data-profile-gallery-target="preview" aria-hidden="true"></div>
+                <label for="{{ form.photoFile.vars.id }}" data-profile-gallery-target="label"
+                       class="absolute inset-0 z-10 flex cursor-pointer flex-col items-center justify-center gap-2 p-3 text-center text-small text-fg-secondary transition-colors hover:bg-black/20">
+                    <span class="inline-flex items-center gap-2 rounded-control bg-canvas/80 px-3 py-1.5 font-medium text-fg">Choisir une photo</span>
+                    <span class="sr-only">{{ form.photoFile.vars.label }}</span>
+                </label>
+            </div>
+            {{ form_help(form.photoFile) }}
+            {{ form_errors(form.photoFile) }}
+            {{ form_row(form.photoDescription) }}
+        {% endif %}
+    </fieldset>
+
+{% if galleryFull %}{% do form.photoFile.setRendered() %}{% do form.photoDescription.setRendered() %}{% endif %}
+{{ form_end(form) }}
+{% endblock %}
+
+{% block step_actions %}
+    {{ parent() }}
+    <button type="submit" form="onboarding-form" class="{{ onb_primary }} w-full sm:w-auto">Continuer{{ ui.icon('arrow-right') }}</button>
+{% endblock %}

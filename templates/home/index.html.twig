@@ -1,164 +1,322 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Accueil — SprueHub{% endblock %}
 
+{#
+    Accueil : deux vues.
+    - Visiteur : accroche plein écran, proposition de valeur, preuve sociale, vitrine, discussions, sections.
+    - Membre : tableau de bord (bienvenue, présentation guidée + « Premiers pas », actions rapides, vitrine, discussions).
+#}
+
+{# ─── Tuile de la vitrine (photo carrée, auteur, j'aime) ─── #}
+{% macro showcase_tile(photo, photoStats) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    {% set excerpt = photo.description ? (photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description) : null %}
+    <li>
+        <a href="{{ path('app_gallery_photo_show', {username: photo.owner.username, id: photo.id}) }}"
+           class="group flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface shadow-raised transition-colors duration-(--duration-fast) hover:border-line-strong focus-visible:border-primary-text">
+            <div class="relative aspect-square overflow-hidden bg-surface-raised">
+                <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}"
+                     alt="Photo de {{ photo.owner.username }}{% if excerpt %} : {{ excerpt }}{% endif %}"
+                     loading="lazy" decoding="async"
+                     class="size-full object-cover transition-transform duration-(--duration-slow) ease-standard group-hover:scale-105 group-focus-visible:scale-105 motion-reduce:transform-none">
+                <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-pill bg-canvas/80 px-2 py-0.5 text-caption font-medium text-fg backdrop-blur-sm">
+                    {{ ui.icon('heart', 'size-3.5') }}{{ photoStats.likes }}<span class="sr-only"> j'aime</span>
+                </span>
+            </div>
+            <div class="flex flex-1 flex-col justify-end gap-2 p-3">
+                {% if excerpt %}
+                    <p class="line-clamp-2 break-words text-small text-fg-secondary">{{ excerpt }}</p>
+                {% endif %}
+                <span class="flex min-w-0 items-center gap-2 text-caption text-muted">
+                    {{ ui.avatar(photo.owner, 'xs') }}
+                    <span class="truncate font-medium text-fg-secondary group-hover:text-fg">{{ photo.owner.username }}</span>
+                </span>
+            </div>
+        </a>
+    </li>
+{% endmacro %}
+
 {% block body %}
-<div class="relative w-screen left-1/2 -translate-x-1/2 min-h-[32rem] h-[clamp(32rem,60vh,42rem)] -mt-8">
+{% import _self as home %}
+{% set me = app.user %}
 
-    {# Image de fond #}
-    <div class="absolute inset-0 bg-[url(/images/bgHome.png)] bg-cover bg-center"></div>
+{% if not me %}
+    {# ════════════════ VISITEUR ════════════════ #}
 
-    {# Fondu vers le bas en transparent #}
-    <div class="absolute inset-0" style="background: linear-gradient(to bottom, transparent 30%, rgb(17,24,39) 100%)"></div>
-
-    {# Contenu par dessus #}
-    <div class="relative z-10 flex flex-col items-center justify-center h-full text-center px-6">
-        <div class="max-w-3xl">
-        <p class="text-indigo-300 uppercase tracking-[0.2em] text-xs sm:text-sm font-semibold mb-4">Communauté · Création · Stratégie</p>
-        <h1 class="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-4">SprueHub</h1>
-        <p class="text-gray-300 text-lg sm:text-xl mb-8 max-w-2xl mx-auto">
-            Le réseau des hobbyistes et passionnés de figurines. Rejoins la communauté pour partager tes créations, découvrir de nouvelles techniques et échanger avec d'autres passionnés.
-        </p>
-        {% if not app.user %}
-            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-                <a href="{{ path('app_register') }}" 
-                   class="bg-indigo-600 hover:bg-indigo-500 px-6 sm:px-8 py-3 rounded-lg text-base sm:text-lg transition shadow-lg shadow-indigo-950/40">
-                    Rejoindre la communauté
-                </a>
-                <a href="{{ path('app_login') }}" 
-                   class="bg-gray-700/90 hover:bg-gray-600 px-6 sm:px-8 py-3 rounded-lg text-base sm:text-lg transition">
-                    Se connecter
-                </a>
-            </div>
-        {% else %}
-            <p class="text-green-400 text-lg">
-                Bienvenue, {{ app.user.username }} ! 👋
+    {# Accroche plein écran (sort du conteneur de <main>) #}
+    <section class="relative left-1/2 -mt-8 w-screen -translate-x-1/2 overflow-hidden" aria-labelledby="hero-title">
+        <div class="absolute inset-0 bg-[url(/images/bgHome.png)] bg-cover bg-center" aria-hidden="true"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-canvas/40 via-canvas/70 to-canvas" aria-hidden="true"></div>
+        <div class="relative container-app flex min-h-[26rem] flex-col items-center justify-center py-16 text-center sm:min-h-[32rem] lg:h-[clamp(32rem,60vh,40rem)]">
+            <p class="eyebrow text-primary-text">Communauté · Création · Stratégie</p>
+            <h1 id="hero-title" class="mt-3 max-w-3xl text-display text-fg sm:text-6xl lg:text-7xl">SprueHub</h1>
+            <p class="mt-4 max-w-2xl text-body text-fg-secondary sm:text-lg">
+                Le réseau des hobbyistes et passionnés de figurines. Partage tes créations, découvre de nouvelles techniques et échange avec d'autres passionnés.
             </p>
-        {% endif %}
-        </div>
-    </div>
-
-</div>
-
-<div class="max-w-7xl mx-auto px-6 py-12 space-y-16">
-    
-    {# Idée 2: Statistiques #}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {% for label, value in stats %}
-            <div class="bg-gray-800/50 border border-gray-700 p-6 rounded-2xl text-center transition hover:border-indigo-500/50 group">
-                <p class="text-gray-400 text-sm uppercase tracking-wider mb-1 group-hover:text-indigo-300 transition">{{ label|replace({'users_count': 'Membres', 'threads_count': 'Sujets', 'posts_count': 'Messages'}) }}</p>
-                <p class="text-3xl font-bold text-white">{{ value }}</p>
+            <div class="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                <a href="{{ path('app_register') }}" class="btn btn-primary btn-lg">{{ ui.icon('user-plus') }}Rejoindre la communauté</a>
+                <a href="{{ path('app_login') }}" class="btn btn-secondary btn-lg">Se connecter</a>
             </div>
-        {% endfor %}
-    </div>
-
-    {# Idée 3: Accès rapide catégories #}
-    <section>
-        <h2 class="text-2xl font-bold text-white mb-8 text-center">Explorer les sections</h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {% for category in categories %}
-                <a href="{{ path('app_forum_category', {slug: category.slug}) }}" 
-                   class="p-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition group text-center">
-                    <div class="w-12 h-12 bg-indigo-900/50 rounded-lg mx-auto mb-3 flex items-center justify-center text-2xl group-hover:scale-110 transition">
-                        📂
-                    </div>
-                    <span class="text-white font-medium block">{{ category.name }}</span>
-                </a>
-            {% endfor %}
         </div>
     </section>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {# Idée 4: Dernières activités (2/3 de la largeur) #}
-        <div class="lg:col-span-2 space-y-6">
-            <h2 class="text-2xl font-bold text-white mb-4">Dernières discussions</h2>
-            <div class="space-y-4">
-                {% for post in latestPosts %}
-                    <div class="relative bg-gray-800/40 border border-gray-700 p-4 rounded-xl flex items-start gap-4 hover:bg-gray-800/60 transition group">
-                        {# Lien invisible couvrant tout le bloc pour rediriger vers le thread #}
-                        <a href="{{ path('app_thread_show', {slug: post.thread.slug}) }}" class="absolute inset-0"></a>
-                        
-                        <div class="flex-shrink-0 z-10">
-                            {% if post.author.avatar %}
-                                <a href="{{ path('app_profil_show', {username: post.author.username}) }}">
-                                    <img src="{{ asset('uploads/avatars/' ~ post.author.avatar) }}" class="w-10 h-10 rounded-full object-cover border border-gray-600 hover:opacity-80 transition">
-                                </a>
-                            {% else %}
-                                <a href="{{ path('app_profil_show', {username: post.author.username}) }}">
-                                    <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold hover:opacity-80 transition">
-                                        {{ post.author.username|slice(0,1) }}
-                                    </div>
-                                </a>
-                            {% endif %}
+    <div class="mt-4 space-y-12 sm:space-y-16">
+
+        {# Proposition de valeur #}
+        <section aria-labelledby="value-title">
+            <h2 id="value-title" class="sr-only">Ce que tu trouveras sur SprueHub</h2>
+            <ul class="grid gap-4 sm:grid-cols-3">
+                {% for item in [
+                    {icon: 'camera', title: 'Partage tes créations', text: 'Une galerie pour tes figurines, des « j\'aime » et des commentaires de passionnés.'},
+                    {icon: 'swords', title: 'Stratégie et listes d\'armée', text: 'Discute tactique sur le forum et construis tes listes d\'armée.'},
+                    {icon: 'trophy', title: 'Progresse avec la communauté', text: 'Gagne de l\'XP, débloque des badges et grimpe au classement.'},
+                ] %}
+                    <li class="card card-body flex gap-4 sm:flex-col sm:gap-3">
+                        <span class="flex size-11 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-text">{{ ui.icon(item.icon, 'size-6') }}</span>
+                        <div>
+                            <h3 class="text-h3 text-fg">{{ item.title }}</h3>
+                            <p class="mt-1 text-small text-fg-secondary">{{ item.text }}</p>
                         </div>
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <a href="{{ path('app_profil_show', {username: post.author.username}) }}" class="text-indigo-400 font-semibold text-sm hover:underline z-10">
-                                    {{ post.author.username }}
-                                </a>
-                                <span class="text-gray-500 text-xs">• {{ post.createdAt|date('d M Y H:i') }}</span>
-                            </div>
-                            <span class="text-white group-hover:text-indigo-300 transition block font-medium">
-                                {{ post.thread.title }}
-                            </span>
-                            <p class="text-gray-400 text-sm line-clamp-2 mt-1">
-                                {{ post.content|slice(0, 150) }}{% if post.content|length > 150 %}...{% endif %}
-                            </p>
-                        </div>
-                    </div>
+                    </li>
                 {% endfor %}
-                {% if latestPosts is empty %}
-                    <p class="text-gray-500 text-center py-8">Aucune activité récente.</p>
-                {% endif %}
+            </ul>
+        </section>
+
+        {# Preuve sociale : compteurs uniquement quand la communauté est assez grande (HomeController::SOCIAL_PROOF_MIN_MEMBERS) #}
+        {% if stats %}
+            <section aria-label="La communauté en chiffres">
+                <dl class="grid grid-cols-3 gap-3 sm:gap-4">
+                    {% for label, value in stats %}
+                        <div class="card card-body text-center">
+                            <dt class="eyebrow">{{ label }}</dt>
+                            <dd class="mt-1 text-h1 text-fg">{{ value|number_format(0, ',', ' ') }}</dd>
+                        </div>
+                    {% endfor %}
+                </dl>
+            </section>
+        {% else %}
+            <section class="card flex flex-col items-center gap-4 border-accent/40 bg-accent-soft p-5 text-center sm:flex-row sm:p-6 sm:text-left" aria-label="Communauté naissante">
+                <span class="flex size-12 shrink-0 items-center justify-center rounded-pill bg-accent/20 text-accent-text">{{ ui.icon('medal', 'size-6') }}</span>
+                <p class="flex-1 text-fg-secondary">
+                    <strong class="font-semibold text-fg">Une communauté toute neuve :</strong>
+                    rejoins les premiers membres — les {{ earlyMemberLimit }} premiers inscrits reçoivent le badge <strong class="font-semibold text-accent-text">Avant-garde</strong>.
+                </p>
+                <a href="{{ path('app_register') }}" class="btn btn-accent shrink-0">Je m'inscris</a>
+            </section>
+        {% endif %}
+
+        {# Vitrine #}
+        <section aria-labelledby="showcase-title">
+            <h2 id="showcase-title" class="section-title">{{ ui.icon('camera') }}Dernières créations de la communauté</h2>
+            {% if showcasePhotos is not empty %}
+                <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+                    {% for photo in showcasePhotos %}
+                        {{ home.showcase_tile(photo, showcaseStats[photo.id] ?? {likes: 0, comments: 0}) }}
+                    {% endfor %}
+                </ul>
+            {% else %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'camera',
+                    title: 'Aucune création partagée pour l\'instant',
+                    text: 'Inscris-toi et montre la première figurine de la communauté !',
+                    cta: {label: 'Partager ma première figurine', url: path('app_register'), icon: 'image-plus'},
+                }, with_context = false) }}
+            {% endif %}
+        </section>
+
+        <div class="grid gap-8 lg:grid-cols-3">
+            <div class="lg:col-span-2">
+                {{ block('latest_discussions') }}
+            </div>
+            <div>
+                {{ block('categories') }}
             </div>
         </div>
+    </div>
 
-        {# Idée 5: Espace personnalisé #}
-        <div class="space-y-6">
-            <h2 class="text-2xl font-bold text-white mb-4">Mon Espace</h2>
-            {% if app.user %}
-                <div class="bg-indigo-900/20 border border-indigo-500/30 p-6 rounded-2xl space-y-6">
-                    <div class="flex items-center gap-4 mb-6">
-                        {% if app.user.avatar %}
-                            <a href="{{ path('app_profil_show', {username: app.user.username}) }}">
-                                <img src="{{ asset('uploads/avatars/' ~ app.user.avatar) }}" class="w-14 h-14 rounded-full object-cover border-2 border-indigo-500 hover:opacity-80 transition">
-                            </a>
-                        {% else %}
-                            <a href="{{ path('app_profil_show', {username: app.user.username}) }}">
-                                <div class="w-14 h-14 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xl font-bold hover:opacity-80 transition">
-                                    {{ app.user.username|slice(0,1) }}
-                                </div>
-                            </a>
-                        {% endif %}
-                        <div>
-                            <a href="{{ path('app_profil_show', {username: app.user.username}) }}" class="text-white font-bold hover:underline">
-                                {{ app.user.username }}
-                            </a>
-                            <p class="text-indigo-300 text-xs uppercase tracking-wider">Membre</p>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <p class="text-gray-300 text-sm font-semibold">Mes derniers sujets :</p>
-                        {% for thread in userDashboard.myThreads %}
-                            <a href="{{ path('app_thread_show', {slug: thread.slug}) }}" 
-                               class="block p-3 bg-gray-800/60 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition truncate">
-                                {{ thread.title }}
-                            </a>
-                        {% else %}
-                            <p class="text-gray-500 text-xs">Vous n'avez pas encore créé de sujets.</p>
-                        {% endfor %}
-                    </div>
-                </div>
+{% else %}
+    {# ════════════════ MEMBRE : TABLEAU DE BORD ════════════════ #}
+
+    <header class="page-header">
+        <div class="flex min-w-0 items-center gap-4">
+            <a href="{{ path('app_profil_show', {username: me.username}) }}" class="shrink-0 rounded-pill" aria-label="Mon profil">{{ ui.avatar(me, 'lg') }}</a>
+            <div class="min-w-0">
+                <h1 class="page-header-title break-words">Bonjour, {{ me.username }}</h1>
+                <p class="page-header-subtitle flex flex-wrap items-center gap-2">
+                    <span class="chip chip-primary">{{ ui.icon('star') }}Niveau {{ me.level }}</span>
+                    {% if me.loginStreak > 0 %}
+                        <span class="chip chip-accent">{{ ui.icon('flame') }}Série de {{ me.loginStreak }} jour{{ me.loginStreak > 1 ? 's' }}</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="page-header-actions">
+            <a href="{{ path('app_profil_show', {username: me.username}) }}#gallery" class="btn btn-primary">{{ ui.icon('image-plus') }}Partager une photo</a>
+        </div>
+    </header>
+
+    <div class="space-y-10">
+
+        {# Présentation guidée à terminer + « Premiers pas » (templates/home/_first_steps.html.twig) #}
+        {% if me.onboardingCompletedAt is null or not userDashboard.checklist.complete %}
+            <div class="space-y-4">
+                {% include 'home/_first_steps.html.twig' with {checklist: userDashboard.checklist} %}
+            </div>
+        {% endif %}
+
+        {# Actions rapides #}
+        <nav aria-label="Actions rapides">
+            <ul class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {% for action in [
+                    {icon: 'message-square', label: 'Nouveau sujet', text: 'Pose une question au forum', url: path('app_forum_index')},
+                    {icon: 'swords', label: 'Liste d\'armée', text: 'Compose ta prochaine liste', url: path('app_army_new')},
+                    {icon: 'users', label: 'Groupes', text: 'Club, armée ou projet', url: path('app_group_index')},
+                    {icon: 'trophy', label: 'Classement', text: 'Les membres les plus actifs', url: path('app_leaderboard')},
+                ] %}
+                    <li>
+                        <a href="{{ action.url }}" class="card card-interactive flex h-full items-center gap-3 p-3 sm:p-4">
+                            <span class="flex size-10 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-text">{{ ui.icon(action.icon) }}</span>
+                            <span class="min-w-0">
+                                <span class="block truncate text-small font-semibold text-fg">{{ action.label }}</span>
+                                <span class="hidden truncate text-caption text-muted sm:block">{{ action.text }}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </nav>
+
+        {# Vitrine #}
+        <section aria-labelledby="showcase-title">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="showcase-title" class="section-title mb-0">{{ ui.icon('camera') }}Dernières créations de la communauté</h2>
+            </div>
+            {% if showcasePhotos is not empty %}
+                <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+                    {% for photo in showcasePhotos %}
+                        {{ home.showcase_tile(photo, showcaseStats[photo.id] ?? {likes: 0, comments: 0}) }}
+                    {% endfor %}
+                </ul>
             {% else %}
-                <div class="bg-gray-800/50 border border-gray-700 p-6 rounded-2xl text-center space-y-4">
-                    <p class="text-gray-400 text-sm">Connectez-vous pour accéder à vos raccourcis personnalisés.</p>
-                    <a href="{{ path('app_login') }}" class="inline-block bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-sm text-white transition">
-                        Se connecter
-                    </a>
-                </div>
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'camera',
+                    title: 'Aucune création partagée pour l\'instant',
+                    text: 'Montre la première figurine de la communauté !',
+                    cta: {label: 'Partager ma première figurine', url: path('app_profil_show', {username: me.username}) ~ '#gallery', icon: 'image-plus'},
+                }, with_context = false) }}
             {% endif %}
+        </section>
+
+        <div class="grid gap-8 lg:grid-cols-3">
+            <div class="lg:col-span-2">
+                {{ block('latest_discussions') }}
+            </div>
+
+            <div class="space-y-8">
+                {# Mes derniers sujets #}
+                <section class="card" aria-labelledby="my-threads-title">
+                    <div class="card-header">
+                        <h2 id="my-threads-title" class="text-h3 text-fg">Mes derniers sujets</h2>
+                    </div>
+                    {% if userDashboard.myThreads is not empty %}
+                        <ul>
+                            {% for thread in userDashboard.myThreads %}
+                                <li>
+                                    <a href="{{ path('app_thread_show', {slug: thread.slug}) }}" class="list-row">
+                                        <span class="text-muted">{{ ui.icon('file-text', 'size-4') }}</span>
+                                        <span class="list-row-main truncate text-small">{{ thread.title }}</span>
+                                        <span class="text-muted">{{ ui.icon('chevron-right', 'size-4') }}</span>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="card-body text-small text-fg-secondary">
+                            Pas encore de sujet ? <a href="{{ path('app_forum_index') }}" class="link">Lance ta première discussion</a>
+                            <span class="mt-1 block text-caption font-medium text-accent-text">Badge Pionnier I : +50 XP</span>
+                        </div>
+                    {% endif %}
+                </section>
+
+                {{ block('categories') }}
+            </div>
         </div>
     </div>
-</div>
+{% endif %}
+{% endblock %}
+
+{# ─── Dernières discussions (commun) ─── #}
+{% block latest_discussions %}
+    {% import '_macros/ui.html.twig' as ui %}
+    <section aria-labelledby="latest-title">
+        <div class="mb-4 flex items-center justify-between gap-2">
+            <h2 id="latest-title" class="section-title mb-0">{{ ui.icon('messages-square') }}Dernières discussions</h2>
+            <a href="{{ path('app_forum_index') }}" class="btn btn-link btn-sm">Tout le forum{{ ui.icon('arrow-right') }}</a>
+        </div>
+        {% if latestPosts is not empty %}
+            <ul class="card overflow-hidden">
+                {% for post in latestPosts %}
+                    <li class="list-row list-row-interactive relative items-start">
+                        <a href="{{ path('app_profil_show', {username: post.author.username}) }}" class="relative z-(--z-raised) shrink-0 rounded-pill" aria-label="Profil de {{ post.author.username }}">
+                            {{ ui.avatar(post.author, 'md') }}
+                        </a>
+                        <div class="list-row-main">
+                            <a href="{{ path('app_thread_show', {slug: post.thread.slug}) }}"
+                               class="block font-medium text-fg after:absolute after:inset-0 after:content-[''] hover:text-primary-text focus-visible:outline-offset-[-2px]">
+                                <span class="line-clamp-2 break-words">{{ post.thread.title }}</span>
+                            </a>
+                            <p class="mt-0.5 line-clamp-1 break-words text-small text-fg-secondary">{{ post.content|striptags|slice(0, 150) }}</p>
+                            <p class="mt-1 text-caption text-muted">
+                                <span class="font-medium text-fg-secondary">{{ post.author.username }}</span>
+                                · <time datetime="{{ post.createdAt|date('c') }}" title="{{ post.createdAt|date('d/m/Y à H:i') }}">{{ post.createdAt|time_ago }}</time>
+                            </p>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% elseif app.user %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'message-circle',
+                title: 'Aucune discussion pour l\'instant',
+                text: 'Lance la première discussion de la communauté.',
+                hint: 'Badge Pionnier I : +50 XP',
+                cta: {label: 'Ouvrir le forum', url: path('app_forum_index'), icon: 'message-square'},
+            }, with_context = false) }}
+        {% else %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'message-circle',
+                title: 'Aucune discussion pour l\'instant',
+                text: 'Inscris-toi et lance la première !',
+                cta: {label: 'Rejoindre la communauté', url: path('app_register')},
+            }, with_context = false) }}
+        {% endif %}
+    </section>
+{% endblock %}
+
+{# ─── Sections du forum (commun) ─── #}
+{% block categories %}
+    {% import '_macros/ui.html.twig' as ui %}
+    {% if categories is not empty %}
+        <section class="card" aria-labelledby="sections-title">
+            <div class="card-header">
+                <h2 id="sections-title" class="text-h3 text-fg">Explorer les sections</h2>
+            </div>
+            <ul>
+                {% for category in categories %}
+                    <li>
+                        <a href="{{ path('app_forum_category', {slug: category.slug}) }}" class="list-row">
+                            <span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised text-primary-text">{{ ui.icon('folder', 'size-4') }}</span>
+                            <span class="list-row-main">
+                                <span class="block truncate text-small font-medium">{{ category.name }}</span>
+                                {% if category.description %}<span class="block truncate text-caption text-muted">{{ category.description }}</span>{% endif %}
+                            </span>
+                            <span class="text-muted">{{ ui.icon('chevron-right', 'size-4') }}</span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
 {% endblock %}

@@ -28,7 +28,11 @@ class ChangePasswordFormType extends AbstractType
                 'mapped' => false,
                 'first_options' => [
                     'label' => 'Nouveau mot de passe',
-                    'attr' => ['autocomplete' => 'new-password'],
+                    'attr' => [
+                        'autocomplete' => 'new-password',
+                        'minlength' => RegistrationFormType::PASSWORD_MIN_LENGTH,
+                        'maxlength' => RegistrationFormType::PASSWORD_MAX_LENGTH,
+                    ],
                 ],
                 'second_options' => [
                     'label' => 'Confirmer le nouveau mot de passe',
@@ -38,9 +42,10 @@ class ChangePasswordFormType extends AbstractType
                 'constraints' => [
                     new NotBlank(message: 'Veuillez entrer un nouveau mot de passe'),
                     new Length(
-                        min: 6,
+                        // Même règle qu'à l'inscription : une seule constante partagée
+                        min: RegistrationFormType::PASSWORD_MIN_LENGTH,
                         minMessage: 'Votre mot de passe doit contenir au moins {{ limit }} caractères',
-                        max: 4096,
+                        max: RegistrationFormType::PASSWORD_MAX_LENGTH,
                     ),
                 ],
             ])

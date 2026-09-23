@@ -13,7 +13,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_USERNAME', fields: ['username'])]
-#[UniqueEntity(fields: ['email'], message: 'un compte avec cet adresse email existe. Connectez vous.')]
+#[UniqueEntity(fields: ['email'], message: 'Un compte existe déjà avec cette adresse e-mail. Connectez-vous.')]
 #[UniqueEntity(fields: ['username'], message: 'Ce pseudo est déjà utilisé.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
@@ -67,8 +67,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private int $loginStreak = 0;
 
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $lastActivityAt = null;
+
     #[ORM\Column]
     private bool $profileBonusAwarded = false;
+
+    /**
+     * Présentation guidée (/bienvenue) : NULL tant qu'elle n'est pas terminée (bannière sur l'accueil).
+     * Les comptes existants avant la fonctionnalité ont été marqués « terminés » par la migration.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $onboardingCompletedAt = null;
+
+    /** Étape en cours de la présentation guidée (1 à 4), pour la reprendre là où on s'est arrêté. */
+    #[ORM\Column(type: 'smallint', options: ['default' => 1])]
+    private int $onboardingStep = 1;
+
+    /**
+     * Titre affiché à côté du pseudo : un badge DÉBLOQUÉ par le membre (vérifié par UserTitleManager
+     * et par le formulaire de profil). Badge supprimé → NULL (ON DELETE SET NULL).
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Badge $titleBadge = null;
 
     /**
      * @var Collection<int, Thread>
@@ -239,6 +261,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $data = (array) $this;
         $data["\0".self::class."\0password"] = hash('crc32c', $this->password);
+        // Relation (proxy Doctrine) non stockée en session : rechargée avec l'utilisateur à chaque requête
+        unset($data["\0".self::class."\0titleBadge"]);
 
         return $data;
     }
@@ -360,31 +384,48 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public const MAX_LEVEL = 50;
+
     public function getExperience(): int { return $this->experience; }
     public function addExperience(int $amount): static { $this->experience += max(0, $amount); return $this; }
+    /** Réservé à GamificationService (écritures atomiques en SQL, puis synchronisation de l'objet). */
+    public function setExperience(int $experience): static { $this->experience = max(0, $experience); return $this; }
     public function getLevel(): int
     {
         $level = 1;
-        for ($candidate = 2; $candidate <= 50; $candidate++) {
+        for ($candidate = 2; $candidate <= self::MAX_LEVEL; $candidate++) {
             if ($this->getExperienceForLevel($candidate) > $this->experience) break;
             $level = $candidate;
         }
         return $level;
     }
     public function getExperienceForLevel(int $level): int { return $level <= 1 ? 0 : (int) round(100 * (($level - 1) ** 1.5)); }
+    public function isMaxLevel(): bool { return $this->getLevel() >= self::MAX_LEVEL; }
+    /** XP totale requise pour le niveau suivant (null au niveau maximum). */
+    public function getNextLevelExperience(): ?int { return $this->isMaxLevel() ? null : $this->getExperienceForLevel($this->getLevel() + 1); }
     public function getExperienceProgress(): int
     {
-        if ($this->getLevel() >= 50) return 100;
+        if ($this->isMaxLevel()) return 100;
         $current = $this->getExperienceForLevel($this->getLevel());
         $next = $this->getExperienceForLevel($this->getLevel() + 1);
-        return (int) min(100, floor(($this->experience - $current) / max(1, $next - $current) * 100));
+        return (int) max(0, min(100, floor(($this->experience - $current) / max(1, $next - $current) * 100)));
     }
     public function getLastDailyLoginAt(): ?\DateTimeImmutable { return $this->lastDailyLoginAt; }
     public function setLastDailyLoginAt(?\DateTimeImmutable $value): static { $this->lastDailyLoginAt = $value; return $this; }
     public function getLoginStreak(): int { return $this->loginStreak; }
     public function setLoginStreak(int $value): static { $this->loginStreak = max(0, $value); return $this; }
+    public function getLastActivityAt(): ?\DateTimeImmutable { return $this->lastActivityAt; }
+    public function setLastActivityAt(?\DateTimeImmutable $value): static { $this->lastActivityAt = $value; return $this; }
     public function isProfileBonusAwarded(): bool { return $this->profileBonusAwarded; }
     public function setProfileBonusAwarded(bool $value): static { $this->profileBonusAwarded = $value; return $this; }
+    public function getOnboardingCompletedAt(): ?\DateTimeImmutable { return $this->onboardingCompletedAt; }
+    public function setOnboardingCompletedAt(?\DateTimeImmutable $value): static { $this->onboardingCompletedAt = $value; return $this; }
+    public function isOnboardingCompleted(): bool { return $this->onboardingCompletedAt !== null; }
+    public function getOnboardingStep(): int { return $this->onboardingStep; }
+    public function setOnboardingStep(int $value): static { $this->onboardingStep = $value; return $this; }
+    public function getTitleBadge(): ?Badge { return $this->titleBadge; }
+    /** Ne vérifie pas que le badge est débloqué : passer par UserTitleManager (ou le formulaire de profil). */
+    public function setTitleBadge(?Badge $titleBadge): static { $this->titleBadge = $titleBadge; return $this; }
 
     public function getGalleryPhotos(): Collection
     {

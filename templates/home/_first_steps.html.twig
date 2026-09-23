@@ -1,0 +1,51 @@
+{# Accueil (membre connecté) : bannière « Termine ta présentation » tant que la présentation guidée n'est pas terminée,
+   puis liste « Premiers pas » jusqu'à ce que tout soit fait (OnboardingService::checklist). Variable : checklist. #}
+{% import '_macros/ui.html.twig' as ui %}
+{% set me = app.user %}
+{% if me.onboardingCompletedAt is null %}
+    {% set stepCount = constant('App\\Service\\OnboardingService::STEP_COUNT') %}
+    <a href="{{ path('app_onboarding_step', {step: me.onboardingStep}) }}"
+       class="card card-interactive flex items-center gap-4 border-primary-text/40 bg-primary-soft p-4"
+       data-onboarding-banner>
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-primary text-primary-fg">{{ ui.icon('compass') }}</span>
+        <span class="min-w-0 flex-1">
+            <span class="block font-semibold text-fg">Termine ta présentation</span>
+            <span class="block text-small text-fg-secondary">Étape {{ me.onboardingStep }} sur {{ stepCount }} · faction, profil et groupes en 2 minutes</span>
+        </span>
+        <span class="btn btn-secondary btn-sm hidden shrink-0 sm:inline-flex" aria-hidden="true">Reprendre{{ ui.icon('arrow-right') }}</span>
+        <span class="text-primary-text sm:hidden">{{ ui.icon('chevron-right') }}</span>
+    </a>
+{% endif %}
+
+{% if checklist and not checklist.complete %}
+    {% set percent = (checklist.done * 100 / checklist.total)|round %}
+    <section aria-labelledby="first-steps-title" class="card" data-first-steps>
+        <div class="card-body space-y-3 pb-0 sm:pb-0">
+            <div class="flex items-baseline justify-between gap-3">
+                <h2 id="first-steps-title" class="text-h3 text-fg">Premiers pas</h2>
+                <p class="text-small text-muted"><span class="font-semibold text-primary-text">{{ checklist.done }}</span>/{{ checklist.total }}<span class="sr-only"> étapes faites</span></p>
+            </div>
+            <div class="progress progress-sm" role="progressbar" aria-label="Premiers pas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ percent }}">
+                <div class="progress-bar" style="width: {{ percent }}%"></div>
+            </div>
+        </div>
+        <ul class="grid gap-1 p-2 sm:grid-cols-2 sm:p-3">
+            {% for item in checklist.items %}
+                <li>
+                    {% if item.done %}
+                        <p class="flex min-h-11 items-center gap-3 rounded-control px-3 py-2 text-small text-muted">
+                            <span class="flex size-5 shrink-0 items-center justify-center rounded-pill bg-success text-white">{{ ui.icon('check', 'size-3.5') }}</span>
+                            <span class="line-through decoration-line-strong">{{ item.label }}<span class="sr-only"> : fait</span></span>
+                        </p>
+                    {% else %}
+                        <a href="{{ path(item.route, item.params) }}" class="group flex min-h-11 items-center gap-3 rounded-control px-3 py-2 text-small text-fg transition-colors duration-(--duration-fast) hover:bg-surface-raised">
+                            <span class="size-5 shrink-0 rounded-pill border-2 border-line-strong group-hover:border-primary-text" aria-hidden="true"></span>
+                            <span class="flex-1">{{ item.label }}<span class="sr-only"> : à faire</span></span>
+                            <span class="text-muted group-hover:text-primary-text">{{ ui.icon('chevron-right', 'size-4') }}</span>
+                        </a>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    </section>
+{% endif %}

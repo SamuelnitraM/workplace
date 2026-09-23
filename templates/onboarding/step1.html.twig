@@ -1,0 +1,34 @@
+{% extends 'onboarding/_layout.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block step_intro %}
+    Quelle armée collectionnes-tu ou peins-tu le plus ? Elle s'affichera sur ton profil et nous aidera à te proposer des groupes.
+{% endblock %}
+
+{% block step_body %}
+<form method="post" action="{{ path('app_onboarding_step', {step: 1}) }}" id="onboarding-form" class="space-y-6">
+    <input type="hidden" name="_token" value="{{ csrf_token('onboarding') }}">
+
+    {% for family, factions in factionChoices %}
+        <fieldset>
+            <legend class="eyebrow mb-3">{{ family }}</legend>
+            <div class="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
+                {% for label, value in factions %}
+                    <label class="choice-card">
+                        <input type="radio" name="faction" value="{{ value }}" class="radio" required
+                               {% if user.favoriteFaction == value %}checked{% endif %}>
+                        <span class="min-w-0 break-words">{{ label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+    {% endfor %}
+</form>
+{% endblock %}
+
+{% block step_actions %}
+    {{ parent() }}
+    <button type="submit" form="onboarding-form" class="{{ onb_primary }} w-full sm:w-auto">
+        Continuer{{ ui.icon('arrow-right') }}
+    </button>
+{% endblock %}

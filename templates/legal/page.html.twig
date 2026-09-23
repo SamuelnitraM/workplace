@@ -1,32 +1,38 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}{{ title }} — SprueHub{% endblock %}
 
 {% block body %}
-<article class="max-w-3xl mx-auto bg-gray-800 border border-gray-700 rounded-xl p-8">
-    <h1 class="text-3xl font-bold text-white mb-8">{{ title }}</h1>
-    <div class="space-y-8 text-gray-300 leading-relaxed">
-        <p>Cette page présente les informations légales et les règles applicables à l’utilisation de SprueHub.</p>
-        <section><h2 class="text-xl font-semibold text-white mb-3">Informations générales</h2><p>SprueHub est une plateforme communautaire dédiée aux passionnés de figurines miniatures.</p></section>
-        <section><h2 class="text-xl font-semibold text-white mb-3">Utilisation du site</h2><p>Chaque membre s’engage à respecter les autres utilisateurs et à publier du contenu approprié.</p></section>
-        <section><h2 class="text-xl font-semibold text-white mb-3">Données et responsabilité</h2><p>Les informations publiées par les membres restent sous leur responsabilité. Le site peut modérer les contenus qui contreviennent à ses règles.</p></section>
-        <div class="h-48"></div>
-        <p id="legal-end" class="border-t border-gray-700 pt-6 text-indigo-300">Vous êtes arrivé à la fin de la page.</p>
+<article class="container-reading" aria-labelledby="legal-title">
+    <header class="page-header">
+        <div>
+            <p class="page-header-eyebrow">{{ ui.icon('file-text', 'size-4') }}Informations légales</p>
+            <h1 id="legal-title" class="page-header-title">{{ title }}</h1>
+            <p class="page-header-subtitle">Les informations légales et les règles applicables à l’utilisation de SprueHub.</p>
+        </div>
+    </header>
+
+    <div class="card">
+        <div class="card-body space-y-8 text-body text-fg-secondary sm:p-8">
+            <section class="space-y-2">
+                <h2 class="text-h2 text-fg">Informations générales</h2>
+                <p>SprueHub est une plateforme communautaire dédiée aux passionnés de figurines miniatures.</p>
+            </section>
+            <section class="space-y-2">
+                <h2 class="text-h2 text-fg">Utilisation du site</h2>
+                <p>Chaque membre s’engage à respecter les autres utilisateurs et à publier du contenu approprié.</p>
+            </section>
+            <section class="space-y-2">
+                <h2 class="text-h2 text-fg">Données et responsabilité</h2>
+                <p>Les informations publiées par les membres restent sous leur responsabilité. Le site peut modérer les contenus qui contreviennent à ses règles.</p>
+            </section>
+        </div>
     </div>
+
+    <nav class="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-small" aria-label="Pages légales">
+        <a href="{{ path('app_legal') }}" class="link"{% if app.current_route == 'app_legal' %} aria-current="page"{% endif %}>Mentions légales</a>
+        <a href="{{ path('app_terms') }}" class="link"{% if app.current_route == 'app_terms' %} aria-current="page"{% endif %}>Conditions d’utilisation</a>
+    </nav>
 </article>
-<script>
-(() => {
-    const end = document.getElementById('legal-end');
-    if (!end) return;
-    new IntersectionObserver((entries) => {
-        if (entries.some(entry => entry.isIntersecting)) {
-            fetch('{{ path('app_gamification_activity', {key: 'legal_bottom'}) }}', {
-                method: 'POST',
-                headers: {'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({_token: '{{ csrf_token('gamification_legal_bottom') }}'})
-            });
-        }
-    }).observe(end);
-})();
-</script>
 {% endblock %}

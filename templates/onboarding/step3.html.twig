@@ -1,0 +1,62 @@
+{% extends 'onboarding/_layout.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block step_intro %}
+    Les groupes réunissent les membres autour d'un club, d'une armée ou d'un projet : salons de discussion, tâches partagées, parties à organiser.
+    {% if user.favoriteFaction %}Les groupes liés à <strong class="font-semibold text-primary-text">{{ user.favoriteFaction }}</strong> sont proposés en premier.{% endif %}
+{% endblock %}
+
+{% block step_body %}
+{% if suggestions is empty %}
+    {% include '_partials/_empty_state.html.twig' with {
+        icon: 'shield',
+        title: 'Crée le premier groupe de ta faction',
+        text: 'Aucun groupe public ouvert ne t\'attend pour l\'instant : lance le tien, les prochains membres le trouveront ici.',
+        cta: {label: 'Créer un groupe', icon: 'plus', url: path('app_group_new', user.favoriteFaction ? {name: user.favoriteFaction} : {})},
+        variant: 'plain',
+        compact: true,
+    } only %}
+{% else %}
+    <ul class="space-y-3">
+        {% for suggestion in suggestions %}
+            {% set group = suggestion.group %}
+            <li id="groupe-{{ group.id }}" class="flex scroll-mt-24 flex-col gap-3 rounded-control border p-4 sm:flex-row sm:items-center {{ suggestion.joined ? 'border-success-text/40 bg-success-soft' : 'border-line bg-surface-raised' }}">
+                <span class="hidden size-11 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-text sm:flex">{{ ui.icon('users') }}</span>
+                <div class="min-w-0 flex-1">
+                    <p class="break-words font-semibold text-fg">{{ group.name }}</p>
+                    {% if group.description %}
+                        <p class="mt-1 line-clamp-2 break-words text-small text-fg-secondary">{{ group.description }}</p>
+                    {% endif %}
+                    <p class="mt-1 text-caption text-muted">{{ suggestion.memberCount }} membre{{ suggestion.memberCount > 1 ? 's' : '' }}</p>
+                </div>
+                {% if suggestion.joined %}
+                    <p class="chip chip-success self-start sm:self-center">{{ ui.icon('check') }}Rejoint</p>
+                {% else %}
+                    <form method="post" action="{{ path('app_onboarding_join', {id: group.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('onboarding') }}">
+                        <button type="submit" class="btn btn-secondary w-full sm:w-auto">
+                            {{ ui.icon('user-plus') }}Rejoindre<span class="sr-only"> le groupe {{ group.name }}</span>
+                        </button>
+                    </form>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+    <p class="mt-4 text-small text-fg-secondary">
+        Envie d'autre chose ? <a href="{{ path('app_group_index') }}" class="link">Parcourir tous les groupes</a>
+        ou <a href="{{ path('app_group_new') }}" class="link">créer le tien</a>.
+    </p>
+{% endif %}
+{% endblock %}
+
+{% block step_actions %}
+    {% set joinedAny = suggestions|filter(s => s.joined)|length > 0 %}
+    <form method="post" action="{{ path('app_onboarding_next', {step: 3}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('onboarding') }}">
+        {% if joinedAny %}
+            <button type="submit" class="{{ onb_primary }} w-full sm:w-auto">Continuer{{ ui.icon('arrow-right') }}</button>
+        {% else %}
+            <button type="submit" class="{{ onb_secondary }} w-full sm:w-auto"><span>Passer<span class="hidden sm:inline"> cette étape</span></span></button>
+        {% endif %}
+    </form>
+{% endblock %}

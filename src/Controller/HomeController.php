@@ -2,51 +2,74 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
+use App\Gamification\BadgeCatalog;
 use App\Repository\CategoryRepository;
+use App\Repository\GalleryPhotoRepository;
 use App\Repository\PostRepository;
 use App\Repository\ThreadRepository;
 use App\Repository\UserRepository;
+use App\Service\OnboardingService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class HomeController extends AbstractController
 {
+    /** En dessous de ce nombre de membres, les compteurs sont masqués (preuve sociale peu flatteuse). */
+    public const SOCIAL_PROOF_MIN_MEMBERS = 100;
+
+    /** Nombre de photos affichées dans la vitrine « Dernières créations de la communauté ». */
+    public const SHOWCASE_PHOTOS = 12;
+
     #[Route('/', name: 'app_home')]
     public function index(
         CategoryRepository $categoryRepository,
         UserRepository $userRepository,
         PostRepository $postRepository,
-        ThreadRepository $threadRepository
+        ThreadRepository $threadRepository,
+        GalleryPhotoRepository $galleryPhotoRepository,
+        OnboardingService $onboarding,
     ): Response {
         $user = $this->getUser();
 
-        // Idée 2: Statistiques
-        $stats = [
-            'users_count' => $userRepository->count([]),
-            'threads_count' => $threadRepository->count([]),
-            'posts_count' => $postRepository->count([]),
-        ];
+        // Statistiques : affichées seulement une fois la communauté suffisamment grande
+        $membersCount = $userRepository->count([]);
+        $stats = null;
+        if ($membersCount >= self::SOCIAL_PROOF_MIN_MEMBERS) {
+            $stats = [
+                'Membres' => $membersCount,
+                'Sujets' => $threadRepository->count([]),
+                // Réponses = messages du forum hors premier message de chaque sujet
+                'Réponses' => $postRepository->count(['isFirst' => false]),
+            ];
+        }
 
-        // Idée 3: Catégories
-        $categories = $categoryRepository->findBy([], ['position' => 'ASC']);
+        // Vitrine : dernières photos visibles (propriétaire joint) + compteurs agrégés
+        $showcasePhotos = $galleryPhotoRepository->findLatestVisible(self::SHOWCASE_PHOTOS);
+        $showcaseStats = $galleryPhotoRepository->getStatsForPhotos($showcasePhotos);
 
-        // Idée 4: Dernières activités
-        // On récupère les 5 derniers posts
+        // Catégories racines uniquement
+        $categories = $categoryRepository->findBy(['parent' => null], ['position' => 'ASC']);
+
+        // Dernières activités : les 5 derniers messages du forum
         $latestPosts = $postRepository->findBy([], ['createdAt' => 'DESC'], 5);
 
-        // Idée 5: Espace personnalisé (si connecté)
+        // Espace personnalisé (si connecté)
         $userDashboard = null;
         if ($user) {
-            // Exemple: threads créés par l'utilisateur
-            $userThreads = $threadRepository->findBy(['author' => $user], ['createdAt' => 'DESC'], 3);
             $userDashboard = [
-                'myThreads' => $userThreads,
+                'myThreads' => $threadRepository->findBy(['author' => $user], ['createdAt' => 'DESC'], 3),
+                // « Premiers pas » (une requête) : masqué une fois tout coché
+                'checklist' => $user instanceof User ? $onboarding->checklist($user) : null,
             ];
         }
 
         return $this->render('home/index.html.twig', [
             'stats' => $stats,
+            'earlyMemberLimit' => BadgeCatalog::EARLY_MEMBER_LIMIT,
+            'showcasePhotos' => $showcasePhotos,
+            'showcaseStats' => $showcaseStats,
             'categories' => $categories,
             'latestPosts' => $latestPosts,
             'userDashboard' => $userDashboard,
