@@ -1,0 +1,101 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Notifications — SprueHub{% endblock %}
+
+{# Icône (jeu SVG) et teinte par type de notification (App\Entity\Notification::TYPE_*) #}
+{% set typeIcons = {
+    friend_request: {icon: 'user-plus', tone: 'primary'},
+    friend_accepted: {icon: 'user-check', tone: 'success'},
+    group_invitation: {icon: 'mail', tone: 'primary'},
+    group_invitation_accepted: {icon: 'users', tone: 'success'},
+    group_message: {icon: 'messages-square', tone: 'info'},
+    forum_reply: {icon: 'message-circle', tone: 'info'},
+    photo_like: {icon: 'heart', tone: 'danger'},
+    photo_comment: {icon: 'message-square', tone: 'info'},
+    badge_earned: {icon: 'medal', tone: 'accent'},
+    level_up: {icon: 'sparkles', tone: 'accent'},
+} %}
+
+{% block body %}
+<div class="container-reading">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Notifications</h1>
+            <p class="page-header-subtitle">
+                {% if unreadCount > 0 %}
+                    Tu as <strong class="font-semibold text-fg">{{ unreadCount }} notification{{ unreadCount > 1 ? 's' }} non lue{{ unreadCount > 1 ? 's' }}</strong>.
+                {% else %}
+                    Tu es à jour : réponses, amis, groupes, « j'aime » et badges arrivent ici.
+                {% endif %}
+            </p>
+        </div>
+        {% if unreadCount > 0 %}
+            <div class="page-header-actions">
+                <form method="post" action="{{ path('app_notification_read_all') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('notification') }}">
+                    <button type="submit" class="btn btn-secondary">{{ ui.icon('check') }}Tout marquer comme lu</button>
+                </form>
+            </div>
+        {% endif %}
+    </header>
+
+    {% if notifications|length > 0 %}
+        <ul class="card overflow-hidden">
+            {% for notification in notifications %}
+                {% set actor = notification.actor %}
+                {% set meta = typeIcons[notification.type] ?? {icon: 'bell', tone: 'primary'} %}
+                <li class="border-b border-line last:border-b-0">
+                    {# Formulaire hors Turbo : la redirection conserve l'ancre (#post-…, #comment-…) #}
+                    <form method="post" action="{{ path('app_notification_read', {id: notification.id}) }}" data-turbo="false">
+                        <input type="hidden" name="_token" value="{{ csrf_token('notification') }}">
+                        <button type="submit"
+                                class="relative flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors duration-(--duration-fast) focus-visible:outline-offset-[-2px] sm:px-5
+                                       {{ notification.read ? 'hover:bg-surface-raised' : 'bg-primary-soft/60 hover:bg-primary-soft' }}">
+                            {% if not notification.read %}
+                                <span class="absolute inset-y-0 left-0 w-1 bg-primary-text" aria-hidden="true"></span>
+                            {% endif %}
+                            <span class="relative shrink-0">
+                                {% if actor %}
+                                    {{ ui.avatar(actor, 'md') }}
+                                {% else %}
+                                    <span class="avatar avatar-md bg-none bg-{{ meta.tone }}-soft text-{{ meta.tone }}-text">{{ ui.icon(meta.icon) }}</span>
+                                {% endif %}
+                                {% if actor %}
+                                    <span class="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-pill bg-overlay text-{{ meta.tone }}-text ring-2 ring-surface" aria-hidden="true">{{ ui.icon(meta.icon, 'size-3') }}</span>
+                                {% endif %}
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block break-words text-small {{ notification.read ? 'text-fg-secondary' : 'font-medium text-fg' }}">
+                                    {{ notification_text(notification) }}
+                                </span>
+                                <span class="mt-1 block text-caption text-muted">
+                                    <time datetime="{{ notification.updatedAt|date('c') }}" title="{{ notification.updatedAt|date('d/m/Y à H:i') }}">{{ notification.updatedAt|time_ago }}</time>
+                                </span>
+                            </span>
+                            {% if not notification.read %}
+                                <span class="mt-2 size-2.5 shrink-0 rounded-pill bg-primary-text" aria-hidden="true"></span>
+                                <span class="sr-only">(non lue)</span>
+                            {% endif %}
+                        </button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <div class="mt-6 flex justify-center">
+            {{ knp_pagination_render(notifications) }}
+        </div>
+    {% else %}
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'bell',
+            title: 'Aucune notification pour le moment',
+            text: 'Réponses à tes sujets, demandes d\'ami, invitations, « j\'aime » sur tes photos, badges obtenus… tout arrivera ici.',
+            cta: {label: 'Participer au forum', url: path('app_forum_index'), icon: 'message-circle'},
+            secondary: {label: 'Ajouter une photo', url: path('app_profil_show', {username: app.user.username}) ~ '#gallery', icon: 'image-plus'},
+        }, with_context = false) }}
+    {% endif %}
+
+</div>
+{% endblock %}
