@@ -4,8 +4,10 @@ namespace App\Controller;
 
 use App\Entity\PrivateConversation;
 use App\Entity\PrivateMessage;
+use App\Entity\User;
 use App\Repository\FriendshipRepository;
 use App\Repository\PrivateConversationRepository;
+use App\Repository\PrivateMessageRepository;
 use App\Repository\UserRepository;
 use App\Service\PusherService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,110 +22,102 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/messages', name: 'app_message_')]
 class PrivateMessageController extends AbstractController
 {
-        private PusherService $pusher;
+    public const CSRF_TOKEN_ID = 'private_message';
+    private const MAX_LENGTH = 2000;
 
-    public function __construct(PusherService $pusher)
-    {
-        $this->pusher = $pusher;
-    }
+    public function __construct(
+        private PusherService $pusher,
+        private PrivateConversationRepository $conversationRepository,
+        private PrivateMessageRepository $messageRepository,
+        private FriendshipRepository $friendshipRepository,
+        private UserRepository $userRepository,
+        private EntityManagerInterface $em,
+    ) {}
 
     // ─── Page liste des conversations ─────────────────────────
     #[Route('/', name: 'index')]
-    public function index(PrivateConversationRepository $conversationRepository, EntityManagerInterface $em): Response
+    public function index(): Response
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $conversations = $conversationRepository->findUserConversations($user);
+        $user = $this->currentUser();
+        $conversations = $this->conversationRepository->findUserConversations($user);
 
         return $this->render('private_message/index.html.twig', [
             'conversations' => $conversations,
+            'lastMessages' => $this->messageRepository->findLastMessages($conversations),
+            'unreadCounts' => $this->messageRepository->countUnreadByConversation($user),
         ]);
     }
 
     // ─── Page conversation avec un user ───────────────────────
-    #[Route('/{username}', name: 'show')]
-    public function show(
-        string $username,
-        UserRepository $userRepository,
-        PrivateConversationRepository $conversationRepository,
-        EntityManagerInterface $em
-    ): Response {
-        /** @var \App\Entity\User $currentUser */
-        $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
-
-        if (!$targetUser) {
-            throw $this->createNotFoundException('Utilisateur introuvable');
-        }
+    #[Route('/{username}', name: 'show', methods: ['GET'])]
+    public function show(string $username): Response
+    {
+        $currentUser = $this->currentUser();
+        $targetUser = $this->findTargetUser($username);
 
         if ($targetUser === $currentUser) {
             return $this->redirectToRoute('app_message_index');
         }
 
-        $conversation = $conversationRepository->findBetween($currentUser, $targetUser);
+        // La conversation n'est créée qu'au premier message envoyé
+        $conversation = $this->conversationRepository->findBetween($currentUser, $targetUser);
+        $canSend = $this->friendshipRepository->areFriends($currentUser, $targetUser);
 
-        if (!$conversation) {
-            $conversation = new PrivateConversation();
-            $conversation->setParticipant1($currentUser);
-            $conversation->setParticipant2($targetUser);
-            $em->persist($conversation);
-            $em->flush();
+        if (!$conversation && !$canSend) {
+            $this->addFlash('error', 'Vous devez être amis pour échanger des messages.');
+            return $this->redirectToRoute('app_profil_show', ['username' => $targetUser->getUsername()]);
         }
 
-        $this->markAsRead($conversation, $currentUser, $em);
-
-        $messages = $conversation->getMessages()->toArray();
-        usort($messages, fn($a, $b) => $a->getCreatedAt() <=> $b->getCreatedAt());
+        if ($conversation) {
+            $this->messageRepository->markConversationAsRead($conversation, $currentUser);
+        }
 
         return $this->render('private_message/show.html.twig', [
             'conversation' => $conversation,
-            'messages' => $messages,
+            'messages' => $conversation ? $conversation->getMessages()->toArray() : [],
             'targetUser' => $targetUser,
+            'canSend' => $canSend,
         ]);
     }
 
     // ─── Envoyer un message (page dédiée) ─────────────────────
     #[Route('/{username}/send', name: 'send', methods: ['POST'])]
-    public function send(
-        string $username,
-        Request $request,
-        UserRepository $userRepository,
-        PrivateConversationRepository $conversationRepository,
-        EntityManagerInterface $em
-    ): Response {
-        /** @var \App\Entity\User $currentUser */
-        $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
+    public function send(string $username, Request $request): Response
+    {
+        $currentUser = $this->currentUser();
+        $targetUser = $this->findTargetUser($username);
 
-        if (!$targetUser) {
-            throw $this->createNotFoundException();
+        $error = $this->validateSend($request, $currentUser, $targetUser);
+        if ($error === null) {
+            $message = $this->createAndPublishMessage($this->content($request), $currentUser, $targetUser);
         }
 
-        $conversation = $this->getOrCreateConversation($currentUser, $targetUser, $conversationRepository, $em);
-
-        $content = trim($request->request->get('content', ''));
-        if (!empty($content)) {
-            $this->createAndPublishMessage($content, $currentUser, $conversation, $em);
+        if ($request->isXmlHttpRequest()) {
+            return $error !== null
+                ? new JsonResponse(['error' => $error], Response::HTTP_BAD_REQUEST)
+                : new JsonResponse($this->serializeMessage($message, $currentUser));
         }
 
-        return $this->redirectToRoute('app_message_show', ['username' => $username]);
+        if ($error !== null) {
+            $this->addFlash('error', $error);
+        }
+
+        return $this->redirectToRoute('app_message_show', ['username' => $targetUser->getUsername()]);
     }
 
     // ─── AJAX : liste des conversations ───────────────────────
     #[Route('/ajax/conversations', name: 'ajax_conversations', methods: ['GET'])]
-    public function ajaxConversations(PrivateConversationRepository $conversationRepository): JsonResponse
+    public function ajaxConversations(): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $conversations = $conversationRepository->findUserConversations($user);
+        $user = $this->currentUser();
+        $conversations = $this->conversationRepository->findUserConversations($user);
+        $lastMessages = $this->messageRepository->findLastMessages($conversations);
+        $unreadCounts = $this->messageRepository->countUnreadByConversation($user);
 
         $data = [];
         foreach ($conversations as $conversation) {
-            $other = $conversation->getParticipant1() === $user
-                ? $conversation->getParticipant2()
-                : $conversation->getParticipant1();
-
-            $lastMessage = $conversation->getMessages()->last();
+            $other = $conversation->getOtherParticipant($user);
+            $lastMessage = $lastMessages[$conversation->getId()] ?? null;
 
             $data[] = [
                 'id' => $conversation->getId(),
@@ -131,7 +125,7 @@ class PrivateMessageController extends AbstractController
                 'avatar' => $other->getAvatar(),
                 'lastMessage' => $lastMessage ? mb_substr($lastMessage->getContent(), 0, 40) : '',
                 'updatedAt' => $conversation->getUpdatedAt()?->format('d/m H:i') ?? '',
-                'unread' => $this->countUnread($conversation, $user),
+                'unread' => $unreadCounts[$conversation->getId()] ?? 0,
             ];
         }
 
@@ -140,192 +134,177 @@ class PrivateMessageController extends AbstractController
 
     // ─── AJAX : messages d'une conversation ───────────────────
     #[Route('/ajax/messages/{username}', name: 'ajax_messages', methods: ['GET'])]
-    public function ajaxMessages(
-        string $username,
-        UserRepository $userRepository,
-        PrivateConversationRepository $conversationRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        /** @var \App\Entity\User $currentUser */
-        $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
+    public function ajaxMessages(string $username): JsonResponse
+    {
+        $currentUser = $this->currentUser();
+        $targetUser = $this->userRepository->findOneBy(['username' => $username]);
 
         if (!$targetUser) {
-            return new JsonResponse(['error' => 'Utilisateur introuvable'], 404);
+            return new JsonResponse(['error' => 'Utilisateur introuvable'], Response::HTTP_NOT_FOUND);
         }
 
-        $conversation = $conversationRepository->findBetween($currentUser, $targetUser);
-
+        $conversation = $this->conversationRepository->findBetween($currentUser, $targetUser);
         if (!$conversation) {
-            return new JsonResponse([
-                'conversationId' => null,
-                'messages' => [],
-            ]);
+            return new JsonResponse(['conversationId' => null, 'messages' => []]);
         }
 
-        $this->markAsRead($conversation, $currentUser, $em);
-
-        $messages = $conversation->getMessages()->toArray();
-        usort($messages, fn($a, $b) => $a->getCreatedAt() <=> $b->getCreatedAt());
-
-        $data = array_map(fn($msg) => [
-            'id' => $msg->getId(),
-            'content' => $msg->getContent(),
-            'author' => $msg->getAuthor()->getUsername(),
-            'avatar' => $msg->getAuthor()->getAvatar(),
-            'createdAt' => $msg->getCreatedAt()->format('d/m H:i'),
-            'isCurrentUser' => $msg->getAuthor() === $currentUser,
-        ], $messages);
+        $this->messageRepository->markConversationAsRead($conversation, $currentUser);
 
         return new JsonResponse([
             'conversationId' => $conversation->getId(),
-            'messages' => $data,
+            'messages' => array_map(
+                fn (PrivateMessage $msg) => $this->serializeMessage($msg, $currentUser),
+                $conversation->getMessages()->toArray()
+            ),
         ]);
     }
 
     // ─── AJAX : envoyer un message ────────────────────────────
     #[Route('/ajax/send/{username}', name: 'ajax_send', methods: ['POST'])]
-    public function ajaxSend(
-        string $username,
-        Request $request,
-        UserRepository $userRepository,
-        PrivateConversationRepository $conversationRepository,
-        FriendshipRepository $friendshipRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        /** @var \App\Entity\User $currentUser */
-        $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
+    public function ajaxSend(string $username, Request $request): JsonResponse
+    {
+        $currentUser = $this->currentUser();
+        $targetUser = $this->userRepository->findOneBy(['username' => $username]);
 
         if (!$targetUser) {
-            return new JsonResponse(['error' => 'Utilisateur introuvable'], 404);
+            return new JsonResponse(['error' => 'Utilisateur introuvable'], Response::HTTP_NOT_FOUND);
         }
 
-        // Vérifier amitié
-        $friendship = $friendshipRepository->findExisting($currentUser, $targetUser);
-        if (!$friendship || $friendship->getStatus() !== 'accepted') {
-            return new JsonResponse(['error' => 'Vous devez être amis pour envoyer un message.'], 403);
+        $error = $this->validateSend($request, $currentUser, $targetUser);
+        if ($error !== null) {
+            return new JsonResponse(['error' => $error], Response::HTTP_BAD_REQUEST);
         }
 
-        $content = trim($request->request->get('content', ''));
-        if (empty($content)) {
-            return new JsonResponse(['error' => 'Message vide'], 400);
-        }
+        $message = $this->createAndPublishMessage($this->content($request), $currentUser, $targetUser);
 
-        $conversation = $this->getOrCreateConversation($currentUser, $targetUser, $conversationRepository, $em);
-        $message = $this->createAndPublishMessage($content, $currentUser, $conversation, $em);
-
-        return new JsonResponse([
-            'id' => $message->getId(),
-            'content' => $message->getContent(),
-            'author' => $currentUser->getUsername(),
-            'avatar' => $currentUser->getAvatar(),
-            'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
-            'isCurrentUser' => true,
-            'conversationId' => $conversation->getId(),
-        ]);
+        return new JsonResponse($this->serializeMessage($message, $currentUser));
     }
 
-    // ─── AJAX : IDs des conversations pour Pusher ────────────
-    #[Route('/ajax/conversation-ids', name: 'ajax_conversation_ids', methods: ['GET'])]
-    public function ajaxConversationIds(PrivateConversationRepository $conversationRepository): JsonResponse
+    // ─── AJAX : marquer une conversation comme lue ────────────
+    #[Route('/ajax/read/{id}', name: 'ajax_read', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function ajaxRead(int $id, Request $request): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $conversations = $conversationRepository->findUserConversations($user);
-        $ids = array_map(fn($c) => $c->getId(), $conversations);
+        $user = $this->currentUser();
+        $conversation = $this->conversationRepository->find($id);
 
-        return new JsonResponse($ids);
+        if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->csrfToken($request))) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide.'], Response::HTTP_FORBIDDEN);
+        }
+        if (!$conversation || !$conversation->hasParticipant($user)) {
+            return new JsonResponse(['error' => 'Conversation introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        $this->messageRepository->markConversationAsRead($conversation, $user);
+
+        return new JsonResponse(['ok' => true]);
     }
 
     #[Route('/ajax/notification-context', name: 'ajax_notification_context', methods: ['GET'])]
-    public function ajaxNotificationContext(
-        PrivateConversationRepository $conversationRepository,
-        FriendshipRepository $friendshipRepository,
-    ): JsonResponse {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $unreadMessages = 0;
+    public function ajaxNotificationContext(): JsonResponse
+    {
+        $user = $this->currentUser();
 
-        foreach ($conversationRepository->findUserConversations($user) as $conversation) {
-            $unreadMessages += $this->countUnread($conversation, $user);
-        }
-
+        // Les demandes d'ami, invitations, etc. passent par le centre de notifications (/notifications/recent) :
+        // seuls les messages privés non lus sont comptés ici (messenger).
         return new JsonResponse([
-            'unreadMessages' => $unreadMessages,
-            'pendingFriendships' => $friendshipRepository->count([
-                'receiver' => $user,
-                'status' => 'pending',
-            ]),
+            'unreadMessages' => $this->messageRepository->countUnreadFor($user),
         ]);
     }
 
     // ─── Helpers privés ───────────────────────────────────────
 
-    private function getOrCreateConversation($user1, $user2, $repo, $em): PrivateConversation
+    private function currentUser(): User
     {
-        $conversation = $repo->findBetween($user1, $user2);
-        if (!$conversation) {
-            $conversation = new PrivateConversation();
-            $conversation->setParticipant1($user1);
-            $conversation->setParticipant2($user2);
-            $em->persist($conversation);
-            $em->flush();
-        }
-        return $conversation;
+        /** @var User $user */
+        $user = $this->getUser();
+
+        return $user;
     }
 
-    private function createAndPublishMessage(string $content, $author, PrivateConversation $conversation, EntityManagerInterface $em): PrivateMessage
+    private function findTargetUser(string $username): User
     {
+        $user = $this->userRepository->findOneBy(['username' => $username]);
+        if (!$user) {
+            throw $this->createNotFoundException('Utilisateur introuvable');
+        }
+
+        return $user;
+    }
+
+    private function csrfToken(Request $request): ?string
+    {
+        return $request->headers->get('X-CSRF-Token') ?? $request->request->getString('_token');
+    }
+
+    private function content(Request $request): string
+    {
+        return trim($request->request->getString('content'));
+    }
+
+    /** Retourne un message d'erreur, ou null si l'envoi est autorisé. */
+    private function validateSend(Request $request, User $author, User $target): ?string
+    {
+        if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->csrfToken($request))) {
+            return 'Jeton CSRF invalide, rechargez la page.';
+        }
+        if ($author === $target) {
+            return 'Vous ne pouvez pas vous écrire à vous-même.';
+        }
+        if (!$this->friendshipRepository->areFriends($author, $target)) {
+            return 'Vous devez être amis pour envoyer un message.';
+        }
+
+        $content = $this->content($request);
+        if ($content === '') {
+            return 'Message vide.';
+        }
+        if (mb_strlen($content) > self::MAX_LENGTH) {
+            return sprintf('Message trop long (%d caractères maximum).', self::MAX_LENGTH);
+        }
+
+        return null;
+    }
+
+    private function createAndPublishMessage(string $content, User $author, User $target): PrivateMessage
+    {
+        $conversation = $this->conversationRepository->findBetween($author, $target);
+        if (!$conversation) {
+            $conversation = new PrivateConversation();
+            $conversation->setParticipant1($author);
+            $conversation->setParticipant2($target);
+            $this->em->persist($conversation);
+        }
+
         $message = new PrivateMessage();
         $message->setContent($content);
         $message->setAuthor($author);
         $message->setConversation($conversation);
         $conversation->setUpdatedAt(new \DateTimeImmutable());
 
-        $em->persist($message);
-        $em->flush();
+        $this->em->persist($message);
+        $this->em->flush();
 
-        // Publier via Pusher
-        $this->pusher->sendMessage(
-            sprintf('conversation-%d', $conversation->getId()),
-            'new-message',
-            [
-                'id' => $message->getId(),
-                'content' => $message->getContent(),
-                'author' => $author->getUsername(),
-                'avatar' => $author->getAvatar(),
-                'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
-                'conversationId' => $conversation->getId(),
-                'isCurrentUser' => false,
-            ]
-        );
+        $payload = $this->serializeMessage($message, null);
+
+        // Page de conversation ouverte (les deux participants)
+        $this->pusher->sendMessage(PusherService::conversationChannel($conversation->getId()), 'new-message', $payload);
+        // Notification globale du destinataire (messenger, badges), même pour une nouvelle conversation
+        $this->pusher->sendMessage(PusherService::userChannel($target->getId()), 'private-message', $payload);
 
         return $message;
     }
 
-    private function markAsRead(PrivateConversation $conversation, $user, EntityManagerInterface $em): void
+    private function serializeMessage(PrivateMessage $message, ?User $viewer): array
     {
-        $changed = false;
-        foreach ($conversation->getMessages() as $message) {
-            if ($message->getAuthor() !== $user && !$message->isRead()) {
-                $message->setIsRead(true);
-                $changed = true;
-            }
-        }
-        if ($changed) {
-            $em->flush();
-        }
-    }
-
-    private function countUnread(PrivateConversation $conversation, $user): int
-    {
-        $count = 0;
-        foreach ($conversation->getMessages() as $message) {
-            if ($message->getAuthor() !== $user && !$message->isRead()) {
-                $count++;
-            }
-        }
-        return $count;
+        return [
+            'id' => $message->getId(),
+            'content' => $message->getContent(),
+            'author' => $message->getAuthor()->getUsername(),
+            'authorId' => $message->getAuthor()->getId(),
+            'avatar' => $message->getAuthor()->getAvatar(),
+            'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
+            'conversationId' => $message->getConversation()->getId(),
+            'isCurrentUser' => $viewer !== null && $message->getAuthor() === $viewer,
+        ];
     }
 }

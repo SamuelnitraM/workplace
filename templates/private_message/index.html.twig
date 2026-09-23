@@ -1,52 +1,68 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Mes messages{% endblock %}
 
 {% block body %}
-<div class="max-w-3xl mx-auto">
+<div class="container-reading">
 
-    <h1 class="text-3xl font-bold text-white mb-8">✉️ Mes messages</h1>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Messages</h1>
+            <p class="page-header-subtitle">Vos conversations privées avec vos amis.</p>
+        </div>
+        {% if conversations is not empty %}
+            <div class="page-header-actions">
+                <a href="{{ path('app_friendship_list') }}" class="btn btn-secondary">{{ ui.icon('users') }}Mes amis</a>
+            </div>
+        {% endif %}
+    </header>
 
     {% if conversations is empty %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-500">
-            Aucune conversation pour le moment.
-        </div>
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'mail',
+            title: 'Aucune conversation pour le moment',
+            text: 'Les messages privés s\'échangent entre amis : ouvrez le profil d\'un ami et cliquez sur « Envoyer un message ».',
+            cta: {label: 'Mes amis', url: path('app_friendship_list'), icon: 'users'},
+            secondary: {label: 'Trouver des joueurs', url: path('app_leaderboard'), icon: 'trophy'},
+        }) }}
     {% else %}
-        <div class="space-y-3">
+        <ul role="list" class="card overflow-hidden divide-y divide-line">
             {% for conversation in conversations %}
                 {% set other = conversation.participant1 == app.user ? conversation.participant2 : conversation.participant1 %}
-                {% set unread = conversation.messages|filter(message => message.author != app.user and not message.isRead)|length %}
-                <a href="{{ path('app_message_show', {username: other.username}) }}"
-                   class="flex items-center gap-4 bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-indigo-500 transition">
-                    <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold shrink-0">
-                        {% if other.avatar %}
-                            <img src="{{ asset('uploads/avatars/' ~ other.avatar) }}"
-                                 class="w-12 h-12 rounded-full object-cover">
-                        {% else %}
-                            {{ other.username|first|upper }}
-                        {% endif %}
-                    </div>
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2">
-                            <div class="font-semibold text-white">{{ other.username }}</div>
-                            {% if unread > 0 %}
-                                <span class="w-2 h-2 bg-red-500 rounded-full"></span>
-                            {% endif %}
-                        </div>
-                        {% if conversation.messages|last %}
-                            <div class="text-gray-400 text-sm truncate">
-                                {{ conversation.messages|last.content|slice(0, 50) }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    {% if conversation.updatedAt %}
-                        <div class="text-gray-500 text-xs shrink-0">
-                            {{ conversation.updatedAt|date('d/m H:i') }}
-                        </div>
-                    {% endif %}
-                </a>
+                {% set unread = unreadCounts[conversation.id] ?? 0 %}
+                {% set lastMessage = lastMessages[conversation.id] ?? null %}
+                <li>
+                    <a href="{{ path('app_message_show', {username: other.username}) }}" class="list-row">
+                        <span class="relative shrink-0">
+                            {{- ui.avatar(other, 'md') -}}
+                        </span>
+                        <span class="list-row-main">
+                            <span class="flex items-baseline justify-between gap-3">
+                                <span class="truncate {{ unread > 0 ? 'font-bold text-fg' : 'font-semibold text-fg' }}">{{ other.username }}</span>
+                                {% if conversation.updatedAt %}
+                                    <time class="shrink-0 text-caption {{ unread > 0 ? 'font-semibold text-primary-text' : 'text-muted' }}"
+                                          datetime="{{ conversation.updatedAt|date('c') }}" title="{{ conversation.updatedAt|date('d/m/Y à H:i') }}">{{ conversation.updatedAt|time_ago }}</time>
+                                {% endif %}
+                            </span>
+                            <span class="mt-0.5 flex items-center justify-between gap-3">
+                                <span class="truncate text-small {{ unread > 0 ? 'text-fg' : 'text-fg-secondary' }}">
+                                    {%- if lastMessage -%}
+                                        {%- if lastMessage.author == app.user %}<span class="text-muted">Vous : </span>{% endif -%}
+                                        {{- lastMessage.content -}}
+                                    {%- else -%}
+                                        <span class="text-muted">Aucun message</span>
+                                    {%- endif -%}
+                                </span>
+                                {% if unread > 0 %}
+                                    <span class="count-badge shrink-0">{{ unread > 99 ? '99+' : unread }}<span class="sr-only"> message{{ unread > 1 ? 's' }} non lu{{ unread > 1 ? 's' }}</span></span>
+                                {% endif %}
+                            </span>
+                        </span>
+                    </a>
+                </li>
             {% endfor %}
-        </div>
+        </ul>
     {% endif %}
 
 </div>

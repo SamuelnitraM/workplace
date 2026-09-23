@@ -28,6 +28,11 @@ class FriendshipRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    public function areFriends(User $user1, User $user2): bool
+    {
+        return $this->findExisting($user1, $user2)?->getStatus() === 'accepted';
+    }
+
     public function findAcceptedFriends(User $user): array
     {
         return $this->createQueryBuilder('f')

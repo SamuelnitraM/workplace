@@ -1,181 +1,125 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}{{ targetUser.username }}{% endblock %}
 
 {% block body %}
-<div class="max-w-3xl mx-auto">
+{% set _days = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'] %}
+{% set _months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'] %}
+{% set _today = 'now'|date('Y-m-d') %}
+{% set _yesterday = '-1 day'|date('Y-m-d') %}
+{% set _year = 'now'|date('Y') %}
+<div class="container-reading">
 
-    {# HEADER #}
-    <div class="flex items-center gap-4 mb-6">
-        <a href="{{ path('app_message_index') }}"
-           class="text-gray-400 hover:text-white transition">←</a>
-        <a href="{{ path('app_profil_show', {username: targetUser.username}) }}"
-           class="flex items-center gap-3 hover:text-indigo-400 transition">
-            <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold">
-                {% if targetUser.avatar %}
-                    <img src="{{ asset('uploads/avatars/' ~ targetUser.avatar) }}"
-                         class="w-10 h-10 rounded-full object-cover">
-                {% else %}
-                    {{ targetUser.username|first|upper }}
-                {% endif %}
-            </div>
-            <span class="font-semibold text-white">{{ targetUser.username }}</span>
+    {# EN-TÊTE DE LA CONVERSATION #}
+    <header class="mb-4 flex items-center gap-2 sm:gap-3">
+        <a href="{{ path('app_message_index') }}" class="btn btn-ghost btn-icon shrink-0" aria-label="Retour aux messages">
+            {{- ui.icon('arrow-left') -}}
         </a>
-    </div>
+        <a href="{{ path('app_profil_show', {username: targetUser.username}) }}" class="flex min-w-0 items-center gap-3 rounded-control">
+            {{- ui.avatar(targetUser, 'md') -}}
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <h1 class="truncate text-h3 text-fg">{{ targetUser.username }}</h1>
+                    {{ include('gamification/_user_title.html.twig', {user: targetUser}) }}
+                </div>
+                <p class="text-caption text-muted">{{ canSend ? 'Voir le profil' : 'Conversation en lecture seule' }}</p>
+            </div>
+        </a>
+    </header>
 
-    {# ZONE CHAT #}
-    <div class="bg-gray-800 rounded-xl border border-gray-700 flex flex-col h-[600px]">
+    {# ZONE CHAT (assets/controllers/chat_controller.js) #}
+    <div class="card chat-panel"
+         data-controller="chat"
+         data-chat-user-id-value="{{ app.user.id }}"
+         data-chat-avatar-base-value="{{ asset('uploads/avatars/') }}"
+         data-chat-send-url-value="{{ path('app_message_send', {username: targetUser.username}) }}"
+         {% if conversation %}
+         data-chat-channel-value="private-conversation-{{ conversation.id }}"
+         data-chat-conversation-id-value="{{ conversation.id }}"
+         data-chat-read-url-value="{{ path('app_message_ajax_read', {id: conversation.id}) }}"
+         {% else %}
+         data-chat-reload-after-first-message-value="true"
+         {% endif %}>
 
         {# MESSAGES #}
-        <div class="flex-1 overflow-y-auto p-4 space-y-3" id="chat-messages">
+        <div class="chat-stream" id="chat-messages" role="log" aria-label="Messages avec {{ targetUser.username }}"
+             data-chat-target="messages" data-action="scroll->chat#onScroll">
             {% if messages is empty %}
-                <p class="text-gray-500 text-center py-8">
-                    Commencez la conversation avec {{ targetUser.username }} !
-                </p>
+                <div id="chat-empty" data-chat-target="empty" class="my-auto">
+                    {{ include('_partials/_empty_state.html.twig', {
+                        icon: 'sparkles',
+                        title: 'Commencez la conversation avec ' ~ targetUser.username,
+                        text: canSend ? 'Un bonjour, une question sur ses figurines, une idée de partie…' : null,
+                        cta: canSend ? {label: 'Écrire le premier message', for: 'message-input', icon: 'pencil'} : null,
+                        variant: 'plain',
+                        compact: true,
+                    }) }}
+                </div>
             {% else %}
+                {% set _prev_day = null %}
                 {% for message in messages %}
-                    <div class="flex gap-3 {{ message.author == app.user ? 'flex-row-reverse' : '' }}"
-                         id="msg-{{ message.id }}">
-                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
-                            {% if message.author.avatar %}
-                                <img src="{{ asset('uploads/avatars/' ~ message.author.avatar) }}"
-                                     class="w-8 h-8 rounded-full object-cover">
-                            {% else %}
-                                {{ message.author.username|first|upper }}
-                            {% endif %}
-                        </div>
-                        <div class="{{ message.author == app.user ? 'items-end' : 'items-start' }} flex flex-col">
-                            <div class="text-xs text-gray-500 mb-1">
-                                {{ message.createdAt|date('d/m H:i') }}
+                    {% set _day = message.createdAt|date('Y-m-d') %}
+                    {% if _day != _prev_day %}
+                        {% set _label = _day == _today ? 'Aujourd\'hui'
+                            : (_day == _yesterday ? 'Hier'
+                            : (_days[message.createdAt|date('N') - 1] ~ ' ' ~ message.createdAt|date('j') ~ ' ' ~ _months[message.createdAt|date('n') - 1]
+                               ~ (message.createdAt|date('Y') != _year ? ' ' ~ message.createdAt|date('Y') : ''))) %}
+                        <div class="chat-day" data-chat-day="{{ _day }}" role="separator" aria-label="{{ _label }}"><span>{{ _label|capitalize }}</span></div>
+                        {% set _prev_day = _day %}
+                    {% endif %}
+                    {% set _own = message.author == app.user %}
+                    <div class="chat-msg {{ _own ? 'chat-msg-own' }}" id="msg-{{ message.id }}">
+                        {% if not _own %}{{ ui.avatar(message.author, 'sm') }}{% endif %}
+                        <div class="chat-msg-body">
+                            <div class="chat-meta">
+                                {%- if _own %}<span class="sr-only">Vous, </span>{% else %}<span class="sr-only">{{ message.author.username }}, </span>{% endif -%}
+                                <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('H:i') }}</time>
                             </div>
-                            <div class="px-4 py-2 rounded-xl text-sm max-w-xs
-                                {{ message.author == app.user ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200' }}">
-                                {{ message.content }}
-                            </div>
+                            <div class="chat-bubble">{{ message.content }}</div>
                         </div>
                     </div>
                 {% endfor %}
             {% endif %}
         </div>
 
-        {# BOUTON SCROLL #}
+        {# BOUTON « DERNIERS MESSAGES » #}
         <div class="relative">
-            <button id="scroll-btn"
-                    class="hidden absolute bottom-5 left-1/2 -translate-x-1/2 bg-opacity-50 bg-indigo-700 hover:bg-gray-900 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg transition z-10">
-                ↓
-                <span id="scroll-badge"
-                      class="hidden absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full"></span>
+            <button type="button" id="scroll-btn" data-chat-target="scrollButton" data-action="chat#jumpToBottom" aria-label="Aller aux derniers messages"
+                    class="hidden btn btn-secondary btn-icon chat-scroll-btn">
+                {{- ui.icon('chevron-down') -}}
+                <span id="scroll-badge" data-chat-target="scrollBadge"
+                      class="hidden absolute -top-0.5 -right-0.5 size-3 rounded-pill bg-notify ring-2 ring-surface"></span>
             </button>
         </div>
 
-        {# FORMULAIRE #}
-        <div class="p-4 border-t border-gray-700">
-            <form id="message-form"
+        {# SAISIE #}
+        {% if canSend %}
+            <form id="message-form" data-chat-target="form" data-action="submit->chat#send"
                   action="{{ path('app_message_send', {username: targetUser.username}) }}"
                   method="post"
-                  class="flex gap-3">
-                <input type="text" name="content" id="message-input"
-                       placeholder="Votre message..."
+                  class="chat-composer">
+                <input type="hidden" name="_token" value="{{ csrf_token('private_message') }}">
+                <label for="message-input" class="sr-only">Votre message à {{ targetUser.username }}</label>
+                <input type="text" name="content" id="message-input" data-chat-target="input"
+                       placeholder="Écrire un message…"
                        autocomplete="off"
-                       class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                <button type="submit"
-                        class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
-                    ➤
+                       enterkeyhint="send"
+                       maxlength="2000"
+                       required
+                       class="input flex-1 rounded-pill px-4">
+                <button type="submit" class="btn btn-primary btn-icon shrink-0 rounded-pill" aria-label="Envoyer le message">
+                    {{- ui.icon('send') -}}
                 </button>
             </form>
-        </div>
+        {% else %}
+            <div class="chat-composer justify-center text-center text-small text-fg-secondary" role="status">
+                {{ ui.icon('lock', 'size-4 shrink-0 text-muted') }}
+                <p>Vous n'êtes plus amis avec {{ targetUser.username }} : la conversation est en lecture seule.</p>
+            </div>
+        {% endif %}
 
     </div>
 </div>
-
-<script>
-(function() {
-    const chatMessages = document.getElementById('chat-messages');
-    const scrollBtn = document.getElementById('scroll-btn');
-    const scrollBadge = document.getElementById('scroll-badge');
-
-    if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function isAtBottom() {
-        return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 50;
-    }
-
-    function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    chatMessages.addEventListener('scroll', () => {
-        if (isAtBottom()) {
-            scrollBtn.classList.add('hidden');
-            scrollBadge.classList.add('hidden');
-        } else {
-            scrollBtn.classList.remove('hidden');
-        }
-    });
-
-    scrollBtn.addEventListener('click', () => {
-        scrollToBottom();
-        scrollBtn.classList.add('hidden');
-        scrollBadge.classList.add('hidden');
-    });
-
-    // Pusher
-    const pusher = new Pusher('{{ pusher_key }}', {
-        cluster: '{{ pusher_cluster }}'
-    });
-
-    const channel = pusher.subscribe('conversation-{{ conversation.id }}');
-
-    channel.bind('new-message', function(data) {
-        const isCurrentUser = data.author === '{{ app.user.username }}';
-        const wasAtBottom = isAtBottom();
-
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : ''}`;
-        msgDiv.id = `msg-${data.id}`;
-
-        const avatar = data.avatar
-            ? `<img src="/uploads/avatars/${data.avatar}" class="w-8 h-8 rounded-full object-cover">`
-            : `<span>${data.author.charAt(0).toUpperCase()}</span>`;
-
-        msgDiv.innerHTML = `
-            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
-                ${avatar}
-            </div>
-            <div class="${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col">
-                <div class="text-xs text-gray-500 mb-1">${data.createdAt}</div>
-                <div class="px-4 py-2 rounded-xl text-sm max-w-xs ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'}">
-                    ${data.content}
-                </div>
-            </div>
-        `;
-
-        chatMessages.appendChild(msgDiv);
-
-        if (wasAtBottom || isCurrentUser) {
-            scrollToBottom();
-        } else {
-            scrollBadge.classList.remove('hidden');
-        }
-    });
-
-    // Formulaire AJAX
-    const messageForm = document.getElementById('message-form');
-    const messageInput = document.getElementById('message-input');
-
-    if (messageForm) {
-        messageForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const content = messageInput.value.trim();
-            if (!content) return;
-            const formData = new FormData(this);
-            messageInput.value = '';
-            fetch(this.action, { method: 'POST', body: formData });
-        });
-    }
-})();
-</script>
 
 {% endblock %}

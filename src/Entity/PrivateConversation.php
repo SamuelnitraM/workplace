@@ -33,6 +33,7 @@ class PrivateConversation
      * @var Collection<int, PrivateMessage>
      */
     #[ORM\OneToMany(targetEntity: PrivateMessage::class, mappedBy: 'conversation', orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
     private Collection $messages;
 
     public function __construct()
@@ -80,6 +81,16 @@ class PrivateConversation
         $this->participant1 = $participant1;
 
         return $this;
+    }
+
+    public function hasParticipant(User $user): bool
+    {
+        return $this->participant1 === $user || $this->participant2 === $user;
+    }
+
+    public function getOtherParticipant(User $user): ?User
+    {
+        return $this->participant1 === $user ? $this->participant2 : $this->participant1;
     }
 
     public function getParticipant2(): ?User
