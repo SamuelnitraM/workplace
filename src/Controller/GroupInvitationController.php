@@ -4,10 +4,15 @@ namespace App\Controller;
 
 use App\Entity\GroupInvitation;
 use App\Entity\GroupMember;
+use App\Entity\Notification;
+use App\Entity\User;
 use App\Repository\GroupInvitationRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
+use App\Repository\NotificationRepository;
 use App\Repository\UserRepository;
+use App\Security\Voter\GroupVoter;
+use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,8 +33,11 @@ class GroupInvitationController extends AbstractController
         GroupRepository $groupRepository,
         GroupMemberRepository $groupMemberRepository,
         GroupInvitationRepository $groupInvitationRepository,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        NotificationService $notifications,
     ): Response {
+        $this->denyUnlessCsrfValid($request);
+
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
         $targetUser = $userRepository->findOneBy(['username' => $username]);
@@ -38,8 +46,8 @@ class GroupInvitationController extends AbstractController
             throw $this->createNotFoundException('Utilisateur introuvable');
         }
 
-        $groupId = $request->request->get('group_id');
-        $group = $groupRepository->find($groupId);
+        $groupId = $request->request->getInt('group_id');
+        $group = $groupId ? $groupRepository->find($groupId) : null;
 
         if (!$group) {
             $this->addFlash('error', 'Groupe introuvable.');
@@ -47,12 +55,7 @@ class GroupInvitationController extends AbstractController
         }
 
         // Vérifier que l'inviteur est membre du groupe
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $currentUser,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember) {
+        if (!$this->isGranted(GroupVoter::INVITE, $group)) {
             $this->addFlash('error', 'Vous devez être membre du groupe pour inviter.');
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
@@ -88,6 +91,15 @@ class GroupInvitationController extends AbstractController
         $em->persist($invitation);
         $em->flush();
 
+        $notifications->notify(
+            $targetUser,
+            Notification::TYPE_GROUP_INVITATION,
+            $currentUser,
+            ['group' => $group->getName(), 'groupId' => $group->getId()],
+            $this->generateUrl('app_group_invitation_list'),
+            self::invitationKey($group->getId()),
+        );
+
         $this->addFlash('success', $targetUser->getUsername() . ' a été invité dans ' . $group->getName() . ' !');
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);
     }
@@ -96,25 +108,24 @@ class GroupInvitationController extends AbstractController
     #[Route('/accept/{id}', name: 'accept', methods: ['POST'])]
     public function accept(
         int $id,
+        Request $request,
         GroupInvitationRepository $groupInvitationRepository,
-        GroupMemberRepository $groupMemberRepository,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        NotificationRepository $notificationRepository,
+        NotificationService $notifications,
     ): Response {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
+        $this->denyUnlessCsrfValid($request);
         $invitation = $groupInvitationRepository->find($id);
 
-        if (!$invitation || $invitation->getInvitedUser() !== $currentUser) {
+        // Une invitation déjà utilisée (acceptée/refusée) ne peut pas resservir, par ex. après une exclusion
+        if (!$invitation || $invitation->getInvitedUser() !== $currentUser || $invitation->getStatus() !== 'pending') {
             throw $this->createAccessDeniedException();
         }
 
         // Vérifier que l'user n'est pas déjà membre
-        $alreadyMember = $groupMemberRepository->findOneBy([
-            'user' => $currentUser,
-            'usergroup' => $invitation->getUsergroup(),
-        ]);
-
-        if (!$alreadyMember) {
+        if (!$this->isGranted(GroupVoter::MEMBER, $invitation->getUsergroup())) {
             $member = new GroupMember();
             $member->setUser($currentUser);
             $member->setUsergroup($invitation->getUsergroup());
@@ -125,6 +136,18 @@ class GroupInvitationController extends AbstractController
         $invitation->setStatus('accepted');
         $em->flush();
 
+        $group = $invitation->getUsergroup();
+        $notificationRepository->markReadByGroupKey($currentUser, self::invitationKey($group->getId()));
+        if ($invitation->getInvitedBy()) {
+            $notifications->notify(
+                $invitation->getInvitedBy(),
+                Notification::TYPE_GROUP_INVITATION_ACCEPTED,
+                $currentUser,
+                ['group' => $group->getName(), 'groupId' => $group->getId()],
+                $this->generateUrl('app_group_show', ['slug' => $group->getSlug()]),
+            );
+        }
+
         $this->addFlash('success', 'Vous avez rejoint ' . $invitation->getUsergroup()->getName() . ' !');
         return $this->redirectToRoute('app_group_show', ['slug' => $invitation->getUsergroup()->getSlug()]);
     }
@@ -133,19 +156,24 @@ class GroupInvitationController extends AbstractController
     #[Route('/refuse/{id}', name: 'refuse', methods: ['POST'])]
     public function refuse(
         int $id,
+        Request $request,
         GroupInvitationRepository $groupInvitationRepository,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        NotificationRepository $notificationRepository,
     ): Response {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
+        $this->denyUnlessCsrfValid($request);
         $invitation = $groupInvitationRepository->find($id);
 
-        if (!$invitation || $invitation->getInvitedUser() !== $currentUser) {
+        // Une invitation déjà utilisée (acceptée/refusée) ne peut pas resservir, par ex. après une exclusion
+        if (!$invitation || $invitation->getInvitedUser() !== $currentUser || $invitation->getStatus() !== 'pending') {
             throw $this->createAccessDeniedException();
         }
 
         $invitation->setStatus('refused');
         $em->flush();
+        $notificationRepository->markReadByGroupKey($currentUser, self::invitationKey($invitation->getUsergroup()->getId()));
 
         $this->addFlash('info', 'Invitation refusée.');
         return $this->redirectToRoute('app_group_invitation_list');
@@ -153,10 +181,13 @@ class GroupInvitationController extends AbstractController
 
     // Liste des invitations reçues
     #[Route('/list', name: 'list')]
-    public function list(GroupInvitationRepository $groupInvitationRepository): Response
+    public function list(GroupInvitationRepository $groupInvitationRepository, NotificationRepository $notificationRepository): Response
     {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
+
+        // Les invitations en attente sont affichées sur cette page : leurs notifications sont lues
+        $notificationRepository->markReadByTypes($currentUser, [Notification::TYPE_GROUP_INVITATION]);
 
         $pendingInvitations = $groupInvitationRepository->findBy([
             'invitedUser' => $currentUser,
@@ -166,5 +197,17 @@ class GroupInvitationController extends AbstractController
         return $this->render('group_invitation/list.html.twig', [
             'invitations' => $pendingInvitations,
         ]);
+    }
+    private function denyUnlessCsrfValid(Request $request): void
+    {
+        if (!$this->isCsrfTokenValid('group_invite', $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+    }
+
+    /** Clé d'agrégation d'une invitation (une seule notification par groupe). */
+    private static function invitationKey(int $groupId): string
+    {
+        return 'group_invitation:' . $groupId;
     }
 }

@@ -32,6 +32,21 @@ class Group
     #[ORM\Column]
     private ?bool $isJoinable = null;
 
+    /** Rôle minimum pour écrire dans la todo du groupe ('member', 'admin' ou 'owner', cf. GroupMember::ROLE_LEVELS). */
+    #[ORM\Column(length: 10, options: ['default' => 'admin'])]
+    private string $todoWriteRole = 'admin';
+
+    /**
+     * Rôle minimum pour VOIR toute la todo du groupe en lecture seule ('member', 'admin' ou 'owner').
+     * Les rédacteurs voient toujours tout ; les autres membres ne voient sinon que ce qui leur est assigné.
+     */
+    #[ORM\Column(length: 10, options: ['default' => 'admin'])]
+    private string $todoViewRole = 'admin';
+
+    /** Rôle minimum pour épingler / désépingler des messages dans les channels ('member', 'admin' ou 'owner'). */
+    #[ORM\Column(length: 20, options: ['default' => 'admin'])]
+    private string $pinRole = 'admin';
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -67,6 +82,7 @@ class Group
      * @var Collection<int, GroupChannel>
      */
     #[ORM\OneToMany(targetEntity: GroupChannel::class, mappedBy: 'usergroup', orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC', 'id' => 'ASC'])]
     private Collection $channels;
 
     public function __construct()
@@ -147,6 +163,51 @@ class Group
     public function setIsJoinable(bool $isJoinable): static
     {
         $this->isJoinable = $isJoinable;
+
+        return $this;
+    }
+
+    public function getTodoWriteRole(): string
+    {
+        return $this->todoWriteRole;
+    }
+
+    public function setTodoWriteRole(string $todoWriteRole): static
+    {
+        if (!array_key_exists($todoWriteRole, GroupMember::ROLE_LEVELS)) {
+            throw new \InvalidArgumentException(sprintf('Rôle todo invalide : "%s".', $todoWriteRole));
+        }
+        $this->todoWriteRole = $todoWriteRole;
+
+        return $this;
+    }
+
+    public function getTodoViewRole(): string
+    {
+        return $this->todoViewRole;
+    }
+
+    public function setTodoViewRole(string $todoViewRole): static
+    {
+        if (!array_key_exists($todoViewRole, GroupMember::ROLE_LEVELS)) {
+            throw new \InvalidArgumentException(sprintf('Rôle todo invalide : "%s".', $todoViewRole));
+        }
+        $this->todoViewRole = $todoViewRole;
+
+        return $this;
+    }
+
+    public function getPinRole(): string
+    {
+        return $this->pinRole;
+    }
+
+    public function setPinRole(string $pinRole): static
+    {
+        if (!array_key_exists($pinRole, GroupMember::ROLE_LEVELS)) {
+            throw new \InvalidArgumentException(sprintf('Rôle d\'épinglage invalide : "%s".', $pinRole));
+        }
+        $this->pinRole = $pinRole;
 
         return $this;
     }

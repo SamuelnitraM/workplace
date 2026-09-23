@@ -15,6 +15,13 @@ class TodoNode
     const TYPE_CATEGORY = 'category';
     const TYPE_ITEM = 'item';
 
+    // Type de parent attendu pour chaque type (null = racine) : liste > catégorie > tâche
+    const EXPECTED_PARENT_TYPES = [
+        self::TYPE_LIST => null,
+        self::TYPE_CATEGORY => self::TYPE_LIST,
+        self::TYPE_ITEM => self::TYPE_CATEGORY,
+    ];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -46,18 +53,22 @@ class TodoNode
     private ?User $owner = null;
 
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
+    #[ORM\JoinColumn(onDelete: 'CASCADE')]
     private ?self $parent = null;
 
     /**
      * @var Collection<int, self>
      */
     #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
+    #[ORM\OrderBy(['position' => 'ASC'])]
     private Collection $children;
 
     #[ORM\ManyToOne(inversedBy: 'assignedTodos')]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
     private ?User $assignedTo = null;
 
     #[ORM\ManyToOne(inversedBy: 'todoNodes')]
+    #[ORM\JoinColumn(onDelete: 'CASCADE')]
     private ?Group $usergroup = null;
 
     public function __construct()

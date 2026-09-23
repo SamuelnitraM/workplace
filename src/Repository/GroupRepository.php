@@ -47,7 +47,8 @@ class GroupRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('g')
             ->where('g.name LIKE :query')
-            ->setParameter('query', '%' . $query . '%')
+            ->andWhere('g.isPublic = true')
+            ->setParameter('query', '%' . addcslashes($query, '%_\\') . '%')
             ->setMaxResults(10)
             ->getQuery()
             ->getResult();

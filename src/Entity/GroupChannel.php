@@ -32,6 +32,7 @@ class GroupChannel
     private ?string $canWrite = null;
     
     #[ORM\OneToMany(targetEntity: GroupMessage::class, mappedBy: 'channel', orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
     private Collection $messages;
 
     #[ORM\Column]

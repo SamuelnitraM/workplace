@@ -5,12 +5,24 @@ namespace App\Controller;
 use App\Entity\Group;
 use App\Entity\GroupChannel;
 use App\Entity\GroupMember;
-use App\Repository\GroupRepository;
-use App\Repository\GroupMemberRepository;
+use App\Entity\GroupMessage;
+use App\Entity\Notification;
+use App\Entity\User;
+use App\Gamification\UserTitleManager;
 use App\Repository\GroupChannelRepository;
+use App\Repository\GroupMemberRepository;
+use App\Repository\GroupMessageRepository;
+use App\Repository\GroupRepository;
+use App\Repository\NotificationRepository;
+use App\Security\Voter\GroupChannelVoter;
+use App\Security\Voter\GroupMembershipResolver;
+use App\Security\Voter\GroupMessageVoter;
+use App\Security\Voter\GroupVoter;
+use App\Service\NotificationService;
 use App\Service\PusherService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -20,30 +32,52 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 #[Route('/groups', name: 'app_group_')]
 class GroupController extends AbstractController
 {
+    public const CSRF_TOKEN_ID = 'group';
+    private const NAME_MAX_LENGTH = 100;
+    private const MESSAGE_MAX_LENGTH = 2000;
+    private const MAX_PINNED_PER_CHANNEL = 20;
+
+    public function __construct(
+        private GroupRepository $groupRepository,
+        private GroupMemberRepository $groupMemberRepository,
+        private GroupMembershipResolver $membership,
+        private NotificationRepository $notificationRepository,
+    ) {}
+
     // Liste des groupes publics
     #[Route('/', name: 'index')]
-    public function index(GroupRepository $groupRepository): Response
+    public function index(): Response
     {
         $myGroups = [];
         $myGroupIds = [];
 
         if ($this->getUser()) {
-            /** @var \App\Entity\User $user */
-            $user = $this->getUser();
-            $myGroups = $groupRepository->findGroupsByMember($user);
+            $myGroups = $this->groupRepository->findGroupsByMember($this->currentUser());
             $myGroupIds = array_map(fn($g) => $g->getId(), $myGroups);
         }
 
-        $publicGroups = $groupRepository->findPublicGroupsNotMember($myGroupIds);
+        $publicGroups = $this->groupRepository->findPublicGroupsNotMember($myGroupIds);
+
+        // Messages non lus par groupe (notifications serveur « group_message » non lues)
+        $unreadGroupCounts = [];
+        if ($this->getUser()) {
+            $counts = $this->notificationRepository->sumUnreadCountsByGroupKey($this->currentUser(), Notification::TYPE_GROUP_MESSAGE, 'group:');
+            foreach ($counts as $groupKey => $count) {
+                if (preg_match('/^group:(\d+):/', $groupKey, $m)) {
+                    $unreadGroupCounts[(int) $m[1]] = ($unreadGroupCounts[(int) $m[1]] ?? 0) + $count;
+                }
+            }
+        }
 
         return $this->render('group/index.html.twig', [
             'publicGroups' => $publicGroups,
             'myGroups' => $myGroups,
+            'unreadGroupCounts' => $unreadGroupCounts,
         ]);
     }
 
     // Créer un groupe
-    #[Route('/new', name: 'new')]
+    #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function new(
         Request $request,
@@ -51,13 +85,23 @@ class GroupController extends AbstractController
         SluggerInterface $slugger
     ): Response {
         if ($request->isMethod('POST')) {
-            /** @var \App\Entity\User $user */
-            $user = $this->getUser();
+            $this->denyUnlessCsrfValid($request);
+            $user = $this->currentUser();
+
+            $name = trim($request->request->getString('name'));
+            $error = $this->validateName($name);
+            if ($error) {
+                $this->addFlash('error', $error);
+                return $this->render('group/new.html.twig', [
+                    'name' => $name,
+                    'description' => $request->request->getString('description'),
+                ]);
+            }
 
             $group = new Group();
-            $group->setName($request->request->get('name'));
-            $group->setDescription($request->request->get('description'));
-            $group->setSlug(strtolower($slugger->slug($request->request->get('name'))) . '-' . uniqid());
+            $group->setName($name);
+            $group->setDescription(trim($request->request->getString('description')) ?: null);
+            $group->setSlug($this->makeSlug($slugger, $name));
             $group->setIsPublic($request->request->get('isPublic') === '1');
             $group->setIsJoinable($request->request->get('isJoinable') === '1');
             $group->setCreator($user);
@@ -76,66 +120,50 @@ class GroupController extends AbstractController
             return $this->redirectToRoute('app_group_show', ['slug' => $group->getSlug()]);
         }
 
-        return $this->render('group/new.html.twig');
+        // Nom pré-rempli possible (ex. présentation guidée : « Crée le premier groupe de ta faction »)
+        return $this->render('group/new.html.twig', [
+            'name' => mb_substr(trim($request->query->getString('name')), 0, 100),
+        ]);
     }
 
     // Page du groupe
-    #[Route('/{slug}', name: 'show')]
+    #[Route('/{slug}', name: 'show', methods: ['GET'])]
     public function show(
         string $slug,
         Request $request,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
-        GroupChannelRepository $groupChannelRepository
+        GroupChannelRepository $groupChannelRepository,
+        GroupMessageRepository $groupMessageRepository,
     ): Response {
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $group = $this->findGroup($slug);
 
-        if (!$group) {
-            throw $this->createNotFoundException('Groupe introuvable');
-        }
-
-        // Vérifier si le groupe est privé
-        if (!$group->isPublic() && !$this->getUser()) {
-            return $this->redirectToRoute('app_login');
-        }
-
-        $currentMember = null;
-        if ($this->getUser()) {
-            /** @var \App\Entity\User $user */
-            $user = $this->getUser();
-            $currentMember = $groupMemberRepository->findOneBy([
-                'user' => $user,
-                'usergroup' => $group,
-            ]);
-
-            // Groupe privé : seuls les membres peuvent voir
-            if (!$group->isPublic() && !$currentMember) {
-                $this->addFlash('error', 'Ce groupe est privé.');
-                return $this->redirectToRoute('app_group_index');
+        // Groupe privé : seuls les membres peuvent voir (visiteur anonyme -> page de connexion)
+        if (!$this->isGranted(GroupVoter::VIEW, $group)) {
+            if (!$this->getUser()) {
+                return $this->redirectToRoute('app_login');
             }
+            $this->addFlash('error', 'Ce groupe est privé.');
+            return $this->redirectToRoute('app_group_index');
         }
 
-        // Récupérer les channels accessibles
+        $currentMember = $this->findMember($group);
+
+        // Channels accessibles selon le rôle
         $channels = [];
         $activeChannel = null;
 
         if ($currentMember) {
-            $roleHierarchy = ['member' => 1, 'admin' => 2, 'owner' => 3];
-            $userRoleLevel = $roleHierarchy[$currentMember->getRole()] ?? 0;
-
             foreach ($group->getChannels() as $channel) {
-                $requiredLevel = $roleHierarchy[$channel->getCanRead()] ?? 1;
-                if ($userRoleLevel >= $requiredLevel) {
+                if ($this->isGranted(GroupChannelVoter::READ, $channel)) {
                     $channels[] = $channel;
                 }
             }
 
-            // Channel actif = celui demandé ou le premier
-            $channelId = $request->query->getInt('channel', 0);
+            // Channel actif = celui demandé (s'il est lisible) ou le premier
+            $channelId = $request->query->getInt('channel');
             if ($channelId) {
-                $activeChannel = $groupChannelRepository->find($channelId);
-                if (!$activeChannel || $activeChannel->getUsergroup() !== $group) {
-                    $activeChannel = null;
+                $requested = $groupChannelRepository->find($channelId);
+                if ($requested && in_array($requested, $channels, true)) {
+                    $activeChannel = $requested;
                 }
             }
 
@@ -144,19 +172,34 @@ class GroupController extends AbstractController
             }
         }
 
-        // Messages du channel actif
-        $messages = [];
-        if ($activeChannel) {
-            $messages = $activeChannel->getMessages()->toArray();
-            usort($messages, fn($a, $b) => $a->getCreatedAt() <=> $b->getCreatedAt());
+        // Messages non lus par channel ; ceux du channel affiché sont marqués comme lus
+        $unreadChannelCounts = [];
+        if ($currentMember) {
+            $prefix = self::channelNotificationKeyPrefix($group);
+            foreach ($this->notificationRepository->sumUnreadCountsByGroupKey($this->currentUser(), Notification::TYPE_GROUP_MESSAGE, $prefix) as $groupKey => $count) {
+                $unreadChannelCounts[(int) substr($groupKey, strlen($prefix))] = $count;
+            }
+            if ($activeChannel) {
+                $this->notificationRepository->markReadByGroupKey($this->currentUser(), self::channelNotificationKey($activeChannel));
+                unset($unreadChannelCounts[$activeChannel->getId()]);
+            }
         }
+
+        $pinnedMessages = $activeChannel ? $groupMessageRepository->findPinnedByChannel($activeChannel) : [];
 
         return $this->render('group/show.html.twig', [
             'group' => $group,
             'currentMember' => $currentMember,
             'channels' => $channels,
             'activeChannel' => $activeChannel,
-            'messages' => $messages,
+            // Auteurs et titres chargés avec les messages (une requête)
+            'messages' => $activeChannel ? $groupMessageRepository->findByChannelWithAuthors($activeChannel) : [],
+            'unreadChannelCounts' => $unreadChannelCounts,
+            'channelNotificationKey' => $activeChannel ? self::channelNotificationKey($activeChannel) : null,
+            // Messages épinglés : requête dédiée (visibles même s'ils sont loin dans l'historique)
+            'pinnedMessages' => $pinnedMessages,
+            'pinnedData' => array_map(fn (GroupMessage $m) => $this->serializePinnedMessage($m), $pinnedMessages),
+            'canPin' => $activeChannel && $this->isGranted(GroupMessageVoter::PIN, $activeChannel),
         ]);
     }
 
@@ -166,36 +209,24 @@ class GroupController extends AbstractController
     public function join(
         string $slug,
         Request $request,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
 
-        if (!$group) {
-            throw $this->createNotFoundException('Groupe introuvable');
-        }
-
-        // Vérifier si déjà membre
-        $existing = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if ($existing) {
+        if ($this->isGranted(GroupVoter::MEMBER, $group)) {
             $this->addFlash('error', 'Vous êtes déjà membre de ce groupe.');
             return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
         }
 
-        if (!$group->isJoinable()) {
+        // Un groupe privé ne se rejoint que via une invitation
+        if (!$this->isGranted(GroupVoter::JOIN, $group)) {
             $this->addFlash('error', 'Ce groupe n\'accepte pas de nouvelles demandes.');
-            return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
+            return $this->redirectToRoute('app_group_index');
         }
 
         $member = new GroupMember();
-        $member->setUser($user);
+        $member->setUser($this->currentUser());
         $member->setUsergroup($group);
         $member->setRole('member');
 
@@ -212,31 +243,26 @@ class GroupController extends AbstractController
     public function leave(
         string $slug,
         Request $request,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-
-        $member = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
+        $member = $this->findMember($group);
 
         if (!$member) {
             $this->addFlash('error', 'Vous n\'êtes pas membre de ce groupe.');
             return $this->redirectToRoute('app_group_index');
         }
 
-        if ($member->getRole() === 'owner') {
-            $this->addFlash('error', 'Le owner ne peut pas quitter le groupe. Supprimez-le ou transférez la propriété.');
+        if ($this->isGranted(GroupVoter::OWNER, $group)) {
+            $this->addFlash('error', 'Le propriétaire ne peut pas quitter le groupe : supprimez-le depuis ses paramètres si besoin.');
             return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
         }
 
         $em->remove($member);
         $em->flush();
+        // Les messages non lus d'un groupe quitté ne sont plus accessibles
+        $this->notificationRepository->markReadByGroupKeyPrefix($this->currentUser(), self::channelNotificationKeyPrefix($group));
 
         $this->addFlash('success', 'Vous avez quitté le groupe.');
         return $this->redirectToRoute('app_group_index');
@@ -245,45 +271,39 @@ class GroupController extends AbstractController
     // Envoyer un message dans le chat
     #[Route('/{slug}/message', name: 'message', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function message(string $slug,Request $request, GroupRepository $groupRepository, GroupMemberRepository $groupMemberRepository, GroupChannelRepository $groupChannelRepository, EntityManagerInterface $em, PusherService $pusher): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember) {
-            throw $this->createAccessDeniedException();
-        }
+    public function message(
+        string $slug,
+        Request $request,
+        GroupChannelRepository $groupChannelRepository,
+        EntityManagerInterface $em,
+        PusherService $pusher,
+        NotificationService $notifications,
+    ): Response {
+        $this->denyUnlessCsrfValid($request);
+        $user = $this->currentUser();
+        $group = $this->findGroup($slug);
+        $this->denyAccessUnlessGranted(GroupVoter::MEMBER, $group);
 
         $channelId = $request->request->getInt('channel_id');
-        $channel = $groupChannelRepository->find($channelId);
+        $channel = $channelId ? $groupChannelRepository->find($channelId) : null;
 
         if (!$channel || $channel->getUsergroup() !== $group) {
             throw $this->createNotFoundException();
         }
 
-        // Vérifier les droits d'écriture
-        $roleHierarchy = ['member' => 1, 'admin' => 2, 'owner' => 3];
-        $userRoleLevel = $roleHierarchy[$currentMember->getRole()] ?? 0;
-        $requiredLevel = $roleHierarchy[$channel->getCanWrite()] ?? 1;
+        $this->denyAccessUnlessGranted(GroupChannelVoter::WRITE, $channel);
 
-        if ($userRoleLevel < $requiredLevel) {
-            throw $this->createAccessDeniedException();
+        $redirect = $this->redirectToRoute('app_group_show', ['slug' => $slug, 'channel' => $channelId]);
+
+        $content = trim($request->request->getString('content'));
+        if ($content === '' || mb_strlen($content) > self::MESSAGE_MAX_LENGTH) {
+            if ($request->isXmlHttpRequest()) {
+                return new JsonResponse(['error' => 'Message vide ou trop long.'], Response::HTTP_BAD_REQUEST);
+            }
+            return $redirect;
         }
 
-        $content = trim($request->request->get('content', ''));
-        if (empty($content)) {
-            return $this->redirectToRoute('app_group_show', [
-                'slug' => $slug,
-                'channel' => $channelId
-            ]);
-        }
-
-        $message = new \App\Entity\GroupMessage();
+        $message = new GroupMessage();
         $message->setContent($content);
         $message->setAuthor($user);
         $message->setUsergroup($group);
@@ -292,165 +312,233 @@ class GroupController extends AbstractController
         $em->persist($message);
         $em->flush();
 
-        // Publier via Pusher
-        $pusher->sendMessage(
-            sprintf('group-%s-channel-%d', $slug, $channelId),
-            'new-message',
-            [
-                'id' => $message->getId(),
-                'content' => $message->getContent(),
-                'author' => $user->getUsername(),
-                'avatar' => $user->getAvatar(),
-                'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
-                'isCurrentUser' => false,
-            ]
-        );
+        $payload = [
+            'id' => $message->getId(),
+            'content' => $message->getContent(),
+            'author' => $user->getUsername(),
+            'authorId' => $user->getId(),
+            'avatar' => $user->getAvatar(),
+            'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
+            // Titre de l'auteur ({name, tier, icon} ou null), rendu par chat_controller.js (textContent)
+            'title' => UserTitleManager::payload($user),
+        ];
 
+        // Temps réel dans le channel (canal privé : abonnement autorisé via /pusher/auth)
+        $pusher->sendMessage(PusherService::groupChannel($channel->getId()), 'new-message', $payload);
+
+        // Notification (agrégée par channel) des autres membres qui peuvent lire ce channel
+        $recipients = [];
         foreach ($group->getMembers() as $member) {
-            if ($member->getUser() !== $user) {
-                $pusher->sendMessage(
-                    'user-' . $member->getUser()->getId(),
-                    'group-message',
-                    [
-                        'group' => $group->getName(),
-                        'slug' => $group->getSlug(),
-                        'channel' => $channel->getName(),
-                        'author' => $user->getUsername(),
-                    ]
-                );
+            if ($member->getUser() !== $user && $member->hasAtLeastRole($channel->getCanRead())) {
+                $recipients[] = $member->getUser();
             }
         }
+        $notifications->notifyMany(
+            $recipients,
+            Notification::TYPE_GROUP_MESSAGE,
+            $user,
+            [
+                'group' => $group->getName(),
+                'groupId' => $group->getId(),
+                'channel' => $channel->getName(),
+                'channelId' => $channel->getId(),
+            ],
+            $this->generateUrl('app_group_show', ['slug' => $group->getSlug(), 'channel' => $channel->getId()]),
+            self::channelNotificationKey($channel),
+        );
 
-        return $this->redirectToRoute('app_group_show', [
-            'slug' => $slug,
-            'channel' => $channelId
-        ]);
+        if ($request->isXmlHttpRequest()) {
+            return new JsonResponse($payload);
+        }
+
+        return $redirect;
     }
 
-    #[Route('/{slug}/edit', name: 'edit')]
+    // Épingler un message d'un channel
+    #[Route('/{slug}/message/{id}/pin', name: 'message_pin', methods: ['POST'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_USER')]
+    public function pinMessage(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupMessageRepository $groupMessageRepository,
+        EntityManagerInterface $em,
+        PusherService $pusher,
+    ): Response {
+        return $this->setMessagePinned(true, $slug, $id, $request, $groupMessageRepository, $em, $pusher);
+    }
+
+    // Désépingler un message d'un channel
+    #[Route('/{slug}/message/{id}/unpin', name: 'message_unpin', methods: ['POST'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_USER')]
+    public function unpinMessage(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupMessageRepository $groupMessageRepository,
+        EntityManagerInterface $em,
+        PusherService $pusher,
+    ): Response {
+        return $this->setMessagePinned(false, $slug, $id, $request, $groupMessageRepository, $em, $pusher);
+    }
+
+    #[Route('/{slug}/edit', name: 'edit', methods: ['GET', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function edit(
         string $slug,
         Request $request,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
+        GroupChannelRepository $groupChannelRepository,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $group = $this->findGroup($slug);
+        $this->denyAccessUnlessGranted(GroupVoter::MANAGE, $group);
 
-        if (!$group) {
-            throw $this->createNotFoundException('Groupe introuvable');
+        if (!$request->isMethod('POST')) {
+            return $this->render('group/edit.html.twig', [
+                'group' => $group,
+                'currentMember' => $this->findMember($group),
+            ]);
         }
 
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember || !in_array($currentMember->getRole(), ['owner', 'admin'])) {
-            throw $this->createAccessDeniedException();
-        }
+        $this->denyUnlessCsrfValid($request);
+        $action = $request->request->getString('action');
+        $isOwner = $this->isGranted(GroupVoter::OWNER, $group);
+        $redirect = $this->redirectToRoute('app_group_edit', ['slug' => $group->getSlug()]);
 
         // Formulaire informations générales
-        if ($request->isMethod('POST') && $request->request->get('action') === 'update_info') {
-            $group->setName($request->request->get('name'));
-            $group->setDescription($request->request->get('description'));
+        if ($action === 'update_info') {
+            $name = trim($request->request->getString('name'));
+            $error = $this->validateName($name);
+            if ($error) {
+                $this->addFlash('error', $error);
+                return $redirect;
+            }
+
+            $group->setName($name);
+            $group->setDescription(trim($request->request->getString('description')) ?: null);
             $group->setIsPublic($request->request->get('isPublic') === '1');
             $group->setIsJoinable($request->request->get('isJoinable') === '1');
-
             $em->flush();
 
             $this->addFlash('success', 'Paramètres mis à jour !');
-            return $this->redirectToRoute('app_group_edit', ['slug' => $group->getSlug()]);
+            return $redirect;
         }
 
-        // Formulaire modification de rôle (owner uniquement)
-        if ($request->isMethod('POST') && $request->request->get('action') === 'update_role'
-            && $currentMember->getRole() === 'owner') {
-            $memberId = $request->request->get('member_id');
-            $newRole = $request->request->get('role');
-            $targetMember = $groupMemberRepository->find($memberId);
+        // Modification de rôle (owner uniquement)
+        if ($action === 'update_role' && $isOwner) {
+            $memberId = $request->request->getInt('member_id');
+            $newRole = $request->request->getString('role');
+            $targetMember = $memberId ? $this->groupMemberRepository->find($memberId) : null;
 
             if ($targetMember && $targetMember->getUsergroup() === $group
                 && $targetMember->getRole() !== 'owner'
-                && in_array($newRole, ['admin', 'member'])) {
+                && in_array($newRole, ['admin', 'member'], true)) {
                 $targetMember->setRole($newRole);
                 $em->flush();
                 $this->addFlash('success', 'Rôle mis à jour !');
             }
 
-            return $this->redirectToRoute('app_group_edit', ['slug' => $group->getSlug()]);
+            return $redirect;
         }
 
-        // Créer un channel
-        if ($request->isMethod('POST') && $request->request->get('action') === 'create_channel'
-            && $currentMember->getRole() === 'owner') {
-            $channelName = trim($request->request->get('channel_name', ''));
-            if (!empty($channelName)) {
-                $channel = new GroupChannel();
-                $channel->setName($channelName);
-                $channel->setUsergroup($group);
-                $channel->setCanRead($request->request->get('channel_can_read', 'member'));
-                $channel->setCanWrite($request->request->get('channel_can_write', 'member'));
+        // Créer un channel (owner uniquement)
+        if ($action === 'create_channel' && $isOwner) {
+            $channelName = trim($request->request->getString('channel_name'));
+            $canRead = $request->request->getString('channel_can_read', 'member');
+            $canWrite = $request->request->getString('channel_can_write', 'member');
 
-                // Position = dernier + 1
-                $lastChannel = $group->getChannels()->last();
-                $channel->setPosition($lastChannel ? $lastChannel->getPosition() + 1 : 0);
-
-                $em->persist($channel);
-                $em->flush();
-                $this->addFlash('success', 'Channel créé !');
+            if ($channelName === '' || mb_strlen($channelName) > 50 || !$this->isValidRole($canRead) || !$this->isValidRole($canWrite)) {
+                $this->addFlash('error', 'Nom de salon ou droits invalides (50 caractères maximum).');
+                return $redirect;
             }
-            return $this->redirectToRoute('app_group_edit', ['slug' => $group->getSlug()]);
+
+            $channel = new GroupChannel();
+            $channel->setName($channelName);
+            $channel->setUsergroup($group);
+            $channel->setCanRead($canRead);
+            $channel->setCanWrite($canWrite);
+
+            // Position = dernier + 1
+            $maxPosition = -1;
+            foreach ($group->getChannels() as $existing) {
+                $maxPosition = max($maxPosition, $existing->getPosition());
+            }
+            $channel->setPosition($maxPosition + 1);
+
+            $em->persist($channel);
+            $em->flush();
+            $this->addFlash('success', 'Salon créé !');
+
+            return $redirect;
         }
 
-        // Modifier les droits d'un channel
-        if ($request->isMethod('POST') && $request->request->get('action') === 'update_channel'
-            && in_array($currentMember->getRole(), ['owner', 'admin'])) {
-            $channelId = $request->request->get('channel_id');
-            $channel = $em->getRepository(GroupChannel::class)->find($channelId);
+        // Modifier les droits d'un channel (owner et admins)
+        if ($action === 'update_channel') {
+            $channelId = $request->request->getInt('channel_id');
+            $channel = $channelId ? $groupChannelRepository->find($channelId) : null;
+            $canRead = $request->request->getString('can_read', 'member');
+            $canWrite = $request->request->getString('can_write', 'member');
 
-            if ($channel && $channel->getUsergroup() === $group) {
-                $channel->setCanRead($request->request->get('can_read', 'member'));
-                $channel->setCanWrite($request->request->get('can_write', 'member'));
+            if ($channel && $channel->getUsergroup() === $group
+                && $this->isValidRole($canRead) && $this->isValidRole($canWrite)) {
+                $channel->setCanRead($canRead);
+                $channel->setCanWrite($canWrite);
                 $em->flush();
                 $this->addFlash('success', 'Droits mis à jour !');
             }
-            return $this->redirectToRoute('app_group_edit', ['slug' => $group->getSlug()]);
+
+            return $redirect;
         }
 
-        return $this->render('group/edit.html.twig', [
-            'group' => $group,
-            'currentMember' => $currentMember,
-        ]);
+        // Paramètres de la todo : rôles minimum pour écrire et pour tout voir (owner uniquement)
+        if ($action === 'update_todo_settings' && $isOwner) {
+            $todoWriteRole = $request->request->getString('todo_write_role');
+            $todoViewRole = $request->request->getString('todo_view_role');
+            if (!$this->isValidRole($todoWriteRole) || !$this->isValidRole($todoViewRole)) {
+                $this->addFlash('error', 'Rôle invalide.');
+                return $redirect;
+            }
+
+            $group->setTodoWriteRole($todoWriteRole);
+            $group->setTodoViewRole($todoViewRole);
+            $em->flush();
+            $this->addFlash('success', 'Paramètres des tâches mis à jour !');
+
+            return $redirect;
+        }
+
+        // Messages épinglés : rôle minimum pour épingler (owner uniquement)
+        if ($action === 'update_pin_settings' && $isOwner) {
+            $pinRole = $request->request->getString('pin_role');
+            if (!$this->isValidRole($pinRole)) {
+                $this->addFlash('error', 'Rôle invalide.');
+                return $redirect;
+            }
+
+            $group->setPinRole($pinRole);
+            $em->flush();
+            $this->addFlash('success', 'Paramètres des messages épinglés mis à jour !');
+
+            return $redirect;
+        }
+
+        throw $this->createAccessDeniedException();
     }
 
     // Exclure un membre
-    #[Route('/{slug}/kick/{memberId}', name: 'kick', methods: ['POST'])]
+    #[Route('/{slug}/kick/{memberId}', name: 'kick', methods: ['POST'], requirements: ['memberId' => '\d+'])]
     #[IsGranted('ROLE_USER')]
     public function kick(
         string $slug,
         int $memberId,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
+        Request $request,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
+        $this->denyAccessUnlessGranted(GroupVoter::OWNER, $group);
 
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember || $currentMember->getRole() !== 'owner') {
-            throw $this->createAccessDeniedException();
-        }
-
-        $targetMember = $groupMemberRepository->find($memberId);
+        $targetMember = $this->groupMemberRepository->find($memberId);
         if ($targetMember && $targetMember->getUsergroup() === $group
             && $targetMember->getRole() !== 'owner') {
             $em->remove($targetMember);
@@ -466,22 +554,12 @@ class GroupController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function delete(
         string $slug,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
+        Request $request,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember || $currentMember->getRole() !== 'owner') {
-            throw $this->createAccessDeniedException();
-        }
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
+        $this->denyAccessUnlessGranted(GroupVoter::OWNER, $group);
 
         $em->remove($group);
         $em->flush();
@@ -490,37 +568,178 @@ class GroupController extends AbstractController
         return $this->redirectToRoute('app_group_index');
     }
 
-    #[Route('/{slug}/channel/{channelId}/delete', name: 'channel_delete', methods: ['POST'])]
+    #[Route('/{slug}/channel/{channelId}/delete', name: 'channel_delete', methods: ['POST'], requirements: ['channelId' => '\d+'])]
     #[IsGranted('ROLE_USER')]
     public function channelDelete(
         string $slug,
         int $channelId,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
+        Request $request,
         GroupChannelRepository $groupChannelRepository,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember || $currentMember->getRole() !== 'owner') {
-            throw $this->createAccessDeniedException();
-        }
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
+        $this->denyAccessUnlessGranted(GroupVoter::OWNER, $group);
 
         $channel = $groupChannelRepository->find($channelId);
         if ($channel && $channel->getUsergroup() === $group) {
             $em->remove($channel);
             $em->flush();
-            $this->addFlash('success', 'Channel supprimé.');
+            $this->addFlash('success', 'Salon supprimé.');
         }
 
         return $this->redirectToRoute('app_group_edit', ['slug' => $slug]);
     }
-    
+
+    // ─── Helpers ──────────────────────────────────────────────
+
+    /**
+     * Épingle / désépingle un message (idempotent) : le message doit appartenir à un channel de ce groupe
+     * et l'utilisateur avoir le droit GroupMessageVoter::PIN. Diffuse « message-pinned » / « message-unpinned »
+     * sur le canal Pusher du channel. Réponse JSON pour fetch, redirection (avec message flash) sinon.
+     */
+    private function setMessagePinned(
+        bool $pin,
+        string $slug,
+        int $id,
+        Request $request,
+        GroupMessageRepository $groupMessageRepository,
+        EntityManagerInterface $em,
+        PusherService $pusher,
+    ): Response {
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
+
+        $message = $groupMessageRepository->find($id);
+        $channel = $message?->getChannel();
+        if (!$message || !$channel || $channel->getUsergroup() !== $group || $message->getUsergroup() !== $group) {
+            throw $this->createNotFoundException('Message introuvable');
+        }
+
+        $this->denyAccessUnlessGranted(GroupMessageVoter::PIN, $message);
+
+        $isAjax = $request->isXmlHttpRequest();
+        $redirect = $this->redirectToRoute('app_group_show', ['slug' => $group->getSlug(), 'channel' => $channel->getId()]);
+
+        if ($pin && !$message->isPinned()) {
+            if ($groupMessageRepository->countPinnedByChannel($channel) >= self::MAX_PINNED_PER_CHANNEL) {
+                $error = sprintf('Ce salon a déjà %d messages épinglés : désépinglez-en un avant d\'en ajouter.', self::MAX_PINNED_PER_CHANNEL);
+                if ($isAjax) {
+                    return new JsonResponse(['error' => $error], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $this->addFlash('error', $error);
+                return $redirect;
+            }
+
+            $message->pin($this->currentUser());
+            $em->flush();
+            $pusher->sendMessage(PusherService::groupChannel($channel->getId()), 'message-pinned', [
+                'message' => $this->serializePinnedMessage($message),
+            ]);
+        } elseif (!$pin && $message->isPinned()) {
+            $message->unpin();
+            $em->flush();
+            $pusher->sendMessage(PusherService::groupChannel($channel->getId()), 'message-unpinned', [
+                'id' => $message->getId(),
+            ]);
+        }
+
+        if ($isAjax) {
+            return new JsonResponse([
+                'id' => $message->getId(),
+                'pinned' => $message->isPinned(),
+                'message' => $message->isPinned() ? $this->serializePinnedMessage($message) : null,
+            ]);
+        }
+
+        $this->addFlash('success', $message->isPinned() ? 'Message épinglé.' : 'Message désépinglé.');
+        return $redirect;
+    }
+
+    /** Données d'un message épinglé pour le client (barre des messages épinglés, temps réel). */
+    private function serializePinnedMessage(GroupMessage $message): array
+    {
+        $author = $message->getAuthor();
+
+        return [
+            'id' => $message->getId(),
+            'content' => $message->getContent(),
+            'author' => $author?->getUsername(),
+            'authorId' => $author?->getId(),
+            'createdAt' => $message->getCreatedAt()?->format('d/m H:i'),
+            'pinnedAt' => $message->getPinnedAt()?->format('d/m H:i'),
+            'pinnedAtTs' => $message->getPinnedAt()?->getTimestamp(),
+            'pinnedBy' => $message->getPinnedBy()?->getUsername(),
+        ];
+    }
+
+    /** Clé d'agrégation des messages d'un channel : « group:{idGroupe}:channel:{idChannel} ». */
+    public static function channelNotificationKey(GroupChannel $channel): string
+    {
+        return self::channelNotificationKeyPrefix($channel->getUsergroup()) . $channel->getId();
+    }
+
+    private static function channelNotificationKeyPrefix(Group $group): string
+    {
+        return 'group:' . $group->getId() . ':channel:';
+    }
+
+    private function currentUser(): User
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        return $user;
+    }
+
+    private function findGroup(string $slug): Group
+    {
+        $group = $this->groupRepository->findOneBy(['slug' => $slug]);
+        if (!$group) {
+            throw $this->createNotFoundException('Groupe introuvable');
+        }
+
+        return $group;
+    }
+
+    /** Adhésion de l'utilisateur courant (même cache par requête que les voters). */
+    private function findMember(Group $group): ?GroupMember
+    {
+        $user = $this->getUser();
+
+        return $this->membership->getMember($user instanceof User ? $user : null, $group);
+    }
+
+    private function denyUnlessCsrfValid(Request $request): void
+    {
+        $token = $request->headers->get('X-CSRF-Token') ?? $request->request->getString('_token');
+        if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $token)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+    }
+
+    private function validateName(string $name): ?string
+    {
+        if ($name === '') {
+            return 'Le nom du groupe est obligatoire.';
+        }
+        if (mb_strlen($name) > self::NAME_MAX_LENGTH) {
+            return sprintf('Le nom du groupe ne doit pas dépasser %d caractères.', self::NAME_MAX_LENGTH);
+        }
+
+        return null;
+    }
+
+    private function isValidRole(string $role): bool
+    {
+        return array_key_exists($role, GroupMember::ROLE_LEVELS);
+    }
+
+    /** Slug unique tenant dans la colonne (100 caractères) : 80 + '-' + uniqid (13). */
+    private function makeSlug(SluggerInterface $slugger, string $name): string
+    {
+        $base = trim(mb_substr(strtolower($slugger->slug($name)), 0, 80), '-');
+
+        return ($base !== '' ? $base . '-' : '') . uniqid();
+    }
 }

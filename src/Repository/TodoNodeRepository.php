@@ -18,65 +18,43 @@ class TodoNodeRepository extends ServiceEntityRepository
         parent::__construct($registry, TodoNode::class);
     }
 
-    public function findGroupListsForMember(Group $group, User $user): array
+    /**
+     * Listes racines du groupe, avec leurs catégories, tâches et utilisateurs assignés chargés en une requête
+     * (le template et TodoNodeVoter parcourent ces noeuds sans requête supplémentaire).
+     *
+     * $visibleTo non null (membre non rédacteur) : seulement les listes contenant une catégorie ou une tâche
+     * qui lui est assignée ; le filtrage fin des catégories/tâches affichées se fait via TODO_VIEW.
+     *
+     * @return TodoNode[]
+     */
+    public function findGroupLists(Group $group, ?User $visibleTo = null): array
     {
-        // Récupère les listes qui ont au moins une tâche assignée à cet user
-        return $this->createQueryBuilder('n')
+        $qb = $this->createQueryBuilder('n')
+            ->addSelect('c', 'ca', 'i', 'ia')
+            ->leftJoin('n.children', 'c')
+            ->leftJoin('c.assignedTo', 'ca')
+            ->leftJoin('c.children', 'i')
+            ->leftJoin('i.assignedTo', 'ia')
             ->where('n.usergroup = :group')
             ->andWhere('n.type = :type')
             ->andWhere('n.parent IS NULL')
-            ->andWhere(
-                'EXISTS (SELECT i FROM App\Entity\TodoNode i 
-                WHERE i.parent IS NOT NULL 
-                AND i.usergroup = :group 
-                AND i.assignedTo = :user)'
-            )
             ->setParameter('group', $group)
             ->setParameter('type', TodoNode::TYPE_LIST)
-            ->setParameter('user', $user)
             ->orderBy('n.position', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('i.position', 'ASC');
 
-//    /**
-//     * @return TodoNode[] Returns an array of TodoNode objects
-//     */
-//    public function findByExampleField($value): array
-//    {
-//        return $this->createQueryBuilder('t')
-//            ->andWhere('t.exampleField = :val')
-//            ->setParameter('val', $value)
-//            ->orderBy('t.id', 'ASC')
-//            ->setMaxResults(10)
-//            ->getQuery()
-//            ->getResult()
-//        ;
-//    }
-
-    public function findOneBySomeField($value): ?TodoNode
-    {
-        return $this->createQueryBuilder('t')
-            ->andWhere('t.exampleField = :val')
-            ->setParameter('val', $value)
-            ->getQuery()
-            ->getOneOrNullResult()
-        ;
-    }
-
-    public function calculateProjectProgress(TodoNode $project): int
-    {
-        if ($project->getType() !== TodoNode::TYPE_LIST) {
-            return 0;
+        if ($visibleTo !== null) {
+            // Catégorie assignée ou tâche assignée directement sous la liste (x.parent = n),
+            // ou tâche assignée sous une catégorie de la liste (p.parent = n)
+            $qb->andWhere(
+                'EXISTS (SELECT x.id FROM App\Entity\TodoNode x
+                LEFT JOIN x.parent p
+                WHERE x.assignedTo = :user
+                AND (x.parent = n OR p.parent = n))'
+            )->setParameter('user', $visibleTo);
         }
 
-        $qb = $this->createQueryBuilder('n')
-            ->select('COALESCE(AVG(n.progress), 0) as avgProgress')
-            ->where('n.parent = :parent')
-            ->setParameter('parent', $project);
-
-        $result = $qb->getQuery()->getOneOrNullResult();
-
-        return (int) $result['avgProgress'];
+        return $qb->getQuery()->getResult();
     }
 }

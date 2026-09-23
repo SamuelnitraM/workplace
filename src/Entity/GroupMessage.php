@@ -7,6 +7,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: GroupMessageRepository::class)]
+#[ORM\Index(name: 'idx_group_message_channel_pinned', columns: ['channel_id', 'pinned_at'])]
 class GroupMessage
 {
     #[ORM\Id]
@@ -30,6 +31,15 @@ class GroupMessage
 
     #[ORM\ManyToOne(inversedBy: 'messages')]
     private ?GroupChannel $channel = null;
+
+    /** Date d'épinglage dans le channel (null : message non épinglé). */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $pinnedAt = null;
+
+    /** Auteur de l'épinglage (null si non épinglé ou si son compte a été supprimé). */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?User $pinnedBy = null;
 
     public function __construct()
     {
@@ -96,6 +106,37 @@ class GroupMessage
     public function setChannel(?GroupChannel $channel): static
     {
         $this->channel = $channel;
+
+        return $this;
+    }
+
+    public function getPinnedAt(): ?\DateTimeImmutable
+    {
+        return $this->pinnedAt;
+    }
+
+    public function getPinnedBy(): ?User
+    {
+        return $this->pinnedBy;
+    }
+
+    public function isPinned(): bool
+    {
+        return $this->pinnedAt !== null;
+    }
+
+    public function pin(User $by): static
+    {
+        $this->pinnedAt = new \DateTimeImmutable();
+        $this->pinnedBy = $by;
+
+        return $this;
+    }
+
+    public function unpin(): static
+    {
+        $this->pinnedAt = null;
+        $this->pinnedBy = null;
 
         return $this;
     }

@@ -50,6 +50,15 @@ class GroupMember
         return $this;
     }
 
+    /** Rôles valides, du moins au plus privilégié. */
+    public const ROLE_LEVELS = ['member' => 1, 'admin' => 2, 'owner' => 3];
+
+    /** Vrai si le rôle du membre est au moins égal au rôle requis ('member', 'admin' ou 'owner'). */
+    public function hasAtLeastRole(?string $requiredRole): bool
+    {
+        return (self::ROLE_LEVELS[$this->role] ?? 0) >= (self::ROLE_LEVELS[$requiredRole] ?? 1);
+    }
+
     public function getJoinedAt(): ?\DateTimeImmutable
     {
         return $this->joinedAt;

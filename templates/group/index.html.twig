@@ -1,161 +1,151 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Groupes — SprueHub{% endblock %}
 
+{# Carte d'un groupe (grille des onglets). role : 'owner' | 'admin' | 'member' | null (groupe public non rejoint) #}
+{% macro group_card(group, unread, role) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    {% set roleChips = {
+        owner: {label: 'Propriétaire', class: 'chip-accent', icon: 'crown'},
+        admin: {label: 'Admin', class: 'chip-info', icon: 'shield'},
+        member: {label: 'Membre', class: '', icon: 'user'},
+    } %}
+    <a href="{{ path('app_group_show', {slug: group.slug}) }}"
+       class="card card-interactive group flex h-full flex-col gap-3 p-4 sm:p-5">
+        <div class="flex items-start gap-3">
+            <span class="avatar avatar-md rounded-card" style="background: hsl({{ (group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ group.name|first|upper }}</span>
+            <div class="min-w-0 flex-1">
+                <h3 class="text-h3 truncate text-fg group-hover:text-primary-text">{{ group.name }}</h3>
+                <p class="text-caption text-muted truncate">
+                    {{ role == 'owner' ? 'Créé par vous' : 'Par ' ~ group.creator.username }}
+                </p>
+            </div>
+            {% if unread > 0 %}
+                <span class="count-badge mt-1 shrink-0" title="{{ unread }} message(s) non lu(s)">
+                    {{ unread > 99 ? '99+' : unread }}<span class="sr-only"> message(s) non lu(s)</span>
+                </span>
+            {% endif %}
+        </div>
+
+        <p class="line-clamp-2 text-small {{ group.description ? 'text-fg-secondary' : 'text-muted italic' }}">
+            {{ group.description ?: 'Pas encore de description.' }}
+        </p>
+
+        <div class="mt-auto flex flex-wrap items-center gap-2 pt-1">
+            {% if group.isPublic %}
+                <span class="chip chip-success">{{ ui.icon('globe', 'size-4') }}Public</span>
+            {% else %}
+                <span class="chip">{{ ui.icon('lock', 'size-4') }}Privé</span>
+            {% endif %}
+            <span class="chip">{{ ui.icon('users', 'size-4') }}{{ group.members|length }} membre{{ group.members|length > 1 ? 's' : '' }}</span>
+            {% if role and roleChips[role] is defined %}
+                <span class="chip {{ roleChips[role].class }}">{{ ui.icon(roleChips[role].icon, 'size-4') }}{{ roleChips[role].label }}</span>
+            {% endif %}
+        </div>
+    </a>
+{% endmacro %}
+
 {% block body %}
-<div class="max-w-5xl mx-auto">
-
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold text-white">👥 Groupes</h1>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Groupes</h1>
+            <p class="page-header-subtitle">Votre club, votre table de jeu ou votre projet d'armée : discutez dans des salons et suivez vos tâches ensemble.</p>
+        </div>
         {% if app.user %}
-            <a href="{{ path('app_group_new') }}"
-               class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition">
-                ✚ Créer un groupe
-            </a>
+            <div class="page-header-actions">
+                <a href="{{ path('app_group_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Créer un groupe</a>
+            </div>
         {% endif %}
-    </div>
+    </header>
 
-    <div class="bg-gray-800 rounded-xl border border-gray-700">
+    <div data-controller="tabs">
 
-        {# ONGLETS #}
-        <div class="flex border-b border-gray-700">
-            <button onclick="showTab('mygroups')"
-                    id="tab-mygroups"
-                    class="flex-1 py-4 text-sm font-semibold text-indigo-400 border-b-2 border-indigo-400 transition">
-                👤 Mes groupes ({{ myGroups|length }})
+        {# ONGLETS (état actif : aria-selected, géré par tabs_controller) #}
+        <div class="tabs mb-6" role="tablist" aria-label="Groupes">
+            <button type="button" role="tab" class="tab" id="tab-mygroups" aria-selected="true" aria-controls="panel-mygroups"
+                    data-tabs-target="tab" data-tab="mygroups" data-action="tabs#select">
+                {{ ui.icon('users') }}Mes groupes
+                <span class="rounded-pill bg-overlay px-2 py-0.5 text-caption font-semibold text-fg-secondary tabular-nums">{{ myGroups|length }}</span>
             </button>
-            <button onclick="showTab('public')"
-                    id="tab-public"
-                    class="flex-1 py-4 text-sm font-semibold text-gray-500 hover:text-gray-300 border-b-2 border-transparent transition">
-                🌍 Groupes publics ({{ publicGroups|length }})
+            <button type="button" role="tab" class="tab" id="tab-public" aria-selected="false" aria-controls="panel-public"
+                    data-tabs-target="tab" data-tab="public" data-action="tabs#select">
+                {{ ui.icon('globe') }}Groupes publics
+                <span class="rounded-pill bg-overlay px-2 py-0.5 text-caption font-semibold text-fg-secondary tabular-nums">{{ publicGroups|length }}</span>
             </button>
         </div>
 
         {# ONGLET MES GROUPES #}
-        <div id="panel-mygroups" class="p-6">
+        <div id="panel-mygroups" role="tabpanel" aria-labelledby="tab-mygroups" data-tabs-target="panel" data-panel="mygroups">
             {% if not app.user %}
-                <p class="text-gray-500 text-center py-8">
-                    <a href="{{ path('app_login') }}" class="text-indigo-400 hover:text-indigo-300">
-                        Connectez-vous
-                    </a> pour voir vos groupes.
-                </p>
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'users',
+                    title: 'Rejoignez la communauté',
+                    text: 'Connectez-vous pour retrouver vos groupes, discuter dans leurs salons et suivre leurs tâches.',
+                    cta: {label: 'Créer mon compte', url: path('app_register')},
+                    secondary: {label: 'Se connecter', url: path('app_login')},
+                }) }}
             {% elseif myGroups is empty %}
-                <p class="text-gray-500 text-center py-8">
-                    Vous n'avez pas encore de groupes.
-                    <a href="{{ path('app_group_new') }}" class="text-indigo-400 hover:text-indigo-300">
-                        Créez-en un !
-                    </a>
-                </p>
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'users',
+                    title: 'Vous n\'avez pas encore de groupe',
+                    text: 'Créez un groupe pour votre club, votre table de jeu ou votre projet de peinture, ou rejoignez un groupe public.',
+                    cta: {label: 'Créer un groupe', url: path('app_group_new'), icon: 'plus'},
+                    secondary: publicGroups is not empty ? {label: 'Voir les groupes publics', tab: 'public'} : null,
+                }) }}
             {% else %}
                 {# GROUPES CRÉÉS #}
                 {% set createdGroups = myGroups|filter(g => g.creator == app.user) %}
                 {% if createdGroups is not empty %}
-                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                        Groupes créés
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        {% for group in createdGroups %}
-                            <a href="{{ path('app_group_show', {slug: group.slug}) }}"
-                               class="bg-gray-700 rounded-xl border border-indigo-600 p-5 hover:border-indigo-400 transition">
-                                <div class="flex justify-between items-start">
-                                    <h3 class="font-bold text-white flex items-center gap-2">{{ group.name }} <span id="group-card-badge-{{ group.slug }}" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></h3>
-                                    <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-red-600 text-red-300' }}">
-                                        {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
-                                    </span>
-                                </div>
-                                {% if group.description %}
-                                    <p class="text-gray-400 text-sm mt-2">{{ group.description|slice(0, 80) }}...</p>
-                                {% endif %}
-                                <div class="text-gray-500 text-xs mt-3">
-                                    👑 Propriétaire — {{ group.members|length }} membre(s)
-                                </div>
-                            </a>
-                        {% endfor %}
-                    </div>
+                    <section aria-labelledby="groups-created-title" class="mb-8">
+                        <h2 id="groups-created-title" class="eyebrow mb-3">Groupes créés</h2>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {% for group in createdGroups %}
+                                {{ _self.group_card(group, unreadGroupCounts[group.id] ?? 0, 'owner') }}
+                            {% endfor %}
+                        </div>
+                    </section>
                 {% endif %}
 
                 {# GROUPES REJOINTS #}
                 {% set joinedGroups = myGroups|filter(g => g.creator != app.user) %}
                 {% if joinedGroups is not empty %}
-                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                        Groupes rejoints
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {% for group in joinedGroups %}
-                            <a href="{{ path('app_group_show', {slug: group.slug}) }}"
-                               class="bg-gray-700 rounded-xl border border-gray-600 p-5 hover:border-indigo-500 transition">
-                                <div class="flex justify-between items-start">
-                                    <h3 class="font-bold text-white flex items-center gap-2">{{ group.name }} <span id="group-card-badge-{{ group.slug }}" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></h3>
-                                    <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-red-600 text-red-400' }}">
-                                        {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
-                                    </span>
-                                </div>
-                                {% if group.description %}
-                                    <p class="text-gray-400 text-sm mt-2">{{ group.description|slice(0, 80) }}...</p>
-                                {% endif %}
-                                <div class="text-gray-500 text-xs mt-3">
-                                    Par {{ group.creator.username }} — {{ group.members|length }} membre(s)
-                                </div>
-                            </a>
-                        {% endfor %}
-                    </div>
+                    <section aria-labelledby="groups-joined-title">
+                        <h2 id="groups-joined-title" class="eyebrow mb-3">Groupes rejoints</h2>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {% for group in joinedGroups %}
+                                {% set membership = group.members|filter(m => m.user == app.user)|first %}
+                                {{ _self.group_card(group, unreadGroupCounts[group.id] ?? 0, membership ? membership.role : 'member') }}
+                            {% endfor %}
+                        </div>
+                    </section>
                 {% endif %}
             {% endif %}
         </div>
 
         {# ONGLET GROUPES PUBLICS #}
-        <div id="panel-public" class="p-6 hidden">
+        <div id="panel-public" role="tabpanel" aria-labelledby="tab-public" data-tabs-target="panel" data-panel="public" hidden>
             {% if publicGroups is empty %}
-                <p class="text-gray-500 text-center py-8">
-                    Aucun groupe public disponible pour le moment.
-                </p>
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'globe',
+                    title: 'Aucun groupe public pour le moment',
+                    text: app.user
+                        ? 'Lancez le premier : les groupes publics sont visibles par toute la communauté.'
+                        : 'Inscrivez-vous pour créer le premier groupe public de la communauté.',
+                    cta: app.user
+                        ? {label: 'Créer un groupe public', url: path('app_group_new'), icon: 'plus'}
+                        : {label: 'Créer mon compte', url: path('app_register')},
+                    secondary: app.user ? null : {label: 'Se connecter', url: path('app_login')},
+                }) }}
             {% else %}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {% for group in publicGroups %}
-                        <a href="{{ path('app_group_show', {slug: group.slug}) }}"
-                           class="bg-gray-700 rounded-xl border border-gray-600 p-5 hover:border-indigo-500 transition">
-                            <div class="flex justify-between items-start">
-                                <h3 class="font-bold text-white flex items-center gap-2">{{ group.name }} <span id="group-card-badge-{{ group.slug }}" class="notification-dot hidden w-2 h-2 bg-red-500 rounded-full"></span></h3>
-                                <span class="text-xs px-2 py-1 rounded bg-green-700 text-green-300">
-                                    🌍 Public
-                                </span>
-                            </div>
-                            {% if group.description %}
-                                <p class="text-gray-400 text-sm mt-2">{{ group.description|slice(0, 80) }}...</p>
-                            {% endif %}
-                            <div class="text-gray-500 text-xs mt-3">
-                                Par {{ group.creator.username }} — {{ group.members|length }} membre(s)
-                            </div>
-                        </a>
+                        {% set membership = app.user ? group.members|filter(m => m.user == app.user)|first : null %}
+                        {{ _self.group_card(group, unreadGroupCounts[group.id] ?? 0, membership ? membership.role : null) }}
                     {% endfor %}
                 </div>
             {% endif %}
         </div>
 
     </div>
-</div>
-
-<script>
-document.querySelectorAll('[id^="group-card-badge-"]').forEach((badge) => {
-    const slug = badge.id.replace('group-card-badge-', '');
-    const notifications = JSON.parse(localStorage.getItem('hf-group-notifications') || '{}');
-    const count = notifications[slug] || 0;
-    badge.textContent = '';
-    badge.classList.toggle('hidden', count === 0);
-});
-
-function showTab(tab) {
-    document.getElementById('panel-mygroups').classList.add('hidden');
-    document.getElementById('panel-public').classList.add('hidden');
-    document.getElementById('tab-mygroups').classList.remove('text-indigo-400', 'border-indigo-400');
-    document.getElementById('tab-mygroups').classList.add('text-gray-500', 'border-transparent');
-    document.getElementById('tab-public').classList.remove('text-indigo-400', 'border-indigo-400');
-    document.getElementById('tab-public').classList.add('text-gray-500', 'border-transparent');
-
-    document.getElementById('panel-' + tab).classList.remove('hidden');
-    document.getElementById('tab-' + tab).classList.remove('text-gray-500', 'border-transparent');
-    document.getElementById('tab-' + tab).classList.add('text-indigo-400', 'border-indigo-400');
-}
-</script>
-
 {% endblock %}

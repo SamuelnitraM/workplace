@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\TodoNode;
 use App\Repository\TodoNodeRepository;
+use App\Security\Voter\TodoNodeVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,7 +17,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/todo', name: 'app_todo_')]
 class TodoController extends AbstractController
 {
-    // Page principale — affiche toutes les listes de l'utilisateur
+    // Page principale — affiche toutes les listes personnelles de l'utilisateur
     #[Route('/', name: 'index')]
     public function index(TodoNodeRepository $todoNodeRepository): Response
     {
@@ -25,6 +26,7 @@ class TodoController extends AbstractController
 
         $lists = $todoNodeRepository->findBy([
             'owner' => $user,
+            'usergroup' => null,
             'type' => TodoNode::TYPE_LIST,
             'parent' => null,
         ], ['position' => 'ASC']);
@@ -38,11 +40,15 @@ class TodoController extends AbstractController
     #[Route('/create', name: 'create', methods: ['POST'])]
     public function create(Request $request, EntityManagerInterface $em, TodoNodeRepository $todoNodeRepository): Response
     {
+        if (!$this->isTodoCsrfValid($request)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
 
-        $title = trim($request->request->get('title', ''));
-        $type = $request->request->get('type', TodoNode::TYPE_LIST);
+        $title = trim((string) $request->request->get('title', ''));
+        $type = (string) $request->request->get('type', TodoNode::TYPE_LIST);
         $parentId = $request->request->get('parent_id');
 
         if (empty($title)) {
@@ -50,22 +56,33 @@ class TodoController extends AbstractController
             return $this->redirectToRoute('app_todo_index');
         }
 
-        $node = new TodoNode();
-        $node->setTitle($title);
-        $node->setType($type);
-        $node->setOwner($user);
+        // Hiérarchie attendue : liste > catégorie > tâche
+        // array_key_exists et non ?? : le type liste a volontairement un parent attendu null
+        $expectedParentType = array_key_exists($type, TodoNode::EXPECTED_PARENT_TYPES) ? TodoNode::EXPECTED_PARENT_TYPES[$type] : false;
+        if ($expectedParentType === false) {
+            $this->addFlash('error', 'Type d\'élément invalide.');
+            return $this->redirectToRoute('app_todo_index');
+        }
 
-        if ($parentId) {
-            $parent = $todoNodeRepository->find($parentId);
-            if ($parent && $parent->getOwner() === $user) {
-                $node->setParent($parent);
+        $parent = null;
+        if ($expectedParentType !== null) {
+            $parent = $parentId ? $this->findPersonalNode((int) $parentId, TodoNodeVoter::EDIT, $todoNodeRepository) : null;
+            if (!$parent || $parent->getType() !== $expectedParentType) {
+                $this->addFlash('error', 'Élément parent invalide.');
+                return $this->redirectToRoute('app_todo_index');
             }
         }
 
+        $node = new TodoNode();
+        $node->setTitle(mb_substr($title, 0, 150));
+        $node->setType($type);
+        $node->setOwner($user);
+        $node->setParent($parent);
+
         // Position = dernier de la liste
-        $siblings = $parentId
-            ? $todoNodeRepository->findBy(['parent' => $parentId], ['position' => 'DESC'])
-            : $todoNodeRepository->findBy(['owner' => $user, 'parent' => null], ['position' => 'DESC']);
+        $siblings = $parent
+            ? $todoNodeRepository->findBy(['parent' => $parent], ['position' => 'DESC'], 1)
+            : $todoNodeRepository->findBy(['owner' => $user, 'usergroup' => null, 'parent' => null], ['position' => 'DESC'], 1);
 
         $node->setPosition(count($siblings) > 0 ? $siblings[0]->getPosition() + 1 : 0);
 
@@ -75,34 +92,17 @@ class TodoController extends AbstractController
         return $this->redirectToRoute('app_todo_index');
     }
 
-    // Cocher/décocher un item
-    #[Route('/toggle/{id}', name: 'toggle', methods: ['POST'])]
-    public function toggle(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
-    {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $node = $todoNodeRepository->find($id);
-
-        if (!$node || $node->getOwner() !== $user) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        $node->setIsDone(!$node->getIsDone());
-        $node->setDoneAt($node->getIsDone() ? new \DateTimeImmutable() : null);
-        $em->flush();
-
-        return new JsonResponse(['isDone' => $node->getIsDone()]);
-    }
-
     // Supprimer un noeud
     #[Route('/delete/{id}', name: 'delete', methods: ['POST'])]
     public function delete(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): Response
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $node = $todoNodeRepository->find($id);
+        if (!$this->isTodoCsrfValid($request)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
 
-        if (!$node || $node->getOwner() !== $user) {
+        $node = $this->findPersonalNode($id, TodoNodeVoter::DELETE, $todoNodeRepository);
+
+        if (!$node) {
             throw $this->createAccessDeniedException();
         }
 
@@ -117,20 +117,22 @@ class TodoController extends AbstractController
     #[Route('/rename/{id}', name: 'rename', methods: ['POST'])]
     public function rename(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $node = $todoNodeRepository->find($id);
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
 
-        if (!$node || $node->getOwner() !== $user) {
+        $node = $this->findPersonalNode($id, TodoNodeVoter::EDIT, $todoNodeRepository);
+
+        if (!$node) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
-        $title = trim($request->request->get('title', ''));
+        $title = trim((string) $request->request->get('title', ''));
         if (empty($title)) {
             return new JsonResponse(['error' => 'Titre vide'], 400);
         }
 
-        $node->setTitle($title);
+        $node->setTitle(mb_substr($title, 0, 150));
         $em->flush();
 
         return new JsonResponse(['title' => $node->getTitle()]);
@@ -140,11 +142,14 @@ class TodoController extends AbstractController
     #[Route('/progress/up/{id}', name: 'progress_up', methods: ['POST'])]
     public function progressUp(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $node = $todoNodeRepository->find($id);
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
 
-        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_ITEM) {
+        // Uniquement une tâche (type item), vérifié par le voter
+        $node = $this->findPersonalNode($id, TodoNodeVoter::PROGRESS, $todoNodeRepository);
+
+        if (!$node) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
@@ -171,11 +176,14 @@ class TodoController extends AbstractController
     #[Route('/progress/down/{id}', name: 'progress_down', methods: ['POST'])]
     public function progressDown(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $node = $todoNodeRepository->find($id);
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
 
-        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_ITEM) {
+        // Uniquement une tâche (type item), vérifié par le voter
+        $node = $this->findPersonalNode($id, TodoNodeVoter::PROGRESS, $todoNodeRepository);
+
+        if (!$node) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
@@ -202,11 +210,14 @@ class TodoController extends AbstractController
     #[Route('/progress/validate/{id}', name: 'progress_validate', methods: ['POST'])]
     public function progressValidate(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $node = $todoNodeRepository->find($id);
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
 
-        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_ITEM) {
+        // Uniquement une tâche (type item), vérifié par le voter
+        $node = $this->findPersonalNode($id, TodoNodeVoter::PROGRESS, $todoNodeRepository);
+
+        if (!$node) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
@@ -223,32 +234,23 @@ class TodoController extends AbstractController
         ]);
     }
 
-    // Calculer la progression agrégée d'un projet
-    #[Route('/progress/calculate/{id}', name: 'progress_calculate', methods: ['GET'])]
-    public function progressCalculate(int $id, TodoNodeRepository $todoNodeRepository): JsonResponse
+    // Noeud personnel (hors groupe) sur lequel l'utilisateur courant a le droit demandé (TodoNodeVoter), sinon null
+    private function findPersonalNode(int $id, string $attribute, TodoNodeRepository $todoNodeRepository): ?TodoNode
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
         $node = $todoNodeRepository->find($id);
 
-        if (!$node || $node->getOwner() !== $user || $node->getType() !== TodoNode::TYPE_LIST) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        if (!$node || $node->getUsergroup() !== null || !$this->isGranted($attribute, $node)) {
+            return null;
         }
 
-        $qb = $todoNodeRepository->createQueryBuilder('n')
-            ->select('COALESCE(AVG(n.progress), 0) as avgProgress')
-            ->where('n.parent = :parent')
-            ->andWhere('n.type = :type')
-            ->setParameter('parent', $node)
-            ->setParameter('type', TodoNode::TYPE_ITEM);
+        return $node;
+    }
 
-        $result = $qb->getQuery()->getOneOrNullResult();
-        $projectProgress = (int) $result['avgProgress'];
+    // Jeton CSRF envoyé via le champ _token (formulaires) ou l'en-tête X-CSRF-Token (fetch)
+    private function isTodoCsrfValid(Request $request): bool
+    {
+        $token = $request->request->get('_token') ?? $request->headers->get('X-CSRF-Token');
 
-        return new JsonResponse([
-            'projectProgress' => $projectProgress,
-            'projectId' => $id,
-            'projectTitle' => $node->getTitle()
-        ]);
+        return $this->isCsrfTokenValid('todo', (string) $token);
     }
 }

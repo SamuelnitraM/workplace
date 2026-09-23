@@ -1,219 +1,342 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Paramètres — {{ group.name }}{% endblock %}
 
+{# En-tête de section : titre + description #}
+{% macro section_header(id, icon, title, description) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    <div class="border-b border-line px-4 py-4 sm:px-5">
+        <h2 id="{{ id }}-title" class="flex items-center gap-2 text-h3 text-fg">{{ ui.icon(icon, 'size-5 text-muted') }}{{ title }}</h2>
+        {% if description %}<p class="mt-1 max-w-2xl text-small text-fg-secondary">{{ description }}</p>{% endif %}
+    </div>
+{% endmacro %}
+
 {% block body %}
-<div class="max-w-3xl mx-auto">
+{% set roleLabels = {member: 'Membre', admin: 'Admin', owner: 'Propriétaire'} %}
+{% set isOwner = is_granted('GROUP_OWNER', group) %}
+{% set sections = [
+    {id: 'informations', label: 'Informations', icon: 'file-text', show: true},
+    {id: 'membres', label: 'Membres', icon: 'users', show: isOwner},
+    {id: 'salons', label: 'Salons', icon: 'messages-square', show: true},
+    {id: 'taches', label: 'Tâches', icon: 'list-checks', show: true},
+    {id: 'epingles', label: 'Messages épinglés', icon: 'pin', show: true},
+    {id: 'danger', label: 'Zone dangereuse', icon: 'alert-triangle', show: isOwner},
+]|filter(s => s.show) %}
 
-    <div class="mb-6">
-        <a href="{{ path('app_group_show', {slug: group.slug}) }}"
-           class="text-gray-400 hover:text-white text-sm transition">
-            ← Retour au groupe
-        </a>
-        <h1 class="text-2xl font-bold text-white mt-1">⚙️ Paramètres — {{ group.name }}</h1>
-    </div>
-
-    {# PARAMÈTRES GÉNÉRAUX #}
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
-        <h2 class="text-lg font-semibold text-white mb-4">Informations générales</h2>
-        <form method="post">
-
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Nom du groupe</label>
-                    <input type="text" name="name" value="{{ group.name }}" required
-                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Description</label>
-                    <textarea name="description" rows="3"
-                              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">{{ group.description }}</textarea>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="bg-gray-700 rounded-lg p-4">
-                        <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="isPublic" value="1"
-                                   {{ group.isPublic ? 'checked' : '' }}
-                                   class="w-5 h-5 accent-indigo-500">
-                            <div>
-                                <div class="text-white font-semibold">🌍 Public</div>
-                                <div class="text-gray-400 text-xs">Visible par tous</div>
-                            </div>
-                        </label>
-                    </div>
-                    <div class="bg-gray-700 rounded-lg p-4">
-                        <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="isJoinable" value="1"
-                                   {{ group.isJoinable ? 'checked' : '' }}
-                                   class="w-5 h-5 accent-indigo-500">
-                            <div>
-                                <div class="text-white font-semibold">🚪 Demandes</div>
-                                <div class="text-gray-400 text-xs">Autoriser les demandes</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <button type="submit"
-                    class="mt-6 bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
-                💾 Sauvegarder
-            </button>
-
-        </form>
-    </div>
-
-    {# GESTION DES MEMBRES (owner uniquement) #}
-    {% if currentMember.role == 'owner' %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
-            <h2 class="text-lg font-semibold text-white mb-4">👥 Gestion des membres</h2>
-            <div class="space-y-3">
-                {% for member in group.members %}
-                    {% if member.role != 'owner' %}
-                    <div class="flex items-center justify-between bg-gray-700 rounded-lg p-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold">
-                                {{ member.user.username|first|upper }}
-                            </div>
-                            <span class="text-white">{{ member.user.username }}</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <form method="post" class="flex items-center gap-2">
-                                <input type="hidden" name="action" value="update_role">
-                                <input type="hidden" name="member_id" value="{{ member.id }}">
-                                <select name="role"
-                                        class="bg-gray-600 border border-gray-500 rounded px-2 py-1 text-sm text-white">
-                                    <option value="member" {{ member.role == 'member' ? 'selected' : '' }}>
-                                        Membre
-                                    </option>
-                                    <option value="admin" {{ member.role == 'admin' ? 'selected' : '' }}>
-                                        Admin
-                                    </option>
-                                </select>
-                                <button type="submit"
-                                        class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded text-sm transition">
-                                    ✓
-                                </button>
-                            </form>
-                            <form method="post" action="{{ path('app_group_kick', {slug: group.slug, memberId: member.id}) }}"
-                                onsubmit="return confirm('Exclure {{ member.user.username }} ?')">
-                                <button type="submit"
-                                        class="bg-red-600/30 hover:bg-red-600 px-3 py-1 rounded text-sm text-red-400 hover:text-white transition">
-                                    Exclure
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
+    <header class="page-header">
+        <div>
+            <p class="page-header-eyebrow">
+                <a class="link" href="{{ path('app_group_index') }}">Groupes</a>{{ ui.icon('chevron-right', 'size-4') }}<a class="link truncate" href="{{ path('app_group_show', {slug: group.slug}) }}">{{ group.name }}</a>
+            </p>
+            <h1 class="page-header-title">Paramètres du groupe</h1>
+            <p class="page-header-subtitle">Informations, membres, salons et droits de « {{ group.name }} ».</p>
         </div>
-    {% endif %}
+        <div class="page-header-actions">
+            <a href="{{ path('app_group_show', {slug: group.slug}) }}" class="btn btn-ghost">{{ ui.icon('arrow-left') }}Retour au groupe</a>
+        </div>
+    </header>
 
-    {# GESTION DES CHANNELS (owner/admin) #}
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
-        <h2 class="text-lg font-semibold text-white mb-4">📢 Channels</h2>
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
 
-        {# LISTE DES CHANNELS #}
-        {% if group.channels is empty %}
-            <p class="text-gray-500 text-sm mb-4">Aucun channel pour le moment.</p>
-        {% else %}
-            <div class="space-y-2 mb-4">
-                {% for channel in group.channels %}
-                    <div class="flex items-center justify-between bg-gray-700 rounded-lg p-3">
-                        <div class="flex items-center gap-3">
-                            <span class="text-gray-400">#</span>
-                            <span class="text-white text-sm">{{ channel.name }}</span>
-                            <span class="text-gray-500 text-xs">
-                                👁 {{ channel.canRead }} — ✏️ {{ channel.canWrite }}
-                            </span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            {# MODIFIER LES DROITS #}
-                            <form method="post" class="flex items-center gap-2">
-                                <input type="hidden" name="action" value="update_channel">
-                                <input type="hidden" name="channel_id" value="{{ channel.id }}">
-                                <select name="can_read"
-                                        class="bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
-                                    <option value="member" {{ channel.canRead == 'member' ? 'selected' : '' }}>
-                                        👁 Membre
-                                    </option>
-                                    <option value="admin" {{ channel.canRead == 'admin' ? 'selected' : '' }}>
-                                        👁 Admin
-                                    </option>
-                                    <option value="owner" {{ channel.canRead == 'owner' ? 'selected' : '' }}>
-                                        👁 Owner
-                                    </option>
-                                </select>
-                                <select name="can_write"
-                                        class="bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
-                                    <option value="member" {{ channel.canWrite == 'member' ? 'selected' : '' }}>
-                                        ✏️ Membre
-                                    </option>
-                                    <option value="admin" {{ channel.canWrite == 'admin' ? 'selected' : '' }}>
-                                        ✏️ Admin
-                                    </option>
-                                    <option value="owner" {{ channel.canWrite == 'owner' ? 'selected' : '' }}>
-                                        ✏️ Owner
-                                    </option>
-                                </select>
-                                <button type="submit"
-                                        class="bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded text-xs transition">
-                                    ✓
-                                </button>
-                            </form>
-                            {# SUPPRIMER #}
-                            <form method="post"
-                                action="{{ path('app_group_channel_delete', {slug: group.slug, channelId: channel.id}) }}"
-                                onsubmit="return confirm('Supprimer ce channel ?')">
-                                <button type="submit"
-                                        class="bg-red-600/30 hover:bg-red-600 px-2 py-1 rounded text-xs text-red-400 hover:text-white transition">
-                                    🗑️
-                                </button>
-                            </form>
-                        </div>
-                    </div>
+        {# NAVIGATION DES SECTIONS : colonne collante (desktop), pastilles défilantes (mobile) #}
+        <nav aria-label="Sections des paramètres" class="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:self-start">
+            <ul class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:block lg:space-y-0.5 lg:overflow-visible lg:px-0" role="list">
+                {% for section in sections %}
+                    <li class="shrink-0">
+                        <a href="#{{ section.id }}"
+                           class="chip min-h-10 px-3.5 text-small pointer-coarse:min-h-11 lg:hidden {{ section.id == 'danger' ? 'chip-danger' : '' }}">{{ section.label }}</a>
+                        <a href="#{{ section.id }}"
+                           class="menu-item hidden lg:flex {{ section.id == 'danger' ? 'text-danger-text hover:text-danger-text' : '' }}">{{ ui.icon(section.icon, 'size-4') }}{{ section.label }}</a>
+                    </li>
                 {% endfor %}
-            </div>
-        {% endif %}
+            </ul>
+        </nav>
 
-        {# CRÉER UN CHANNEL #}
-        <form method="post" class="flex gap-2">
-            <input type="hidden" name="action" value="create_channel">
-            <input type="text" name="channel_name" placeholder="# nouveau-channel"
-                class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
-            <select name="channel_can_read"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-sm text-white">
-                <option value="member">👁 Membre</option>
-                <option value="admin">👁 Admin</option>
-                <option value="owner">👁 Owner</option>
-            </select>
-            <select name="channel_can_write"
-                    class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-2 text-sm text-white">
-                <option value="member">✏️ Membre</option>
-                <option value="admin">✏️ Admin</option>
-                <option value="owner">✏️ Owner</option>
-            </select>
-            <button type="submit"
-                    class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition">
-                ✚ Créer
-            </button>
-        </form>
+        <div class="min-w-0 space-y-6">
+
+            {# INFORMATIONS GÉNÉRALES #}
+            <section id="informations" class="card scroll-mt-24" aria-labelledby="informations-title">
+                {{ _self.section_header('informations', 'file-text', 'Informations générales', 'Nom, description et visibilité du groupe.') }}
+                <form method="post">
+                    <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                    <input type="hidden" name="action" value="update_info">
+
+                    <div class="card-body space-y-5">
+                        <div class="field">
+                            <label class="label" for="group-name">Nom du groupe</label>
+                            <input type="text" id="group-name" name="name" value="{{ group.name }}" required class="input">
+                        </div>
+                        <div class="field">
+                            <label class="label" for="group-description">Description <span class="label-hint">(facultatif)</span></label>
+                            <textarea id="group-description" name="description" rows="3" class="textarea">{{ group.description }}</textarea>
+                        </div>
+                        <fieldset class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <legend class="label mb-2">Visibilité et accès</legend>
+                            <label class="card-inset flex cursor-pointer items-start gap-3 p-4 transition-colors hover:border-line-strong has-[:checked]:border-primary-text has-[:checked]:bg-primary-soft">
+                                <input type="checkbox" name="isPublic" value="1" {{ group.isPublic ? 'checked' : '' }} class="checkbox mt-0.5">
+                                <span>
+                                    <span class="flex items-center gap-1.5 font-semibold text-fg">{{ ui.icon('globe', 'size-4') }}Public</span>
+                                    <span class="text-caption text-fg-secondary">Visible par toute la communauté.</span>
+                                </span>
+                            </label>
+                            <label class="card-inset flex cursor-pointer items-start gap-3 p-4 transition-colors hover:border-line-strong has-[:checked]:border-primary-text has-[:checked]:bg-primary-soft">
+                                <input type="checkbox" name="isJoinable" value="1" {{ group.isJoinable ? 'checked' : '' }} class="checkbox mt-0.5">
+                                <span>
+                                    <span class="flex items-center gap-1.5 font-semibold text-fg">{{ ui.icon('user-plus', 'size-4') }}Ouvert aux demandes</span>
+                                    <span class="text-caption text-fg-secondary">Chacun peut rejoindre sans invitation.</span>
+                                </span>
+                            </label>
+                        </fieldset>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Enregistrer</button>
+                    </div>
+                </form>
+            </section>
+
+            {# GESTION DES MEMBRES (propriétaire uniquement) #}
+            {% if isOwner %}
+                <section id="membres" class="card scroll-mt-24" aria-labelledby="membres-title">
+                    {{ _self.section_header('membres', 'users', 'Membres', 'Nommez des admins pour vous aider à gérer les salons, ou excluez un membre.') }}
+                    {% if group.members|filter(m => m.role != 'owner') is empty %}
+                        {{ include('_partials/_empty_state.html.twig', {
+                            icon: 'mail',
+                            title: 'Vous êtes seul dans ce groupe',
+                            text: 'Invitez vos amis depuis leur profil (bouton « Inviter dans un groupe »)' ~ (group.isPublic and group.isJoinable ? ', ou partagez le lien du groupe : il est ouvert aux demandes.' : '.'),
+                            cta: {label: 'Voir mes amis', url: path('app_friendship_list'), icon: 'users'},
+                            variant: 'plain',
+                            compact: true,
+                            heading: 3,
+                        }) }}
+                    {% else %}
+                        <ul role="list">
+                            {% for member in group.members|filter(m => m.role == 'owner') %}
+                                <li class="list-row flex-wrap">
+                                    {{ ui.avatar(member.user, 'sm') }}
+                                    <div class="list-row-main">
+                                        <p class="truncate font-medium text-fg">{{ member.user.username }}</p>
+                                    </div>
+                                    <span class="chip chip-accent">{{ ui.icon('crown', 'size-4') }}Propriétaire</span>
+                                </li>
+                            {% endfor %}
+                            {% for member in group.members|filter(m => m.role != 'owner') %}
+                                <li class="list-row flex-wrap">
+                                    {{ ui.avatar(member.user, 'sm') }}
+                                    <div class="list-row-main">
+                                        <p class="truncate font-medium text-fg">{{ member.user.username }}</p>
+                                        <p class="text-caption text-muted">{{ roleLabels[member.role] ?? member.role }}</p>
+                                    </div>
+                                    <div class="flex w-full items-center gap-2 sm:w-auto">
+                                        <form method="post" class="flex flex-1 items-center gap-2 sm:flex-none">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                                            <input type="hidden" name="action" value="update_role">
+                                            <input type="hidden" name="member_id" value="{{ member.id }}">
+                                            <label for="role-{{ member.id }}" class="sr-only">Rôle de {{ member.user.username }}</label>
+                                            <select id="role-{{ member.id }}" name="role" class="select min-w-0 flex-1 sm:w-32 sm:flex-none">
+                                                <option value="member" {{ member.role == 'member' ? 'selected' : '' }}>Membre</option>
+                                                <option value="admin" {{ member.role == 'admin' ? 'selected' : '' }}>Admin</option>
+                                            </select>
+                                            <button type="submit" class="btn btn-secondary">Appliquer</button>
+                                        </form>
+                                        <form method="post" action="{{ path('app_group_kick', {slug: group.slug, memberId: member.id}) }}"
+                                            {{ stimulus_controller('confirm', {message: 'Exclure ' ~ member.user.username ~ ' ?'})|stimulus_action('confirm', 'ask', 'submit') }}>
+                                            <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                                            <button type="submit" class="btn btn-ghost text-danger-text hover:bg-danger-soft hover:text-danger-text"
+                                                    aria-label="Exclure {{ member.user.username }}">{{ ui.icon('x') }}<span class="hidden sm:inline">Exclure</span></button>
+                                        </form>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </section>
+            {% endif %}
+
+            {# GESTION DES SALONS (propriétaire/admin) #}
+            <section id="salons" class="card scroll-mt-24" aria-labelledby="salons-title">
+                {{ _self.section_header('salons', 'messages-square', 'Salons', 'Choisissez qui peut lire et écrire dans chaque salon.') }}
+
+                {% if group.channels is empty %}
+                    <p class="px-4 py-5 text-small text-muted sm:px-5">Aucun salon pour le moment.{{ isOwner ? ' Créez-en un ci-dessous pour ouvrir la discussion.' : '' }}</p>
+                {% else %}
+                    <ul role="list">
+                        {% for channel in group.channels %}
+                            <li class="list-row flex-wrap">
+                                <span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised font-semibold text-muted" aria-hidden="true">#</span>
+                                <div class="list-row-main">
+                                    <p class="truncate font-medium text-fg">{{ channel.name }}</p>
+                                    <p class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-muted">
+                                        <span class="inline-flex items-center gap-1">{{ ui.icon('eye', 'size-3.5') }}Lecture : {{ roleLabels[channel.canRead] ?? channel.canRead }}</span>
+                                        <span class="inline-flex items-center gap-1">{{ ui.icon('pencil', 'size-3.5') }}Écriture : {{ roleLabels[channel.canWrite] ?? channel.canWrite }}</span>
+                                    </p>
+                                </div>
+                                <div class="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+                                    {# MODIFIER LES DROITS #}
+                                    <form method="post" class="flex flex-1 flex-wrap items-end gap-2 sm:flex-none">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                                        <input type="hidden" name="action" value="update_channel">
+                                        <input type="hidden" name="channel_id" value="{{ channel.id }}">
+                                        <div class="field flex-1 gap-1 sm:w-32 sm:flex-none">
+                                            <label class="text-caption text-muted" for="can-read-{{ channel.id }}">Lecture</label>
+                                            <select id="can-read-{{ channel.id }}" name="can_read" aria-label="Qui peut lire ce salon" class="select">
+                                                {% for role, label in roleLabels %}
+                                                    <option value="{{ role }}" {{ channel.canRead == role ? 'selected' : '' }}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="field flex-1 gap-1 sm:w-32 sm:flex-none">
+                                            <label class="text-caption text-muted" for="can-write-{{ channel.id }}">Écriture</label>
+                                            <select id="can-write-{{ channel.id }}" name="can_write" aria-label="Qui peut écrire dans ce salon" class="select">
+                                                {% for role, label in roleLabels %}
+                                                    <option value="{{ role }}" {{ channel.canWrite == role ? 'selected' : '' }}>{{ label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-secondary">Appliquer</button>
+                                    </form>
+                                    {# SUPPRIMER (propriétaire uniquement) #}
+                                    {% if isOwner %}
+                                        <form method="post"
+                                            action="{{ path('app_group_channel_delete', {slug: group.slug, channelId: channel.id}) }}"
+                                            {{ stimulus_controller('confirm', {message: 'Supprimer ce salon et tous ses messages ?'})|stimulus_action('confirm', 'ask', 'submit') }}>
+                                            <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                                            <button type="submit" class="btn btn-ghost btn-icon text-danger-text hover:bg-danger-soft hover:text-danger-text"
+                                                    aria-label="Supprimer le salon #{{ channel.name }}" title="Supprimer le salon">{{ ui.icon('trash') }}</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {# CRÉER UN SALON (propriétaire uniquement) #}
+                {% if isOwner %}
+                    <form method="post" id="nouveau-salon" class="scroll-mt-24 border-t border-line bg-surface-raised/40 px-4 py-4 sm:px-5 rounded-b-card">
+                        <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                        <input type="hidden" name="action" value="create_channel">
+                        <p class="mb-3 text-small font-semibold text-fg">Nouveau salon</p>
+                        <div class="grid grid-cols-2 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_auto]">
+                            <div class="field col-span-2 sm:col-span-1">
+                                <label class="label" for="new-channel-name">Nom</label>
+                                <input type="text" id="new-channel-name" name="channel_name" placeholder="ex. peinture" aria-label="Nom du nouveau salon" required maxlength="50" class="input">
+                            </div>
+                            <div class="field">
+                                <label class="label" for="new-channel-read">Lecture</label>
+                                <select id="new-channel-read" name="channel_can_read" aria-label="Qui peut lire ce salon" class="select">
+                                    {% for role, label in roleLabels %}<option value="{{ role }}">{{ label }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label class="label" for="new-channel-write">Écriture</label>
+                                <select id="new-channel-write" name="channel_can_write" aria-label="Qui peut écrire dans ce salon" class="select">
+                                    {% for role, label in roleLabels %}<option value="{{ role }}">{{ label }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-secondary col-span-2 sm:col-span-1">{{ ui.icon('plus') }}Créer le salon</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </section>
+
+            {# PARAMÈTRES DES TÂCHES (modifiables par le propriétaire, affichés aux admins) #}
+            <section id="taches" class="card scroll-mt-24" aria-labelledby="taches-title">
+                {{ _self.section_header('taches', 'list-checks', 'Tâches du groupe', null) }}
+                <div class="card-body space-y-4">
+                    <ul class="space-y-1.5 text-small text-fg-secondary" role="list">
+                        <li class="flex gap-2">{{ ui.icon('pencil', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Rédacteurs</strong> : créent listes, catégories et tâches, renomment, assignent, suppriment et font progresser toutes les tâches.</span></li>
+                        <li class="flex gap-2">{{ ui.icon('eye', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Lecteurs</strong> : voient toutes les tâches sans pouvoir les modifier. Les autres membres ne voient que ce qui leur est assigné.</span></li>
+                        <li class="flex gap-2">{{ ui.icon('user-check', 'size-4 mt-0.5 shrink-0 text-muted') }}<span>Un membre assigné à une catégorie fait progresser toutes ses tâches et peut y en ajouter ; un membre assigné à une tâche la fait progresser.</span></li>
+                    </ul>
+                    {% if isOwner %}
+                        <form method="post" class="space-y-4">
+                            <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                            <input type="hidden" name="action" value="update_todo_settings">
+                            <div class="grid items-start gap-4 sm:grid-cols-2">
+                                <div class="field">
+                                    <label for="todo_write_role" class="label">Qui peut modifier les tâches</label>
+                                    <select id="todo_write_role" name="todo_write_role" class="select">
+                                        {% for role, label in roleLabels %}
+                                            <option value="{{ role }}" {{ group.todoWriteRole == role ? 'selected' : '' }}>{{ label }}{{ role != 'owner' ? ' et plus' : '' }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="todo_view_role" class="label">Qui peut voir toutes les tâches</label>
+                                    <select id="todo_view_role" name="todo_view_role" class="select" aria-describedby="todo_view_role_help">
+                                        {% for role, label in roleLabels %}
+                                            <option value="{{ role }}" {{ group.todoViewRole == role ? 'selected' : '' }}>{{ label }}{{ role != 'owner' ? ' et plus' : '' }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <p id="todo_view_role_help" class="help">Les rédacteurs voient toujours toutes les tâches.</p>
+                                </div>
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Enregistrer</button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <dl class="grid gap-3 sm:grid-cols-2">
+                            <div class="card-inset px-4 py-3">
+                                <dt class="text-caption text-muted">Qui peut modifier les tâches</dt>
+                                <dd class="font-semibold text-fg">{{ roleLabels[group.todoWriteRole] ?? group.todoWriteRole }}{{ group.todoWriteRole != 'owner' ? ' et plus' : '' }}</dd>
+                            </div>
+                            <div class="card-inset px-4 py-3">
+                                <dt class="text-caption text-muted">Qui peut voir toutes les tâches</dt>
+                                <dd class="font-semibold text-fg">{{ roleLabels[group.todoViewRole] ?? group.todoViewRole }}{{ group.todoViewRole != 'owner' ? ' et plus' : '' }}</dd>
+                            </div>
+                        </dl>
+                        <p class="help flex items-center gap-1.5">{{ ui.icon('lock', 'size-3.5') }}Modifiable par le propriétaire.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            {# MESSAGES ÉPINGLÉS (modifiable par le propriétaire, affiché aux admins) #}
+            <section id="epingles" class="card scroll-mt-24" aria-labelledby="epingles-title">
+                {{ _self.section_header('epingles', 'pin', 'Messages épinglés', 'Les messages épinglés s\'affichent en haut du chat de leur salon. Pour épingler ou désépingler, il faut avoir au moins ce rôle et pouvoir lire le salon (20 messages épinglés maximum par salon).') }}
+                <div class="card-body">
+                    {% if isOwner %}
+                        <form method="post" class="flex flex-wrap items-end gap-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                            <input type="hidden" name="action" value="update_pin_settings">
+                            <div class="field w-full sm:w-64">
+                                <label for="pin_role" class="label">Qui peut épingler des messages</label>
+                                <select id="pin_role" name="pin_role" class="select">
+                                    {% for role, label in roleLabels %}
+                                        <option value="{{ role }}" {{ group.pinRole == role ? 'selected' : '' }}>{{ label }}{{ role != 'owner' ? ' et plus' : '' }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary ml-auto">{{ ui.icon('check') }}Enregistrer</button>
+                        </form>
+                    {% else %}
+                        <div class="card-inset px-4 py-3 sm:max-w-xs">
+                            <p class="text-caption text-muted">Qui peut épingler des messages</p>
+                            <p class="font-semibold text-fg">{{ roleLabels[group.pinRole] ?? group.pinRole }}{{ group.pinRole != 'owner' ? ' et plus' : '' }}</p>
+                        </div>
+                        <p class="help mt-3 flex items-center gap-1.5">{{ ui.icon('lock', 'size-3.5') }}Modifiable par le propriétaire.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            {# ZONE DANGEREUSE #}
+            {% if isOwner %}
+                <section id="danger" class="card scroll-mt-24 border-danger/60" aria-labelledby="danger-title">
+                    <div class="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        <div>
+                            <h2 id="danger-title" class="flex items-center gap-2 text-h3 text-danger-text">{{ ui.icon('alert-triangle', 'size-5') }}Zone dangereuse</h2>
+                            <p class="mt-1 max-w-xl text-small text-fg-secondary">Le groupe et tout son contenu (salons, messages, tâches) seront définitivement supprimés. Action irréversible.</p>
+                        </div>
+                        <form method="post" action="{{ path('app_group_delete', {slug: group.slug}) }}" class="shrink-0"
+                              {{ stimulus_controller('confirm', {message: 'Supprimer définitivement ce groupe et tout son contenu ?'})|stimulus_action('confirm', 'ask', 'submit') }}>
+                            <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                            <button type="submit" class="btn btn-danger">{{ ui.icon('trash') }}Supprimer le groupe</button>
+                        </form>
+                    </div>
+                </section>
+            {% endif %}
+
+        </div>
     </div>
-
-    {# DANGER ZONE #}
-    {% if currentMember.role == 'owner' %}
-    <div class="bg-gray-800 rounded-xl border border-red-700 p-6">
-        <h2 class="text-lg font-semibold text-red-400 mb-4">⚠️ Zone dangereuse</h2>
-        <form method="post" action="{{ path('app_group_delete', {slug: group.slug}) }}"
-              onsubmit="return confirm('Supprimer définitivement ce groupe et tout son contenu ?')">
-            <button type="submit"
-                    class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg transition">
-                🗑️ Supprimer le groupe
-            </button>
-        </form>
-    </div>
-    {% endif %}
-
-</div>
 {% endblock %}

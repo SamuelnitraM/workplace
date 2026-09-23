@@ -1,46 +1,75 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Mes invitations{% endblock %}
 
 {% block body %}
-<div class="max-w-3xl mx-auto">
+<div class="container-reading">
 
-    <h1 class="text-3xl font-bold text-white mb-8">📬 Mes invitations</h1>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Invitations de groupe</h1>
+            <p class="page-header-subtitle">Acceptez une invitation pour rejoindre le groupe et ses salons de discussion.</p>
+        </div>
+        {% if invitations is not empty %}
+            <div class="page-header-actions">
+                <a href="{{ path('app_group_index') }}" class="btn btn-ghost">{{ ui.icon('users') }}Tous les groupes</a>
+            </div>
+        {% endif %}
+    </header>
 
     {% if invitations is empty %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-500">
-            Aucune invitation en attente.
-        </div>
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'mail',
+            title: 'Aucune invitation en attente',
+            text: 'Quand un membre vous invitera dans son groupe, l\'invitation apparaîtra ici. Vous pouvez aussi rejoindre un groupe public dès maintenant.',
+            cta: {label: 'Découvrir les groupes', url: path('app_group_index'), icon: 'users'},
+            secondary: {label: 'Créer un groupe', url: path('app_group_new'), icon: 'plus'},
+        }) }}
     {% else %}
-        <div class="space-y-4">
-            {% for invitation in invitations %}
-                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5 flex items-center justify-between">
-                    <div>
-                        <div class="text-white font-semibold">
-                            👥 {{ invitation.usergroup.name }}
+        <section class="card overflow-hidden" aria-label="Invitations en attente">
+            <ul role="list">
+                {% for invitation in invitations %}
+                    {% set group = invitation.usergroup %}
+                    <li class="list-row flex-wrap items-start">
+                        <span class="icon-tile mt-0.5" aria-hidden="true">{{ ui.icon('users') }}</span>
+                        <div class="list-row-main">
+                            <h2 class="flex flex-wrap items-center gap-2 font-semibold text-fg">
+                                <span class="break-words">{{ group.name }}</span>
+                                {% if group.public %}
+                                    <span class="chip">{{ ui.icon('globe') }}Public</span>
+                                {% else %}
+                                    <span class="chip">{{ ui.icon('lock') }}Privé</span>
+                                {% endif %}
+                            </h2>
+                            {% if group.description %}
+                                <p class="mt-0.5 text-small text-fg-secondary line-clamp-2">{{ group.description }}</p>
+                            {% endif %}
+                            <p class="mt-1.5 flex flex-wrap items-center gap-1.5 text-caption text-muted">
+                                {{ ui.avatar(invitation.invitedBy, 'xs') }}
+                                <span>Invité par <span class="font-medium text-fg-secondary">{{ invitation.invitedBy.username }}</span></span>
+                                <span aria-hidden="true">·</span>
+                                <time datetime="{{ invitation.createdAt|date('c') }}" title="{{ invitation.createdAt|date('d/m/Y à H:i') }}">{{ invitation.createdAt|time_ago }}</time>
+                            </p>
                         </div>
-                        <div class="text-gray-400 text-sm mt-1">
-                            Invité par <span class="text-indigo-400">{{ invitation.invitedBy.username }}</span>
-                            le {{ invitation.createdAt|date('d/m/Y') }}
+                        <div class="flex gap-2 self-center max-sm:w-full max-sm:pl-[3.25rem]">
+                            <form method="post" action="{{ path('app_group_invitation_accept', {id: invitation.id}) }}" class="max-sm:flex-1">
+                                <input type="hidden" name="_token" value="{{ csrf_token('group_invite') }}">
+                                <button type="submit" class="btn btn-primary btn-sm max-sm:w-full" aria-label="Accepter l'invitation au groupe {{ group.name }}">
+                                    {{- ui.icon('check') }}Accepter
+                                </button>
+                            </form>
+                            <form method="post" action="{{ path('app_group_invitation_refuse', {id: invitation.id}) }}" class="max-sm:flex-1">
+                                <input type="hidden" name="_token" value="{{ csrf_token('group_invite') }}">
+                                <button type="submit" class="btn btn-secondary btn-sm max-sm:w-full" aria-label="Refuser l'invitation au groupe {{ group.name }}">
+                                    {{- ui.icon('x') }}Refuser
+                                </button>
+                            </form>
                         </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <form method="post" action="{{ path('app_group_invitation_accept', {id: invitation.id}) }}">
-                            <button type="submit"
-                                    class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
-                                ✅ Accepter
-                            </button>
-                        </form>
-                        <form method="post" action="{{ path('app_group_invitation_refuse', {id: invitation.id}) }}">
-                            <button type="submit"
-                                    class="bg-red-600/30 hover:bg-red-600 px-4 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
-                                ❌ Refuser
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
     {% endif %}
 
 </div>

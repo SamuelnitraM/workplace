@@ -1,326 +1,385 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{# Ligne d'un message épinglé (barre en haut du chat) : même rendu que assets/controllers/pinned_controller.js (buildRow) #}
+{% macro pinned_row(message, group) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    <div class="flex min-w-0 items-center gap-1" data-pinned-row="{{ message.id }}">
+        <button type="button" data-action="pinned#jump" data-pinned-id-param="{{ message.id }}"
+                title="Épinglé{{ message.pinnedBy ? ' par ' ~ message.pinnedBy.username : '' }} le {{ message.pinnedAt|date('d/m H:i') }} — aller au message"
+                class="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-control px-2 py-1 text-left hover:bg-overlay pointer-coarse:min-h-11">
+            {{ ui.icon('pin', 'size-4 shrink-0 text-accent-text') }}
+            <span class="shrink-0 font-semibold text-fg">{{ message.author.username }}</span>
+            <span class="shrink-0 text-caption text-muted">{{ message.createdAt|date('d/m H:i') }}</span>
+            <span class="truncate text-fg-secondary">{{ message.content|length > 140 ? message.content|slice(0, 140) ~ '…' : message.content }}</span>
+        </button>
+        {% if is_granted('GROUP_MESSAGE_PIN', message) %}
+            <form method="post" action="{{ path('app_group_message_unpin', {slug: group.slug, id: message.id}) }}" data-action="pinned#toggle" class="shrink-0">
+                <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                <button type="submit" title="Désépingler" aria-label="Désépingler ce message"
+                        class="btn btn-ghost btn-icon btn-sm hover:text-danger-text">{{ ui.icon('x') }}</button>
+            </form>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+{# Liste des membres (colonne desktop et volet repliable mobile) #}
+{% macro member_list(group) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    {% set rank = {owner: 0, admin: 1, member: 2} %}
+    <ul class="space-y-0.5" role="list">
+        {% for member in group.members|sort((a, b) => (rank[a.role] ?? 3) <=> (rank[b.role] ?? 3)) %}
+            <li>
+                <a href="{{ path('app_profil_show', {username: member.user.username}) }}"
+                   class="flex min-h-10 items-center gap-2.5 rounded-control px-2 py-1 text-small text-fg-secondary transition-colors hover:bg-surface-raised hover:text-fg">
+                    {{ ui.avatar(member.user, 'xs') }}
+                    <span class="min-w-0 flex-1 truncate">{{ member.user.username }}</span>
+                    {% if member.role == 'owner' %}
+                        <span class="chip chip-accent" title="Propriétaire">{{ ui.icon('crown', 'size-3.5') }}<span class="sr-only">Propriétaire</span></span>
+                    {% elseif member.role == 'admin' %}
+                        <span class="chip chip-info">Admin</span>
+                    {% endif %}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+{% endmacro %}
 
 {% block title %}{{ group.name }}{% endblock %}
 
 {% block body %}
-<div class="max-w-6xl mx-auto">
+{% set writeLabels = {admin: 'les admins et le propriétaire', owner: 'le propriétaire'} %}
 
-    {# HEADER #}
-    <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
-        <div>
-            <a href="{{ path('app_group_index') }}" class="text-gray-400 hover:text-white text-sm transition">
-                ← Retour aux groupes
-            </a>
-            <h1 class="text-3xl font-bold text-white mt-1">{{ group.name }}</h1>
-            <div class="flex flex-wrap gap-3 mt-2">
-                <span class="text-xs px-2 py-1 rounded {{ group.isPublic ? 'bg-green-700 text-green-300' : 'bg-gray-700 text-gray-400' }}">
-                    {{ group.isPublic ? '🌍 Public' : '🔒 Privé' }}
-                </span>
-                <span class="text-gray-500 text-sm">
-                    {{ group.members|length }} membre(s) — Créé par {{ group.creator.username }}
-                </span>
+    {# EN-TÊTE DU GROUPE #}
+    <header class="page-header md:mb-6">
+        <div class="flex min-w-0 items-start gap-3 sm:gap-4">
+            <span class="avatar avatar-md rounded-card sm:[--avatar-size:4rem]" style="background: hsl({{ (group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ group.name|first|upper }}</span>
+            <div class="min-w-0">
+                <p class="page-header-eyebrow">
+                    <a class="link" href="{{ path('app_group_index') }}">Groupes</a>{{ ui.icon('chevron-right', 'size-4') }}<span class="truncate">{{ group.name }}</span>
+                </p>
+                <h1 class="page-header-title break-words">{{ group.name }}</h1>
+                {% if group.description %}
+                    <p class="page-header-subtitle line-clamp-2">{{ group.description }}</p>
+                {% endif %}
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                    {% if group.isPublic %}
+                        <span class="chip chip-success">{{ ui.icon('globe', 'size-4') }}Public</span>
+                    {% else %}
+                        <span class="chip">{{ ui.icon('lock', 'size-4') }}Privé</span>
+                    {% endif %}
+                    <span class="chip">{{ ui.icon('users', 'size-4') }}{{ group.members|length }} membre{{ group.members|length > 1 ? 's' : '' }}</span>
+                    <span class="text-caption text-muted">Créé par {{ group.creator.username }}</span>
+                </div>
             </div>
         </div>
 
-        {# BOUTONS ACTIONS #}
-        <div class="flex flex-wrap gap-2 sm:gap-3">
+        {# ACTIONS #}
+        <div class="page-header-actions">
             {% if currentMember %}
-                <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}"
-                   class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
-                    📋 Todo
+                <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}" class="btn btn-secondary">
+                    {{ ui.icon('list-checks') }}Tâches
                 </a>
-                {% if currentMember.role in ['owner', 'admin'] %}
-                    <a href="{{ path('app_group_edit', {slug: group.slug}) }}"
-                       class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition">
-                        ⚙️ Paramètres
+                {% if is_granted('GROUP_MANAGE', group) %}
+                    <a href="{{ path('app_group_edit', {slug: group.slug}) }}" class="btn btn-secondary">
+                        {{ ui.icon('settings') }}Paramètres
                     </a>
                 {% endif %}
-                {% if currentMember.role != 'owner' %}
+                {% if not is_granted('GROUP_OWNER', group) %}
                     <form method="post" action="{{ path('app_group_leave', {slug: group.slug}) }}">
-                        <button type="submit"
-                                class="bg-red-600/30 hover:bg-red-600 px-4 py-2 rounded-lg text-sm text-red-400 hover:text-white transition">
-                            Quitter
+                        <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                        <button type="submit" class="btn btn-ghost text-danger-text hover:bg-danger-soft hover:text-danger-text">
+                            {{ ui.icon('log-out') }}Quitter
                         </button>
                     </form>
                 {% endif %}
             {% elseif app.user and group.isJoinable %}
                 <form method="post" action="{{ path('app_group_join', {slug: group.slug}) }}">
-                    <button type="submit"
-                            class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm transition">
-                        ➕ Rejoindre
-                    </button>
+                    <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                    <button type="submit" class="btn btn-primary">{{ ui.icon('user-plus') }}Rejoindre</button>
                 </form>
             {% elseif app.user %}
-                <span class="bg-gray-700 px-4 py-2 rounded-lg text-sm text-gray-500 cursor-not-allowed">
-                    🔒 Sur invitation uniquement
-                </span>
+                <span class="chip min-h-10 px-3 text-small">{{ ui.icon('lock', 'size-4') }}Sur invitation uniquement</span>
             {% endif %}
         </div>
-    </div>
+    </header>
 
-    <div class="flex flex-col lg:flex-row gap-4 min-h-[36rem] lg:h-[600px]">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
 
-        {# SIDEBAR GAUCHE - CHANNELS ET MEMBRES #}
-        <div class="w-full lg:w-56 flex flex-col gap-4 shrink-0">
-
-            {# CHANNELS #}
+        {# COLONNE GAUCHE (desktop) : SALONS + MEMBRES #}
+        <aside class="hidden min-h-[22rem] flex-col gap-4 lg:flex lg:h-[calc(100dvh-var(--header-h)-11rem)] lg:max-h-[52rem]" aria-label="Salons et membres">
             {% if currentMember and channels is not empty %}
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex-1">
-                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                    📢 Channels
-                </h3>
-                <div class="space-y-1">
-                    {% for channel in channels %}
-                        <a href="{{ path('app_group_show', {slug: group.slug, channel: channel.id}) }}"
-                           class="flex items-center gap-2 px-2 py-1.5 rounded text-sm transition
-                                  {{ activeChannel and activeChannel.id == channel.id
-                                     ? 'bg-indigo-600 text-white'
-                                     : 'text-gray-400 hover:text-white hover:bg-gray-700' }}">
-                            <span>#</span>
-                            <span>{{ channel.name }}</span>
-                        </a>
-                    {% endfor %}
-                </div>
-            </div>
+                <nav class="card flex max-h-[60%] min-h-0 shrink-0 flex-col" aria-labelledby="channels-title">
+                    <h2 id="channels-title" class="eyebrow px-4 pt-3 pb-2">Salons</h2>
+                    <ul class="min-h-0 space-y-0.5 overflow-y-auto px-2 pb-2" role="list">
+                        {% for channel in channels %}
+                            {% set isActive = activeChannel and activeChannel.id == channel.id %}
+                            {% set unreadInChannel = unreadChannelCounts[channel.id] ?? 0 %}
+                            <li>
+                                <a href="{{ path('app_group_show', {slug: group.slug, channel: channel.id}) }}"
+                                   class="menu-item aria-[current=page]:bg-primary-soft aria-[current=page]:font-semibold {{ unreadInChannel > 0 ? 'text-fg' : '' }}"
+                                   {% if isActive %}aria-current="page"{% endif %}>
+                                    <span class="w-4 text-center font-semibold text-muted" aria-hidden="true">#</span>
+                                    <span class="min-w-0 flex-1 truncate">{{ channel.name }}</span>
+                                    {% if channel.canRead != 'member' %}
+                                        {{ ui.icon('lock', 'size-3.5 shrink-0 text-muted', 'Salon à accès restreint') }}
+                                    {% endif %}
+                                    {% if unreadInChannel > 0 %}
+                                        <span class="count-badge" title="Messages non lus">{{ unreadInChannel > 99 ? '99+' : unreadInChannel }}<span class="sr-only"> message(s) non lu(s)</span></span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </nav>
             {% endif %}
 
-            {# MEMBRES #}
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-3">
-                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                    👥 Membres
-                </h3>
-                <div class="space-y-2">
-                    {% for member in group.members %}
-                        <a href="{{ path('app_profil_show', {username: member.user.username}) }}"
-                           class="flex items-center gap-2 hover:text-indigo-400 transition">
-                            <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
-                                {% if member.user.avatar %}
-                                    <img src="{{ asset('uploads/avatars/' ~ member.user.avatar) }}"
-                                         class="w-6 h-6 rounded-full object-cover">
-                                {% else %}
-                                    {{ member.user.username|first|upper }}
-                                {% endif %}
-                            </div>
-                            <div>
-                                <div class="text-xs text-white">{{ member.user.username }}</div>
-                                <div class="text-xs
-                                    {% if member.role == 'owner' %}text-yellow-400
-                                    {% elseif member.role == 'admin' %}text-blue-400
-                                    {% else %}text-gray-500{% endif %}">
-                                    {{ member.role }}
-                                </div>
-                            </div>
+            <section class="card flex min-h-0 flex-1 flex-col" aria-labelledby="members-title">
+                <h2 id="members-title" class="eyebrow flex items-center justify-between px-4 pt-3 pb-2">
+                    Membres <span class="font-semibold tabular-nums normal-case tracking-normal text-muted">{{ group.members|length }}</span>
+                </h2>
+                <div class="min-h-0 overflow-y-auto px-2 pb-2">
+                    {{ _self.member_list(group) }}
+                </div>
+            </section>
+        </aside>
+
+        <div class="flex min-w-0 flex-col gap-3">
+
+            {# SALONS (mobile) : barre de pastilles défilante #}
+            {% if currentMember and channels is not empty %}
+                <nav class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden" aria-label="Salons">
+                    {% for channel in channels %}
+                        {% set isActive = activeChannel and activeChannel.id == channel.id %}
+                        {% set unreadInChannel = unreadChannelCounts[channel.id] ?? 0 %}
+                        <a href="{{ path('app_group_show', {slug: group.slug, channel: channel.id}) }}"
+                           class="chip min-h-10 shrink-0 px-3.5 text-small pointer-coarse:min-h-11"
+                           {% if isActive %}aria-current="page"{% endif %}>
+                            <span aria-hidden="true">#</span>{{ channel.name }}
+                            {% if channel.canRead != 'member' %}{{ ui.icon('lock', 'size-3.5', 'Accès restreint') }}{% endif %}
+                            {% if unreadInChannel > 0 %}
+                                <span class="count-badge">{{ unreadInChannel > 99 ? '99+' : unreadInChannel }}<span class="sr-only"> non lu(s)</span></span>
+                            {% endif %}
                         </a>
                     {% endfor %}
-                </div>
-            </div>
+                </nav>
+            {% endif %}
 
-        </div>
+            {# ZONE PRINCIPALE - CHAT (assets/controllers/chat_controller.js + pinned_controller.js) #}
+            <section class="card chat-panel"
+                     aria-label="{{ activeChannel ? 'Salon #' ~ activeChannel.name : 'Discussion' }}"
+                 {% if activeChannel and currentMember %}
+                 data-controller="chat pinned"
+                 data-action="chat:appended->pinned#decorate"
+                 data-chat-channel-value="private-group-channel-{{ activeChannel.id }}"
+                 data-chat-send-url-value="{{ path('app_group_message', {slug: group.slug}) }}"
+                 data-chat-user-id-value="{{ app.user.id }}"
+                 data-chat-avatar-base-value="{{ asset('uploads/avatars/') }}"
+                 data-chat-show-author-value="true"
+                 data-chat-notification-key-value="{{ channelNotificationKey }}"
+                 data-pinned-channel-value="private-group-channel-{{ activeChannel.id }}"
+                 data-pinned-pins-value="{{ pinnedData|json_encode }}"
+                 data-pinned-can-pin-value="{{ canPin ? 'true' : 'false' }}"
+                 data-pinned-pin-url-value="{{ path('app_group_message_pin', {slug: group.slug, id: 0})|replace({'/message/0/': '/message/__ID__/'}) }}"
+                 data-pinned-unpin-url-value="{{ path('app_group_message_unpin', {slug: group.slug, id: 0})|replace({'/message/0/': '/message/__ID__/'}) }}"
+                 data-pinned-csrf-value="{{ csrf_token('group') }}"
+                 {% endif %}>
 
-        {# ZONE PRINCIPALE - CHAT #}
-        <div class="flex-1 flex flex-col bg-gray-800 rounded-xl border border-gray-700">
-
-            {% if activeChannel %}
-                {# HEADER CHANNEL #}
-                <div class="p-4 border-b border-gray-700">
-                    <h2 class="font-semibold text-white"># {{ activeChannel.name }}</h2>
-                    {% if activeChannel.description %}
-                        <p class="text-gray-400 text-xs mt-0.5">{{ activeChannel.description }}</p>
-                    {% endif %}
-                </div>
-
-                {# MESSAGES #}
-                <div class="flex-1 overflow-y-auto p-4 space-y-3" id="chat-messages">
-                    {% if messages is empty %}
-                        <p class="text-gray-500 text-center py-8">
-                            Aucun message dans # {{ activeChannel.name }}
-                        </p>
-                    {% else %}
-                        {% for message in messages %}
-                            <div class="flex gap-3 {{ message.author == app.user ? 'flex-row-reverse' : '' }}"
-                                 id="msg-{{ message.id }}">
-                                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
-                                    {% if message.author.avatar %}
-                                        <img src="{{ asset('uploads/avatars/' ~ message.author.avatar) }}"
-                                             class="w-8 h-8 rounded-full object-cover">
-                                    {% else %}
-                                        {{ message.author.username|first|upper }}
-                                    {% endif %}
-                                </div>
-                                <div class="{{ message.author == app.user ? 'items-end' : 'items-start' }} flex flex-col">
-                                    <div class="text-xs text-gray-500 mb-1">
-                                        {{ message.author.username }} — {{ message.createdAt|date('d/m H:i') }}
-                                    </div>
-                                    <div class="px-4 py-2 rounded-xl text-sm max-w-xs
-                                        {{ message.author == app.user ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200' }}">
-                                        {{ message.content }}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-
-                {# BOUTON SCROLL TO BOTTOM #}
-                <div class=" relative">
-                    <button id="scroll-btn"
-                            class="hidden absolute bottom-5 left-1/2 -translate-x-1/2 bg-opacity-50 bg-indigo-600 hover:bg-indigo-900 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg transition z-10">
-                        ↓
-                        <span id="scroll-badge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center"> </span>
-                    </button>
-                </div>
-
-                {# FORMULAIRE MESSAGE #}
-                {% if currentMember %}
-                    {% set roleHierarchy = {'member': 1, 'admin': 2, 'owner': 3} %}
-                    {% set userLevel = roleHierarchy[currentMember.role] ?? 0 %}
-                    {% set requiredLevel = roleHierarchy[activeChannel.canWrite] ?? 1 %}
-                    {% if userLevel >= requiredLevel %}
-                        <div class="p-4 border-t border-gray-700">
-                            <form method="post"
-                                  action="{{ path('app_group_message', {slug: group.slug}) }}"
-                                  class="flex gap-3"
-                                  id="message-form">
-                                <input type="hidden" name="channel_id" value="{{ activeChannel.id }}">
-                                <input type="text" name="content" id="message-input"
-                                       placeholder="Message dans # {{ activeChannel.name }}..."
-                                       autocomplete="off"
-                                       class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500">
-                                <button type="submit"
-                                        class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
-                                    ➤
-                                </button>
-                            </form>
+                {% if activeChannel %}
+                    {# EN-TÊTE DU SALON #}
+                    <div class="flex items-center gap-3 border-b border-line px-4 py-3">
+                        <span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised text-h3 font-semibold text-muted" aria-hidden="true">#</span>
+                        <div class="min-w-0 flex-1">
+                            <h2 class="truncate text-h3 text-fg">{{ activeChannel.name }}</h2>
+                            {% if activeChannel.description %}
+                                <p class="truncate text-caption text-muted">{{ activeChannel.description }}</p>
+                            {% endif %}
                         </div>
-                    {% else %}
-                        <div class="p-4 border-t border-gray-700 text-center text-gray-500 text-sm">
-                            🔒 Vous n'avez pas les droits pour écrire dans ce channel.
-                        </div>
-                    {% endif %}
-                {% endif %}
+                        {% if activeChannel.canRead != 'member' %}
+                            <span class="chip shrink-0">{{ ui.icon('lock', 'size-4') }}Restreint</span>
+                        {% endif %}
+                    </div>
 
-            {% else %}
-                {# PAS DE CHANNEL #}
-                <div class="flex-1 flex items-center justify-center text-gray-500">
-                    {% if currentMember %}
-                        {% if currentMember.role in ['owner', 'admin'] %}
-                            <div class="text-center">
-                                <p class="mb-3">Aucun channel pour le moment.</p>
-                                <a href="{{ path('app_group_edit', {slug: group.slug}) }}"
-                                   class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition text-white">
-                                    ⚙️ Créer un channel
-                                </a>
+                    {# MESSAGES ÉPINGLÉS (requête dédiée ; reconstruit en direct par pinned_controller.js) #}
+                    <div data-pinned-target="bar"
+                         class="{{ pinnedMessages is empty ? 'hidden' : '' }} border-b border-line bg-accent-soft/40 px-2 py-1.5 text-small">
+                        {% if pinnedMessages|length == 1 %}
+                            {{ _self.pinned_row(pinnedMessages|first, group) }}
+                        {% elseif pinnedMessages|length > 1 %}
+                            <details class="details-reset">
+                                <summary class="flex min-h-9 items-center gap-2 rounded-control px-2 py-1 font-semibold text-accent-text select-none hover:bg-overlay pointer-coarse:min-h-11">
+                                    {{ ui.icon('pin', 'size-4 shrink-0') }}<span class="flex-1">{{ pinnedMessages|length }} messages épinglés</span>{{ ui.icon('chevron-down', 'details-chevron size-4 shrink-0') }}
+                                </summary>
+                                <ul class="mt-1 max-h-60 space-y-0.5 overflow-y-auto">
+                                    {% for pinned in pinnedMessages %}
+                                        <li>{{ _self.pinned_row(pinned, group) }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                        {% endif %}
+                    </div>
+
+                    {# MESSAGES — même structure et classes que les messages ajoutés en direct (chat_controller.js : .chat-msg > .chat-msg-body > .chat-meta + .chat-bubble) #}
+                    <div class="chat-stream" id="chat-messages"
+                         data-chat-target="messages" data-action="scroll->chat#onScroll"
+                         role="log" aria-label="Messages de #{{ activeChannel.name }}">
+                        {% if messages is empty %}
+                            <div id="chat-empty" data-chat-target="empty" class="my-auto">
+                                {{ include('_partials/_empty_state.html.twig', {
+                                    icon: 'message-circle',
+                                    title: 'Aucun message dans #' ~ activeChannel.name,
+                                    text: currentMember and is_granted('CHANNEL_WRITE', activeChannel)
+                                        ? 'Brisez la glace : présentez-vous ou partagez votre dernière figurine peinte.'
+                                        : 'Les messages de ce salon apparaîtront ici.',
+                                    cta: currentMember and is_granted('CHANNEL_WRITE', activeChannel)
+                                        ? {label: 'Écrire le premier message', for: 'message-input', icon: 'pencil'}
+                                        : null,
+                                    variant: 'plain',
+                                    compact: true,
+                                }) }}
                             </div>
                         {% else %}
-                            <p>Aucun channel disponible.</p>
+                            {% set _days = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'] %}
+                            {% set _months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'] %}
+                            {% set _today = 'now'|date('Y-m-d') %}
+                            {% set _yesterday = '-1 day'|date('Y-m-d') %}
+                            {% set _year = 'now'|date('Y') %}
+                            {% set _prev_day = null %}
+                            {% for message in messages %}
+                                {% set _day = message.createdAt|date('Y-m-d') %}
+                                {% if _day != _prev_day %}
+                                    {% set _label = _day == _today ? 'Aujourd\'hui'
+                                        : (_day == _yesterday ? 'Hier'
+                                        : (_days[message.createdAt|date('N') - 1] ~ ' ' ~ message.createdAt|date('j') ~ ' ' ~ _months[message.createdAt|date('n') - 1]
+                                           ~ (message.createdAt|date('Y') != _year ? ' ' ~ message.createdAt|date('Y') : ''))) %}
+                                    <div class="chat-day" data-chat-day="{{ _day }}" role="separator" aria-label="{{ _label }}"><span>{{ _label|capitalize }}</span></div>
+                                    {% set _prev_day = _day %}
+                                {% endif %}
+                                {% set _own = message.author == app.user %}
+                                <div class="chat-msg group {{ _own ? 'chat-msg-own' }}" id="msg-{{ message.id }}">
+                                    {{ ui.avatar(message.author, 'sm') }}
+                                    <div class="chat-msg-body">
+                                        {# Ligne meta : même texte que chat_controller (pseudo, titre, « — jj/mm HH:ii ») ; indicateur et bouton ajoutés comme pinned#decorate #}
+                                        <div class="chat-meta flex flex-wrap items-center gap-1.5">
+                                            <span class="inline-flex flex-wrap items-center gap-1">{{ message.author.username }}{{ include('gamification/_user_title.html.twig', {user: message.author}) }} — <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('d/m H:i') }}</time></span>
+                                            <span data-pin-indicator class="{{ message.pinned ? '' : 'hidden' }} text-accent-text" title="Message épinglé">{{ ui.icon('pin', 'size-3.5', 'Épinglé') }}</span>
+                                            {% if is_granted('GROUP_MESSAGE_PIN', message) %}
+                                                <form method="post" data-pin-form data-action="pinned#toggle"
+                                                      action="{{ path(message.pinned ? 'app_group_message_unpin' : 'app_group_message_pin', {slug: group.slug, id: message.id}) }}"
+                                                      class="reveal-on-hover inline-flex">
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                                                    <button type="submit"
+                                                            title="{{ message.pinned ? 'Désépingler' : 'Épingler' }}"
+                                                            aria-label="{{ message.pinned ? 'Désépingler ce message' : 'Épingler ce message' }}"
+                                                            class="-my-1.5 inline-flex size-7 items-center justify-center rounded-control hover:bg-surface-raised hover:text-accent-text pointer-coarse:-my-2.5 pointer-coarse:size-11 {{ message.pinned ? 'text-accent-text' : 'text-muted' }}">{{ ui.icon(message.pinned ? 'x' : 'pin', 'size-4') }}</button>
+                                                </form>
+                                            {% endif %}
+                                        </div>
+                                        <div class="chat-bubble" data-pin-bubble>{{ message.content }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
                         {% endif %}
-                    {% else %}
-                        <p>Rejoignez le groupe pour accéder aux channels.</p>
+                    </div>
+
+                    {# BOUTON « DERNIERS MESSAGES » #}
+                    <div class="relative">
+                        <button type="button" id="scroll-btn" data-chat-target="scrollButton" data-action="chat#jumpToBottom" aria-label="Aller aux derniers messages"
+                                class="hidden btn btn-secondary btn-icon chat-scroll-btn">
+                            {{- ui.icon('chevron-down') -}}
+                            <span id="scroll-badge" data-chat-target="scrollBadge"
+                                  class="hidden absolute -top-0.5 -right-0.5 size-3 rounded-pill bg-notify ring-2 ring-surface"></span>
+                        </button>
+                    </div>
+
+                    {# COMPOSITION DU MESSAGE #}
+                    {% if currentMember %}
+                        {% if is_granted('CHANNEL_WRITE', activeChannel) %}
+                            <form method="post"
+                                  action="{{ path('app_group_message', {slug: group.slug}) }}"
+                                  class="chat-composer"
+                                  id="message-form"
+                                  data-chat-target="form" data-action="submit->chat#send">
+                                <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                                <input type="hidden" name="channel_id" value="{{ activeChannel.id }}">
+                                <label for="message-input" class="sr-only">Message dans #{{ activeChannel.name }}</label>
+                                <input type="text" name="content" id="message-input" data-chat-target="input" maxlength="2000" required
+                                       placeholder="Message dans #{{ activeChannel.name }}…"
+                                       autocomplete="off" enterkeyhint="send"
+                                       class="input flex-1 rounded-pill px-4">
+                                <button type="submit" class="btn btn-primary btn-icon shrink-0 rounded-pill" aria-label="Envoyer le message">
+                                    {{- ui.icon('send') -}}
+                                </button>
+                            </form>
+                        {% else %}
+                            <div class="chat-composer justify-center text-center text-small text-fg-secondary" role="status">
+                                {{ ui.icon('lock', 'size-4 shrink-0 text-muted') }}
+                                <p>Salon en lecture seule : seuls {{ writeLabels[activeChannel.canWrite] ?? 'certains membres' }} peuvent y écrire.</p>
+                            </div>
+                        {% endif %}
                     {% endif %}
+
+                {% else %}
+                    {# PAS DE SALON #}
+                    <div class="flex flex-1 items-center justify-center overflow-y-auto">
+                        {% if currentMember %}
+                            {% if is_granted('GROUP_OWNER', group) %}
+                                {{ include('_partials/_empty_state.html.twig', {
+                                    icon: 'message-square',
+                                    title: 'Aucun salon pour le moment',
+                                    text: 'Créez un premier salon (#général, #peinture, #parties…) pour que les membres puissent discuter.',
+                                    cta: {label: 'Créer un salon', url: path('app_group_edit', {slug: group.slug}) ~ '#nouveau-salon', icon: 'plus'},
+                                    variant: 'plain',
+                                }) }}
+                            {% else %}
+                                {{ include('_partials/_empty_state.html.twig', {
+                                    icon: 'message-square',
+                                    title: 'Aucun salon disponible',
+                                    text: 'Le propriétaire du groupe n\'a pas encore ouvert de salon accessible. En attendant, consultez les tâches du groupe.',
+                                    cta: {label: 'Voir les tâches', url: path('app_group_todo_index', {slug: group.slug}), icon: 'list-checks'},
+                                    variant: 'plain',
+                                }) }}
+                            {% endif %}
+                        {% elseif app.user and group.isJoinable %}
+                            {{ include('_partials/_empty_state.html.twig', {
+                                icon: 'lock',
+                                title: 'Salons réservés aux membres',
+                                text: 'Rejoignez le groupe avec le bouton « Rejoindre » ci-dessus pour accéder à ses salons.',
+                                variant: 'plain',
+                            }) }}
+                        {% elseif app.user %}
+                            {{ include('_partials/_empty_state.html.twig', {
+                                icon: 'lock',
+                                title: 'Salons réservés aux membres',
+                                text: 'Ce groupe fonctionne sur invitation. Découvrez d\'autres groupes ouverts ou créez le vôtre.',
+                                cta: {label: 'Voir les groupes', url: path('app_group_index'), icon: 'users'},
+                                variant: 'plain',
+                            }) }}
+                        {% else %}
+                            {{ include('_partials/_empty_state.html.twig', {
+                                icon: 'lock',
+                                title: 'Salons réservés aux membres',
+                                text: 'Inscrivez-vous pour rejoindre ce groupe et discuter dans ses salons.',
+                                cta: {label: 'Créer mon compte', url: path('app_register')},
+                                secondary: {label: 'Se connecter', url: path('app_login')},
+                                variant: 'plain',
+                            }) }}
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </section>
+
+            {# MEMBRES (mobile) : volet repliable #}
+            <details class="card details-reset lg:hidden">
+                <summary class="flex min-h-12 items-center gap-2 px-4 py-3 font-semibold text-fg">
+                    {{ ui.icon('users', 'size-5 text-muted') }}
+                    <span class="flex-1">Membres <span class="font-normal text-muted">({{ group.members|length }})</span></span>
+                    {{ ui.icon('chevron-down', 'details-chevron size-5 text-muted') }}
+                </summary>
+                <div class="border-t border-line p-2">
+                    {{ _self.member_list(group) }}
                 </div>
-            {% endif %}
+            </details>
         </div>
     </div>
-</div>
-
-{% if activeChannel and currentMember %}
-<script>
-(function() {
-    window.activeGroupSlug = '{{ group.slug|e('js') }}';
-
-    const chatMessages = document.getElementById('chat-messages');
-    const scrollBtn = document.getElementById('scroll-btn');
-    const scrollBadge = document.getElementById('scroll-badge');
-
-    // Scroll initial
-    if (chatMessages) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    // Helpers
-    function isAtBottom() {
-        return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 50;
-    }
-
-    function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    // Détecter scroll utilisateur
-    chatMessages.addEventListener('scroll', () => {
-        if (isAtBottom()) {
-            scrollBtn.classList.add('hidden');
-            scrollBadge.classList.add('hidden');
-        } else {
-            scrollBtn.classList.remove('hidden');
-        }
-    });
-
-    // Clic bouton
-    scrollBtn.addEventListener('click', () => {
-        scrollToBottom();
-        scrollBtn.classList.add('hidden');
-        scrollBadge.classList.add('hidden');
-    });
-
-    // Pusher
-    const pusher = new Pusher('{{ pusher_key }}', {
-        cluster: '{{ pusher_cluster }}'
-    });
-
-    const channel = pusher.subscribe('group-{{ group.slug }}-channel-{{ activeChannel.id }}');
-
-    channel.bind('new-message', function(data) {
-        const isCurrentUser = data.author === '{{ app.user ? app.user.username : '' }}';
-        const wasAtBottom = isAtBottom();
-
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : ''}`;
-        msgDiv.id = `msg-${data.id}`;
-
-        const avatar = data.avatar
-            ? `<img src="/uploads/avatars/${data.avatar}" class="w-8 h-8 rounded-full object-cover">`
-            : `<span>${data.author.charAt(0).toUpperCase()}</span>`;
-
-        msgDiv.innerHTML = `
-            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
-                ${avatar}
-            </div>
-            <div class="${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col">
-                <div class="text-xs text-gray-500 mb-1">
-                    ${data.author} — ${data.createdAt}
-                </div>
-                <div class="px-4 py-2 rounded-xl text-sm max-w-xs ${isCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-200'}">
-                    ${data.content}
-                </div>
-            </div>
-        `;
-
-        chatMessages.appendChild(msgDiv);
-
-        if (wasAtBottom || isCurrentUser) {
-            scrollToBottom();
-        } else {
-            scrollBadge.classList.remove('hidden');
-        }
-    });
-
-    // Formulaire AJAX
-    const messageForm = document.getElementById('message-form');
-    const messageInput = document.getElementById('message-input');
-
-    if (messageForm) {
-        messageForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const content = messageInput.value.trim();
-            if (!content) return;
-            const formData = new FormData(this);
-            messageInput.value = '';
-            fetch(this.action, { method: 'POST', body: formData });
-        });
-    }
-})();
-</script>
-{% endif %}
-
 {% endblock %}

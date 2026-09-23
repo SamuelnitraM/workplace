@@ -2,11 +2,15 @@
 
 namespace App\Controller;
 
+use App\Entity\Group;
 use App\Entity\TodoNode;
+use App\Entity\User;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Repository\TodoNodeRepository;
-use App\Repository\UserRepository;
+use App\Security\Voter\GroupMembershipResolver;
+use App\Security\Voter\GroupVoter;
+use App\Security\Voter\TodoNodeVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,7 +28,7 @@ class GroupTodoController extends AbstractController
     public function index(
         string $slug,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
+        GroupMembershipResolver $membership,
         TodoNodeRepository $todoNodeRepository
     ): Response {
         /** @var \App\Entity\User $user */
@@ -36,30 +40,19 @@ class GroupTodoController extends AbstractController
         }
 
         // Vérifier que l'user est membre
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
+        $this->denyAccessUnlessGranted(GroupVoter::MEMBER, $group);
 
-        if (!$currentMember) {
-            throw $this->createAccessDeniedException();
-        }
-
-        // Owner/Admin voient tout, les membres voient uniquement leurs tâches
-        if (in_array($currentMember->getRole(), ['owner', 'admin'])) {
-            $lists = $todoNodeRepository->findBy([
-                'usergroup' => $group,
-                'type' => TodoNode::TYPE_LIST,
-                'parent' => null,
-            ], ['position' => 'ASC']);
-        } else {
-            $lists = $todoNodeRepository->findGroupListsForMember($group, $user);
-        }
+        // Rédacteurs et lecteurs (rôles >= réglages du groupe) voient tout ; les autres membres seulement les listes
+        // où une catégorie ou une tâche leur est assignée (le template filtre ensuite via TODO_VIEW)
+        $lists = $todoNodeRepository->findGroupLists(
+            $group,
+            $this->isGranted(GroupVoter::TODO_VIEW_ALL, $group) ? null : $user
+        );
 
         return $this->render('group_todo/index.html.twig', [
             'group' => $group,
             'lists' => $lists,
-            'currentMember' => $currentMember,
+            'currentMember' => $membership->getMember($user, $group),
             'members' => $group->getMembers(),
             'slug' => $slug,
         ]);
@@ -73,25 +66,25 @@ class GroupTodoController extends AbstractController
         GroupRepository $groupRepository,
         GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
-        UserRepository $userRepository,
         EntityManagerInterface $em
     ): Response {
+        if (!$this->isTodoCsrfValid($request)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
         $group = $groupRepository->findOneBy(['slug' => $slug]);
 
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        // Seuls owner et admin peuvent créer
-        if (!$currentMember || !in_array($currentMember->getRole(), ['owner', 'admin'])) {
-            throw $this->createAccessDeniedException();
+        if (!$group) {
+            throw $this->createNotFoundException('Groupe introuvable');
         }
 
-        $title = trim($request->request->get('title', ''));
-        $type = $request->request->get('type', TodoNode::TYPE_LIST);
+        // Membre du groupe au minimum ; le droit précis (liste / enfant du parent) est vérifié plus bas
+        $this->denyAccessUnlessGranted(GroupVoter::MEMBER, $group);
+
+        $title = trim((string) $request->request->get('title', ''));
+        $type = (string) $request->request->get('type', TodoNode::TYPE_LIST);
         $parentId = $request->request->get('parent_id');
         $assignedToId = $request->request->get('assigned_to');
 
@@ -100,31 +93,51 @@ class GroupTodoController extends AbstractController
             return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
         }
 
+        // Hiérarchie attendue : liste > catégorie > tâche
+        // array_key_exists et non ?? : le type liste a volontairement un parent attendu null
+        $expectedParentType = array_key_exists($type, TodoNode::EXPECTED_PARENT_TYPES) ? TodoNode::EXPECTED_PARENT_TYPES[$type] : false;
+        if ($expectedParentType === false) {
+            $this->addFlash('error', 'Type d\'élément invalide.');
+            return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
+        }
+
+        $parent = null;
+        if ($expectedParentType !== null) {
+            $parent = $parentId ? $todoNodeRepository->find((int) $parentId) : null;
+            if (!$parent || $parent->getUsergroup() !== $group || $parent->getType() !== $expectedParentType) {
+                $this->addFlash('error', 'Élément parent invalide.');
+                return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
+            }
+            // Catégorie : rédacteurs ; tâche : rédacteurs ou membre assigné à la catégorie
+            $this->denyAccessUnlessGranted(TodoNodeVoter::CREATE_CHILD, $parent);
+        } else {
+            // Nouvelle liste : rédacteurs uniquement
+            $this->denyAccessUnlessGranted(GroupVoter::TODO_WRITE, $group);
+        }
+
         $node = new TodoNode();
-        $node->setTitle($title);
+        $node->setTitle(mb_substr($title, 0, 150));
         $node->setType($type);
         $node->setOwner($user);
         $node->setUsergroup($group);
+        $node->setParent($parent);
 
-        if ($parentId) {
-            $parent = $todoNodeRepository->find($parentId);
-            if ($parent && $parent->getUsergroup() === $group) {
-                $node->setParent($parent);
-            }
-        }
-
-        // Assigner à un membre
+        // Assigner à un membre du groupe (rédacteurs uniquement ; une tâche créée par un membre
+        // assigné à la catégorie reste non assignée : l'assignation de la catégorie lui donne déjà les droits)
         if ($assignedToId) {
-            $assignedTo = $userRepository->find($assignedToId);
-            if ($assignedTo) {
-                $node->setAssignedTo($assignedTo);
+            $this->denyAccessUnlessGranted(TodoNodeVoter::ASSIGN, $node);
+            $assignedTo = $this->findGroupMemberUser($group, (int) $assignedToId, $groupMemberRepository);
+            if (!$assignedTo) {
+                $this->addFlash('error', 'Cet utilisateur n\'est pas membre du groupe.');
+                return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
             }
+            $node->setAssignedTo($assignedTo);
         }
 
         // Position
-        $siblings = $parentId
-            ? $todoNodeRepository->findBy(['parent' => $parentId], ['position' => 'DESC'])
-            : $todoNodeRepository->findBy(['usergroup' => $group, 'parent' => null], ['position' => 'DESC']);
+        $siblings = $parent
+            ? $todoNodeRepository->findBy(['parent' => $parent], ['position' => 'DESC'], 1)
+            : $todoNodeRepository->findBy(['usergroup' => $group, 'parent' => null], ['position' => 'DESC'], 1);
 
         $node->setPosition(count($siblings) > 0 ? $siblings[0]->getPosition() + 1 : 0);
 
@@ -134,80 +147,72 @@ class GroupTodoController extends AbstractController
         return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
     }
 
-    // Cocher/décocher un item
-    #[Route('/toggle/{id}', name: 'toggle', methods: ['POST'])]
-    public function toggle(
-        string $slug,
-        int $id,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
-        TodoNodeRepository $todoNodeRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-        $node = $todoNodeRepository->find($id);
-
-        if (!$node || $node->getUsergroup() !== $group) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        // Les membres ne peuvent cocher que leurs tâches assignées
-        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        $node->setIsDone(!$node->getIsDone());
-        $node->setDoneAt($node->getIsDone() ? new \DateTimeImmutable() : null);
-        $em->flush();
-
-        return new JsonResponse(['isDone' => $node->getIsDone()]);
-    }
-
     // Supprimer un noeud
     #[Route('/delete/{id}', name: 'delete', methods: ['POST'])]
     public function delete(
         string $slug,
         int $id,
+        Request $request,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
         EntityManagerInterface $em
     ): Response {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
+        if (!$this->isTodoCsrfValid($request)) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
         $group = $groupRepository->findOneBy(['slug' => $slug]);
         $node = $todoNodeRepository->find($id);
 
-        if (!$node || $node->getUsergroup() !== $group) {
+        if (!$group || !$node || $node->getUsergroup() !== $group) {
             throw $this->createAccessDeniedException();
         }
 
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        // Seuls owner et admin peuvent supprimer
-        if (!$currentMember || !in_array($currentMember->getRole(), ['owner', 'admin'])) {
-            throw $this->createAccessDeniedException();
-        }
+        // Rédacteurs de la todo uniquement
+        $this->denyAccessUnlessGranted(TodoNodeVoter::DELETE, $node);
 
         $em->remove($node);
         $em->flush();
 
         $this->addFlash('success', 'Supprimé avec succès.');
         return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
+    }
+
+    // Renommer un noeud
+    #[Route('/rename/{id}', name: 'rename', methods: ['POST'])]
+    public function rename(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupRepository $groupRepository,
+        TodoNodeRepository $todoNodeRepository,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
+
+        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $node = $todoNodeRepository->find($id);
+
+        if (!$group || !$node || $node->getUsergroup() !== $group) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        // Rédacteurs de la todo uniquement
+        if (!$this->isGranted(TodoNodeVoter::EDIT, $node)) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        $title = trim((string) $request->request->get('title', ''));
+        if (empty($title)) {
+            return new JsonResponse(['error' => 'Titre vide'], 400);
+        }
+
+        $node->setTitle(mb_substr($title, 0, 150));
+        $em->flush();
+
+        return new JsonResponse(['title' => $node->getTitle()]);
     }
 
     // Assigner un item à un membre
@@ -219,31 +224,31 @@ class GroupTodoController extends AbstractController
         GroupRepository $groupRepository,
         GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
-        UserRepository $userRepository,
         EntityManagerInterface $em
     ): JsonResponse {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
+
         $group = $groupRepository->findOneBy(['slug' => $slug]);
         $node = $todoNodeRepository->find($id);
 
-        if (!$node || $node->getUsergroup() !== $group) {
+        if (!$group || !$node || $node->getUsergroup() !== $group) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$currentMember || !in_array($currentMember->getRole(), ['owner', 'admin'])) {
+        // Rédacteurs de la todo uniquement
+        if (!$this->isGranted(TodoNodeVoter::ASSIGN, $node)) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
         $assignedToId = $request->request->get('assigned_to');
         if ($assignedToId) {
-            $assignedTo = $userRepository->find($assignedToId);
-            $node->setAssignedTo($assignedTo ?: null);
+            $assignedTo = $this->findGroupMemberUser($group, (int) $assignedToId, $groupMemberRepository);
+            if (!$assignedTo) {
+                return new JsonResponse(['error' => 'Cet utilisateur n\'est pas membre du groupe'], 400);
+            }
+            $node->setAssignedTo($assignedTo);
         } else {
             $node->setAssignedTo(null);
         }
@@ -262,25 +267,12 @@ class GroupTodoController extends AbstractController
         int $id,
         Request $request,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
         EntityManagerInterface $em
     ): JsonResponse {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-        $node = $todoNodeRepository->find($id);
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$node || $node->getUsergroup() !== $group || !$currentMember) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        $node = $this->findEditableItem($slug, $id, $request, $groupRepository, $todoNodeRepository);
+        if ($node instanceof JsonResponse) {
+            return $node;
         }
 
         $currentProgress = $node->getProgress() ?? 0;
@@ -308,25 +300,12 @@ class GroupTodoController extends AbstractController
         int $id,
         Request $request,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
         EntityManagerInterface $em
     ): JsonResponse {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-        $node = $todoNodeRepository->find($id);
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$node || $node->getUsergroup() !== $group || !$currentMember) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        $node = $this->findEditableItem($slug, $id, $request, $groupRepository, $todoNodeRepository);
+        if ($node instanceof JsonResponse) {
+            return $node;
         }
 
         $currentProgress = $node->getProgress() ?? 0;
@@ -354,25 +333,12 @@ class GroupTodoController extends AbstractController
         int $id,
         Request $request,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
         EntityManagerInterface $em
     ): JsonResponse {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-        $node = $todoNodeRepository->find($id);
-        $currentMember = $groupMemberRepository->findOneBy([
-            'user' => $user,
-            'usergroup' => $group,
-        ]);
-
-        if (!$node || $node->getUsergroup() !== $group || !$currentMember) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        if ($currentMember->getRole() === 'member' && $node->getAssignedTo() !== $user) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        $node = $this->findEditableItem($slug, $id, $request, $groupRepository, $todoNodeRepository);
+        if ($node instanceof JsonResponse) {
+            return $node;
         }
 
         $node->setProgress(100);
@@ -386,5 +352,48 @@ class GroupTodoController extends AbstractController
             'isDone' => true,
             'type' => 'validate'
         ]);
+    }
+
+    // Tâche (type item) du groupe que l'utilisateur courant peut faire progresser,
+    // ou une réponse JSON d'erreur (CSRF invalide / non autorisé)
+    private function findEditableItem(
+        string $slug,
+        int $id,
+        Request $request,
+        GroupRepository $groupRepository,
+        TodoNodeRepository $todoNodeRepository
+    ): TodoNode|JsonResponse {
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
+        }
+
+        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $node = $todoNodeRepository->find($id);
+
+        // Tâche (type item) du groupe : rédacteurs, ou membre assigné à la tâche ou à sa catégorie
+        if (!$group || !$node || $node->getUsergroup() !== $group || !$this->isGranted(TodoNodeVoter::PROGRESS, $node)) {
+            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        }
+
+        return $node;
+    }
+
+    // Utilisateur membre du groupe correspondant à l'id donné, sinon null
+    private function findGroupMemberUser(Group $group, int $userId, GroupMemberRepository $groupMemberRepository): ?User
+    {
+        $member = $groupMemberRepository->findOneBy([
+            'user' => $userId,
+            'usergroup' => $group,
+        ]);
+
+        return $member?->getUser();
+    }
+
+    // Jeton CSRF envoyé via le champ _token (formulaires) ou l'en-tête X-CSRF-Token (fetch)
+    private function isTodoCsrfValid(Request $request): bool
+    {
+        $token = $request->request->get('_token') ?? $request->headers->get('X-CSRF-Token');
+
+        return $this->isCsrfTokenValid('todo', (string) $token);
     }
 }
