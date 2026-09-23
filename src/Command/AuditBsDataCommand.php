@@ -41,7 +41,14 @@ class AuditBsDataCommand extends Command
 
         $rows = [];
         foreach ($units as $unit) {
-            $weaponCount = count($unit['statsData']['weapons'] ?? []);
+            // Les armes sont rangées par modèle (models[*].weapons) et par rôle (roles[*].weapons)
+            $weaponCount = 0;
+            foreach ($unit['statsData']['models'] ?? [] as $model) {
+                $weaponCount += count($model['weapons'] ?? []);
+            }
+            foreach ($unit['statsData']['roles'] ?? [] as $role) {
+                $weaponCount += count($role['weapons'] ?? []);
+            }
             $abilityCount = count($unit['statsData']['abilities'] ?? []);
 
             $alerts = [];

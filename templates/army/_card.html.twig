@@ -1,0 +1,40 @@
+{#
+    Carte d'une liste d'armée (index « Mes listes d'armée » et onglet « Armées publiques » du profil).
+    Paramètres : list (App\Entity\ArmyList, requis) ; heading (niveau de titre, défaut 2) ; show_visibility (défaut true).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set heading = heading ?? 2 %}
+{% set unit_count = list.units|reduce((carry, u) => carry + u.quantity, 0) %}
+<a href="{{ path('app_army_show', {id: list.id}) }}" class="card card-interactive army-card block w-full">
+    <div class="card-body flex h-full flex-col gap-3">
+        <div class="flex items-start justify-between gap-3">
+            <h{{ heading }} class="text-h3 text-fg min-w-0 break-words">{{ list.name }}</h{{ heading }}>
+            {% if show_visibility ?? true %}
+                {% if list.isPublic %}
+                    <span class="chip chip-success shrink-0">{{ ui.icon('globe') }}Publique</span>
+                {% else %}
+                    <span class="chip shrink-0">{{ ui.icon('lock') }}Privée</span>
+                {% endif %}
+            {% endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="chip chip-primary">{{ ui.icon('shield') }}{{ list.faction }}</span>
+            {% if list.detachment %}
+                <span class="text-small text-fg-secondary">{{ list.detachment }}</span>
+            {% endif %}
+        </div>
+        <div class="mt-auto flex items-end justify-between gap-3 border-t border-line pt-3">
+            <dl class="flex gap-5">
+                <div>
+                    <dt class="text-caption text-muted">Points</dt>
+                    <dd class="text-h3 font-bold text-accent-text tabular-nums">{{ list.totalPoints }}</dd>
+                </div>
+                <div>
+                    <dt class="text-caption text-muted">Unités</dt>
+                    <dd class="text-h3 font-bold text-fg tabular-nums">{{ unit_count }}</dd>
+                </div>
+            </dl>
+            <span class="text-caption text-muted">Créée le {{ list.createdAt|date('d/m/Y') }}</span>
+        </div>
+    </div>
+</a>

@@ -17,36 +17,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'army:sync-bsdata', description: 'Synchronise les unités depuis BSData (GitHub)')]
 class SyncBsDataCommand extends Command
 {
-    // Valeur du <select faction> côté formulaire => nom du fichier JSON dans BSData/wh40k-11e
-    private const FACTION_FILES = [
-        'Space Marines' => 'Imperium - Space Marines.json',
-        'Blood Angels' => 'Imperium - Blood Angels.json',
-        'Dark Angels' => 'Imperium - Dark Angels.json',
-        'Space Wolves' => 'Imperium - Space Wolves.json',
-        'Grey Knights' => 'Imperium - Grey Knights.json',
-        'Deathwatch' => 'Imperium - Deathwatch.json',
-        'Adeptus Custodes' => 'Imperium - Adeptus Custodes.json',
-        'Sisters of Battle' => 'Imperium - Adepta Sororitas.json',
-        'Astra Militarum' => 'Imperium - Astra Militarum.json',
-        'Adeptus Mechanicus' => 'Imperium - Adeptus Mechanicus.json',
-        'Imperial Knights' => 'Imperium - Imperial Knights.json',
-        'Chaos Space Marines' => 'Chaos - Chaos Space Marines.json',
-        'Death Guard' => 'Chaos - Death Guard.json',
-        'Thousand Sons' => 'Chaos - Thousand Sons.json',
-        'World Eaters' => 'Chaos - World Eaters.json',
-        "Emperor's Children" => "Chaos - Emperor's Children.json",
-        'Chaos Knights' => 'Chaos - Chaos Knights.json',
-        'Daemons' => 'Chaos - Chaos Daemons.json',
-        'Orks' => 'Orks.json',
-        'Eldar' => 'Aeldari - Craftworlds.json',
-        'Drukhari' => 'Aeldari - Drukhari.json',
-        'Tyranids' => 'Tyranids.json',
-        'Genestealer Cults' => 'Genestealer Cults.json',
-        'Tau' => "T'au Empire.json",
-        'Necrons' => 'Necrons.json',
-        'Leagues of Votann' => 'Leagues of Votann.json',
-    ];
-
     public function __construct(
         private BsDataFetcher $fetcher,
         private EntityManagerInterface $em,
@@ -63,7 +33,7 @@ class SyncBsDataCommand extends Command
         );
     }
 
-    private const EXTRACTOR_VERSION = 11; // à incrémenter à chaque fois qu'on change ce qu'on extrait
+    private const EXTRACTOR_VERSION = 12; // à incrémenter à chaque fois qu'on change ce qu'on extrait
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -71,95 +41,165 @@ class SyncBsDataCommand extends Command
         $factionArg = $input->getArgument('faction');
 
         $facs = $factionArg
-            ? [$factionArg => self::FACTION_FILES[$factionArg] ?? null]
-            : self::FACTION_FILES;
+            ? [$factionArg => BsDataFetcher::FACTION_FILES[$factionArg] ?? null]
+            : BsDataFetcher::FACTION_FILES;
+
+        $failures = [];
 
         foreach ($facs as $factionLabel => $sourceFile) {
             if (!$sourceFile) {
                 $io->error("Faction inconnue : {$factionLabel}");
+                $failures[] = $factionLabel;
                 continue;
             }
 
             $io->section($factionLabel);
 
-            $syncState = $this->em->getRepository(FactionSyncState::class)
-                ->findOneBy(['sourceFile' => $sourceFile]);
+            try {
+                $this->syncFaction($io, $factionLabel, $sourceFile);
+            } catch (\Throwable $e) {
+                $failures[] = $factionLabel;
+                $io->error("Échec de la synchro pour {$factionLabel} : " . $e->getMessage());
 
-            $latestSha = $this->fetcher->getLatestCommitSha($sourceFile);
-            $shaChanged = !$syncState || $syncState->getLastCommitSha() !== $latestSha;
-            $currentVersion = $syncState?->getExtractorVersion() ?? 0;
-            $versionOutdated = $currentVersion < self::EXTRACTOR_VERSION;
-
-            if (!$shaChanged && !$versionOutdated) {
-                $io->writeln('  À jour (SHA inchangé, extraction déjà à la dernière version). Rien à faire.');
-                continue;
-            }
-
-            $io->writeln('  SHA : ' . ($shaChanged ? 'changement détecté' : 'inchangé'));
-            $io->writeln('  Version extraction : ' . ($versionOutdated ? "obsolète ({$currentVersion} → " . self::EXTRACTOR_VERSION . ')' : 'à jour'));
-            $io->writeln('  Téléchargement du catalogue...');
-
-            $catalogue = $this->fetcher->fetchFactionCatalogue($sourceFile);
-
-            // --- Unités ---
-            $units = $this->fetcher->extractUnits($catalogue);
-            $unitCount = 0;
-            foreach ($units as $unitData) {
-                $unit = $this->em->getRepository(FactionUnit::class)
-                    ->findOneBy(['bsdataId' => $unitData['bsdataId']]);
-
-                if (!$unit) {
-                    $unit = new FactionUnit();
-                    $this->em->persist($unit);
+                // On repart d'un état propre pour ne pas polluer la faction suivante
+                if ($this->em->isOpen()) {
+                    $this->em->clear();
+                } else {
+                    // EntityManager fermé après une erreur SQL : impossible de continuer proprement
+                    $io->error('EntityManager fermé, arrêt de la synchronisation.');
+                    return Command::FAILURE;
                 }
-
-                $unit->setBsdataId($unitData['bsdataId']);
-                $unit->setName($unitData['name']);
-                $unit->setFaction($factionLabel);
-                $unit->setCategory($unitData['category']);
-                $unit->setPoints($unitData['points']);
-                $unit->setSourceFile($sourceFile);
-                $unit->setStatsData($unitData['statsData']);
-                $unitCount++;
             }
-            $io->writeln("  Unités : {$unitCount} synchronisées.");
+        }
 
-            // --- Détachements ---
-            $detachments = $this->fetcher->extractDetachments($catalogue);
-            $detachmentCount = 0;
-            foreach ($detachments as $detData) {
-                $detachment = $this->em->getRepository(FactionDetachement::class)
-                    ->findOneBy(['bsdataId' => $detData['bsdataId']]);
-
-                if (!$detachment) {
-                    $detachment = new FactionDetachement();
-                    $this->em->persist($detachment);
-                }
-
-                $detachment->setBsdataId($detData['bsdataId']);
-                $detachment->setName($detData['name']);
-                $detachment->setFaction($factionLabel);
-                $detachment->setSourceFile($sourceFile);
-                $detachmentCount++;
-            }
-            $io->writeln("  Détachements : {$detachmentCount} synchronisés.");
-
-            // --- État de synchro ---
-            if (!$syncState) {
-                $syncState = new FactionSyncState();
-                $syncState->setSourceFile($sourceFile);
-                $this->em->persist($syncState);
-            }
-            $syncState->setLastCommitSha($latestSha);
-            $syncState->setLastSyncedAt(new \DateTimeImmutable());
-            $syncState->setUnitCount($unitCount);
-            $syncState->setExtractorVersion(self::EXTRACTOR_VERSION);
-
-            $this->em->flush();
-
-            $io->success("Synchro terminée pour {$factionLabel}.");
+        if ($failures) {
+            $io->warning('Factions en échec : ' . implode(', ', $failures));
+            return Command::FAILURE;
         }
 
         return Command::SUCCESS;
+    }
+
+    private function syncFaction(SymfonyStyle $io, string $factionLabel, string $sourceFile): void
+    {
+        $syncState = $this->em->getRepository(FactionSyncState::class)
+            ->findOneBy(['sourceFile' => $sourceFile]);
+
+        $latestSha = $this->fetcher->getLatestCommitSha($sourceFile);
+        if ($latestSha === null) {
+            // API GitHub indisponible / limite de requêtes / fichier absent : on ne touche à rien
+            $io->warning('  SHA du dernier commit introuvable (API GitHub indisponible ?). Faction ignorée.');
+            return;
+        }
+
+        $shaChanged = !$syncState || $syncState->getLastCommitSha() !== $latestSha;
+        $currentVersion = $syncState?->getExtractorVersion() ?? 0;
+        $versionOutdated = $currentVersion < self::EXTRACTOR_VERSION;
+
+        if (!$shaChanged && !$versionOutdated) {
+            $io->writeln('  À jour (SHA inchangé, extraction déjà à la dernière version). Rien à faire.');
+            return;
+        }
+
+        $io->writeln('  SHA : ' . ($shaChanged ? 'changement détecté' : 'inchangé'));
+        $io->writeln('  Version extraction : ' . ($versionOutdated ? "obsolète ({$currentVersion} → " . self::EXTRACTOR_VERSION . ')' : 'à jour'));
+        $io->writeln('  Téléchargement du catalogue...');
+
+        $catalogue = $this->fetcher->fetchFactionCatalogue($sourceFile);
+        if (!isset($catalogue['catalogue'])) {
+            throw new \RuntimeException('Catalogue JSON invalide (clé "catalogue" absente).');
+        }
+
+        // --- Unités ---
+        $unitRepo = $this->em->getRepository(FactionUnit::class);
+        $units = $this->fetcher->extractUnits($catalogue);
+        if (!$units) {
+            // Garde-fou : on ne vide pas la faction si l'extraction ne renvoie rien
+            throw new \RuntimeException('Aucune unité extraite du catalogue, synchro annulée.');
+        }
+        $syncedUnitIds = [];
+        foreach ($units as $unitData) {
+            // Un même id BSData peut exister dans plusieurs catalogues : on cherche par (id, faction)
+            $unit = $syncedUnitIds[$unitData['bsdataId']]
+                ?? $unitRepo->findOneBy(['bsdataId' => $unitData['bsdataId'], 'faction' => $factionLabel]);
+
+            if (!$unit) {
+                $unit = new FactionUnit();
+                $this->em->persist($unit);
+            }
+
+            $unit->setBsdataId($unitData['bsdataId']);
+            $unit->setName($unitData['name']);
+            $unit->setFaction($factionLabel);
+            $unit->setCategory($unitData['category']);
+            $unit->setPoints($unitData['points']);
+            $unit->setSourceFile($sourceFile);
+            $unit->setStatsData($unitData['statsData']);
+            $syncedUnitIds[$unitData['bsdataId']] = $unit;
+        }
+        $unitCount = count($syncedUnitIds);
+        $io->writeln("  Unités : {$unitCount} synchronisées.");
+
+        // Suppression des unités qui ont disparu du catalogue.
+        // (ArmyUnit ne référence pas FactionUnit : les listes existantes gardent leur copie.)
+        $removedUnits = 0;
+        foreach ($unitRepo->findBy(['faction' => $factionLabel]) as $existing) {
+            if (!isset($syncedUnitIds[$existing->getBsdataId()])) {
+                $this->em->remove($existing);
+                $removedUnits++;
+            }
+        }
+        if ($removedUnits) {
+            $io->writeln("  Unités : {$removedUnits} obsolète(s) supprimée(s).");
+        }
+
+        // --- Détachements ---
+        $detRepo = $this->em->getRepository(FactionDetachement::class);
+        $detachments = $this->fetcher->extractDetachments($catalogue);
+        $syncedDetIds = [];
+        foreach ($detachments as $detData) {
+            $detachment = $syncedDetIds[$detData['bsdataId']]
+                ?? $detRepo->findOneBy(['bsdataId' => $detData['bsdataId'], 'faction' => $factionLabel]);
+
+            if (!$detachment) {
+                $detachment = new FactionDetachement();
+                $this->em->persist($detachment);
+            }
+
+            $detachment->setBsdataId($detData['bsdataId']);
+            $detachment->setName($detData['name']);
+            $detachment->setFaction($factionLabel);
+            $detachment->setSourceFile($sourceFile);
+            $syncedDetIds[$detData['bsdataId']] = $detachment;
+        }
+        $io->writeln('  Détachements : ' . count($syncedDetIds) . ' synchronisés.');
+
+        // ArmyList.detachment est une simple chaîne : aucune contrainte à respecter
+        $removedDets = 0;
+        foreach ($detRepo->findBy(['faction' => $factionLabel]) as $existing) {
+            if (!isset($syncedDetIds[$existing->getBsdataId()])) {
+                $this->em->remove($existing);
+                $removedDets++;
+            }
+        }
+        if ($removedDets) {
+            $io->writeln("  Détachements : {$removedDets} obsolète(s) supprimé(s).");
+        }
+
+        // --- État de synchro ---
+        if (!$syncState) {
+            $syncState = new FactionSyncState();
+            $syncState->setSourceFile($sourceFile);
+            $this->em->persist($syncState);
+        }
+        $syncState->setLastCommitSha($latestSha);
+        $syncState->setLastSyncedAt(new \DateTimeImmutable());
+        $syncState->setUnitCount($unitCount);
+        $syncState->setExtractorVersion(self::EXTRACTOR_VERSION);
+
+        $this->em->flush();
+        $this->em->clear();
+
+        $io->success("Synchro terminée pour {$factionLabel}.");
     }
 }

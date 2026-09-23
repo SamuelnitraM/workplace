@@ -6,7 +6,7 @@ use App\Repository\FactionUnitRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: FactionUnitRepository::class)]
-#[ORM\UniqueConstraint(name: 'unique_bsdata_id', columns: ['bsdata_id'])]
+#[ORM\UniqueConstraint(name: 'unique_bsdata_id_faction', columns: ['bsdata_id', 'faction'])]
 class FactionUnit
 {
     #[ORM\Id]

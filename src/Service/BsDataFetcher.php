@@ -2,12 +2,46 @@
 
 namespace App\Service;
 
+use App\Army\UnitCategory;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class BsDataFetcher
 {
     private const REPO = 'BSData/wh40k-11e';
     private const BRANCH = 'main';
+
+    /**
+     * Factions proposées dans le <select faction> du formulaire => nom du fichier JSON
+     * dans BSData/wh40k-11e. Sert aussi de liste blanche côté serveur.
+     */
+    public const FACTION_FILES = [
+        'Space Marines' => 'Imperium - Space Marines.json',
+        'Blood Angels' => 'Imperium - Blood Angels.json',
+        'Dark Angels' => 'Imperium - Dark Angels.json',
+        'Space Wolves' => 'Imperium - Space Wolves.json',
+        'Grey Knights' => 'Imperium - Grey Knights.json',
+        'Deathwatch' => 'Imperium - Deathwatch.json',
+        'Adeptus Custodes' => 'Imperium - Adeptus Custodes.json',
+        'Sisters of Battle' => 'Imperium - Adepta Sororitas.json',
+        'Astra Militarum' => 'Imperium - Astra Militarum.json',
+        'Adeptus Mechanicus' => 'Imperium - Adeptus Mechanicus.json',
+        'Imperial Knights' => 'Imperium - Imperial Knights.json',
+        'Chaos Space Marines' => 'Chaos - Chaos Space Marines.json',
+        'Death Guard' => 'Chaos - Death Guard.json',
+        'Thousand Sons' => 'Chaos - Thousand Sons.json',
+        'World Eaters' => 'Chaos - World Eaters.json',
+        "Emperor's Children" => "Chaos - Emperor's Children.json",
+        'Chaos Knights' => 'Chaos - Chaos Knights.json',
+        'Daemons' => 'Chaos - Chaos Daemons.json',
+        'Orks' => 'Orks.json',
+        'Eldar' => 'Aeldari - Craftworlds.json',
+        'Drukhari' => 'Aeldari - Drukhari.json',
+        'Tyranids' => 'Tyranids.json',
+        'Genestealer Cults' => 'Genestealer Cults.json',
+        'Tau' => "T'au Empire.json",
+        'Necrons' => 'Necrons.json',
+        'Leagues of Votann' => 'Leagues of Votann.json',
+    ];
 
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -35,6 +69,10 @@ class BsDataFetcher
             ],
         ]);
 
+        if ($response->getStatusCode() !== 200) {
+            return null;
+        }
+
         $data = $response->toArray(false);
 
         return $data[0]['sha'] ?? null;
@@ -53,6 +91,11 @@ class BsDataFetcher
         ), [
             'headers' => ['User-Agent' => 'SprueHub-ArmyBuilder'],
         ]);
+
+        $status = $response->getStatusCode();
+        if ($status !== 200) {
+            throw new \RuntimeException(sprintf('Téléchargement de "%s" impossible (HTTP %d).', $sourceFile, $status));
+        }
 
         return $response->toArray(false);
     }
@@ -162,28 +205,18 @@ class BsDataFetcher
      */
     private const EXCLUDED_LINK_NAMES = ['Crusade', 'Enhancements'];
 
-    /** 
-     * Ordre de priorité pour déterminer la vraie catégorie "type" d'une unité,
-     * car le flag `primary` du JSON peut désigner un rôle tactique (Battleline...)
-     * plutôt que le type physique de l'unité.
+    /**
+     * Catégorie enregistrée d'une unité = mot-clé déterminant selon UnitCategory::KEYWORD_PRIORITY
+     * (liste unique, partagée avec le regroupement des listes d'armée) : le flag `primary` du JSON
+     * peut désigner un rôle tactique plutôt que le type physique de l'unité.
      */
-    private const CATEGORY_PRIORITY = [
-        'Epic Hero',
-        'Character',
-        'Dedicated Transport',
-        'Vehicle',
-        'Infantry',
-        'Mounted',
-    ];
-
     private function pickCategory(array $categoryLinks): ?string
     {
-        $names = array_column($categoryLinks, 'name');
+        $names = array_values(array_filter(array_column($categoryLinks, 'name'), 'is_string'));
 
-        foreach (self::CATEGORY_PRIORITY as $candidate) {
-            if (in_array($candidate, $names, true)) {
-                return $candidate;
-            }
+        $primary = UnitCategory::primaryKeyword($names);
+        if ($primary !== null) {
+            return $primary;
         }
 
         // Repli : première catégorie non liée à la faction, si aucune priorité connue ne matche
@@ -230,7 +263,7 @@ class BsDataFetcher
         array &$roles,
         array &$seenAbilities,
         array &$seenRoleAbilities,
-        array &$visited,
+        array $visited,
         array $entriesById,
         array $groupsById,
         array $profilesById
@@ -330,14 +363,18 @@ class BsDataFetcher
                 continue;
             }
 
+            // $visited est passé par valeur : il ne protège que contre les cycles sur le
+            // chemin courant. Une même cible partagée (ex : arme commune à plusieurs
+            // variantes d'armement) doit pouvoir être visitée depuis plusieurs branches.
             $targetId = $link['targetId'] ?? null;
             if ($targetId && !isset($visited[$targetId])) {
-                $visited[$targetId] = true;
+                $pathVisited = $visited;
+                $pathVisited[$targetId] = true;
 
                 if (($link['type'] ?? null) === 'selectionEntry' && isset($entriesById[$targetId])) {
-                    $this->walkNode($entriesById[$targetId], $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited, $entriesById, $groupsById, $profilesById);
+                    $this->walkNode($entriesById[$targetId], $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $pathVisited, $entriesById, $groupsById, $profilesById);
                 } elseif (($link['type'] ?? null) === 'selectionEntryGroup' && isset($groupsById[$targetId])) {
-                    $this->walkNode($groupsById[$targetId], $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited, $entriesById, $groupsById, $profilesById);
+                    $this->walkNode($groupsById[$targetId], $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $pathVisited, $entriesById, $groupsById, $profilesById);
                 }
             }
 

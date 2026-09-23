@@ -1,0 +1,346 @@
+{#
+    Formulaire de liste d'armée (création et modification), rendu dans le <template> du contrôleur « army-form »
+    et animé par le composant Alpine « armyForm » (assets/controllers/army_form_controller.js).
+    Paramètres : army_list (App\Entity\ArmyList ou null en création), action, submit_label, cancel_url,
+    unit_groups (App\Army\UnitCategory::all() : icônes des en-têtes de groupe).
+    Champs envoyés (inchangés) : _token, name, faction (création), detachment, isPublic, description, units_json.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set is_edit = army_list is not null %}
+
+{# Tableau d'armes rendu par Alpine : `source` = expression JS de la liste d'armes #}
+{% macro weapons_table(source) %}
+    <div class="roster-table-wrap">
+        <table class="roster-table">
+            <thead>
+                <tr>
+                    <th scope="col" class="text-left">Arme</th>
+                    <th scope="col">Portée</th>
+                    <th scope="col"><abbr title="Attaques">A</abbr></th>
+                    <th scope="col"><abbr title="Capacité de tir / de combat">C/T</abbr></th>
+                    <th scope="col"><abbr title="Force">F</abbr></th>
+                    <th scope="col"><abbr title="Pénétration d'armure">PA</abbr></th>
+                    <th scope="col"><abbr title="Dégâts">D</abbr></th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="w in {{ source }}" :key="w.name">
+                    <tr>
+                        <th scope="row" class="text-left" x-text="w.name"></th>
+                        <td x-text="w.Range"></td>
+                        <td x-text="w.A"></td>
+                        <td x-text="w.BS || w.WS"></td>
+                        <td x-text="w.S"></td>
+                        <td x-text="w.AP"></td>
+                        <td x-text="w.D"></td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+{% endmacro %}
+
+{# Icône du groupe Alpine `group` (x-for sur `groups`) : icônes du design system pré-rendues, une seule visible #}
+{% macro group_icon(unit_groups) %}
+    {%- import '_macros/ui.html.twig' as ui -%}
+    <span class="unit-group-icon" aria-hidden="true">
+        {%- for g in unit_groups -%}
+            <template x-if="group.key === '{{ g.key|e('js') }}'">{{ ui.icon(g.icon) }}</template>
+        {%- endfor -%}
+    </span>
+{% endmacro %}
+
+<div x-data="armyForm">
+    <form method="post" action="{{ action }}" class="army-form">
+        <input type="hidden" name="_token" value="{{ csrf_token('army_list') }}">
+
+        {# --- Informations générales --- #}
+        <section class="card mb-6" aria-labelledby="army-info-title">
+            <div class="card-header">
+                <h2 id="army-info-title" class="text-h3 text-fg">Informations</h2>
+            </div>
+            <div class="card-body grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="field">
+                    <label for="army-name" class="label">Nom de la liste</label>
+                    <input type="text" id="army-name" name="name" required class="input" placeholder="Ex. : Croisade de la 3e Compagnie" value="{{ is_edit ? army_list.name : '' }}">
+                </div>
+
+                <div class="field">
+                    {% if is_edit %}
+                        <span class="label" id="army-faction-label">Faction</span>
+                        <p class="input flex items-center gap-2 bg-canvas text-fg-secondary" aria-labelledby="army-faction-label">
+                            {{ ui.icon('lock', 'size-4 text-muted') }}{{ army_list.faction }}
+                            <span class="ml-auto text-caption text-muted">non modifiable</span>
+                        </p>
+                    {% else %}
+                        <label for="army-faction" class="label">Faction</label>
+                        <select id="army-faction" name="faction" x-model="selectedFaction" @change="onFactionChange" required class="select">
+                            <option value="">Choisir une faction…</option>
+                            <optgroup label="Space marines">
+                                <option class="text-success-text" value="Space Marines">Space Marines</option>
+                                <option value="Blood Angels">Blood Angels</option>
+                                <option value="Dark Angels">Dark Angels</option>
+                                <option value="Space Wolves">Space Wolves</option>
+                                <option value="Grey Knights">Grey Knights</option>
+                                <option value="Deathwatch">Deathwatch</option>
+                            </optgroup>
+                            <optgroup label="Imperium">
+                                <option class="text-success-text" value="Adeptus Custodes">Adeptus Custodes</option>
+                                <option value="Sisters of Battle">Sisters of Battle</option>
+                                <option value="Astra Militarum">Astra Militarum</option>
+                                <option value="Adeptus Mechanicus">Adeptus Mechanicus</option>
+                                <option value="Imperial Knights">Imperial Knights</option>
+                            </optgroup>
+                            <optgroup label="Chaos">
+                                <option class="text-success-text" value="Chaos Space Marines">Chaos Space Marines</option>
+                                <option value="Death Guard">Death Guard</option>
+                                <option value="Thousand Sons">Thousand Sons</option>
+                                <option value="World Eaters">World Eaters</option>
+                                <option value="Emperor's Children">Emperor's Children</option>
+                                <option value="Chaos Knights">Chaos Knights</option>
+                                <option value="Daemons">Daemons</option>
+                            </optgroup>
+                            <optgroup label="Xenos">
+                                <option class="text-success-text" value="Orks">Orks</option>
+                                <option value="Eldar">Eldar</option>
+                                <option value="Drukhari">Drukhari</option>
+                                <option class="text-success-text" value="Tyranids">Tyranids</option>
+                                <option value="Genestealer Cults">Genestealer Cults</option>
+                                <option class="text-success-text" value="Tau">Tau</option>
+                                <option class="text-success-text" value="Necrons">Necrons</option>
+                                <option class="text-success-text" value="Leagues of Votann">Leagues of Votann</option>
+                            </optgroup>
+                        </select>
+                        <p class="help">Changer de faction vide la liste d'unités.</p>
+                    {% endif %}
+                </div>
+
+                <div class="field">
+                    <label for="army-detachment" class="label">Détachement</label>
+                    <select id="army-detachment" name="detachment" x-model="selectedDetachment" class="select">
+                        <option value="">Aucun / à définir</option>
+                        <template x-for="det in availableDetachments" :key="det.id">
+                            <option :value="det.nameEn" x-text="det.name"></option>
+                        </template>
+                    </select>
+                    {% if not is_edit %}<p class="help" x-show="!selectedFaction">Choisissez d'abord une faction.</p>{% endif %}
+                </div>
+
+                <div class="field content-end">
+                    <label class="check">
+                        <input type="checkbox" name="isPublic" value="1" class="checkbox" {{ is_edit and army_list.isPublic ? 'checked' : '' }}>
+                        <span>Liste publique <span class="block text-caption text-muted">Affichée sur votre profil, onglet « Armées ».</span></span>
+                    </label>
+                </div>
+
+                <div class="field md:col-span-2">
+                    <label for="army-description" class="label">Description / Lore <span class="label-hint">(facultatif)</span></label>
+                    <textarea id="army-description" name="description" rows="3" class="textarea"
+                              placeholder="Contexte, thème de l'armée, stratégie envisagée…">{{ is_edit ? army_list.description : '' }}</textarea>
+                </div>
+            </div>
+        </section>
+
+        {# --- Catalogue (gauche) / Ma liste (droite) --- #}
+        <div class="army-builder" {% if not is_edit %}x-show="selectedFaction" x-cloak{% endif %}>
+
+            {# Catalogue : unités disponibles, groupées par catégorie, avec filtre #}
+            <section class="card" aria-labelledby="army-catalogue-title"
+                     x-data="{ q: '', match(u) { const s = this.q.trim().toLowerCase(); return !s || u.name.toLowerCase().includes(s); } }">
+                <div class="card-header flex-wrap">
+                    <h2 id="army-catalogue-title" class="text-h3 text-fg">Catalogue d'unités</h2>
+                    <span class="chip tabular-nums" x-text="availableUnits.length + ' unités'"></span>
+                </div>
+                <div class="card-body">
+                    <div class="relative mb-4">
+                        {{ ui.icon('search', 'pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted') }}
+                        <label for="army-unit-search" class="sr-only">Filtrer les unités</label>
+                        <input type="search" id="army-unit-search" x-model="q" class="input pl-9" placeholder="Filtrer les unités…" autocomplete="off" @keydown.enter.prevent>
+                    </div>
+
+                    <template x-if="loadingUnits">
+                        <div class="space-y-2" aria-live="polite">
+                            <span class="sr-only">Chargement des unités…</span>
+                            <div class="skeleton h-12 rounded-control"></div>
+                            <div class="skeleton h-12 rounded-control"></div>
+                            <div class="skeleton h-12 rounded-control"></div>
+                        </div>
+                    </template>
+
+                    <template x-if="!loadingUnits && availableUnits.length === 0">
+                        <p class="text-small text-muted">Aucune unité trouvée pour cette faction (données pas encore synchronisées).</p>
+                    </template>
+
+                    <template x-for="group in groups" :key="group.key">
+                        <div class="mb-5 last:mb-0" x-show="groupedUnits[group.key] && groupedUnits[group.key].some(u => match(u))">
+                            <h3 class="eyebrow mb-2 flex items-center gap-2">
+                                {{ _self.group_icon(unit_groups|default([])) }}
+                                <span x-text="group.plural"></span>
+                            </h3>
+                            <ul class="space-y-1.5">
+                                <template x-for="unit in groupedUnits[group.key]" :key="unit.id">
+                                    <li class="unit-option" x-show="match(unit)">
+                                        <span class="min-w-0 flex-1 truncate text-fg" x-text="unit.name"></span>
+                                        <span class="shrink-0 text-small font-semibold text-accent-text tabular-nums" x-text="unit.points + ' pts'"></span>
+                                        <button type="button" @click="addUnit(unit)" class="btn btn-secondary btn-sm shrink-0" :aria-label="'Ajouter ' + unit.name">
+                                            {{ ui.icon('plus') }}<span class="hidden sm:inline">Ajouter</span>
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                    <p class="text-small text-muted" x-show="q && !loadingUnits && availableUnits.length > 0 && !availableUnits.some(u => match(u))">Aucune unité ne correspond à « <span x-text="q"></span> ».</p>
+                </div>
+            </section>
+
+            {# Ma liste #}
+            <section class="card army-list-panel" aria-labelledby="army-list-title">
+                <div class="card-header">
+                    <h2 id="army-list-title" class="text-h3 text-fg">Ma liste</h2>
+                    <span class="text-h3 font-bold text-accent-text tabular-nums" aria-live="polite"><span x-text="totalPoints"></span> pts</span>
+                </div>
+                <div class="card-body army-list-body">
+                    <template x-if="addedUnits.length === 0">
+                        <div class="empty-state empty-state-compact">
+                            <div class="empty-state-icon" aria-hidden="true">{{ ui.icon('swords') }}</div>
+                            <p class="empty-state-title">Liste vide</p>
+                            <p class="empty-state-text">Ajoutez des unités depuis le catalogue.</p>
+                        </div>
+                    </template>
+
+                    <template x-for="group in groups" :key="group.key">
+                        <section class="mb-5 last:mb-0" x-show="groupedAddedUnits[group.key] && groupedAddedUnits[group.key].length > 0"
+                                 :aria-labelledby="'army-list-group-' + group.key">
+                            <div class="unit-group-head mb-2 border-b border-line pb-1">
+                                {{ _self.group_icon(unit_groups|default([])) }}
+                                <h3 class="unit-group-title" :id="'army-list-group-' + group.key" x-text="group.plural"></h3>
+                                <span class="unit-group-count" x-text="groupCount(group.key) + (groupCount(group.key) > 1 ? ' unités' : ' unité')"></span>
+                                <span class="unit-group-points"><span class="sr-only">Sous-total : </span><span x-text="groupPoints(group.key)"></span> pts</span>
+                            </div>
+                            <ul class="space-y-2">
+                                <template x-for="unit in groupedAddedUnits[group.key]" :key="unit.uid">
+                                    <li class="card-inset px-3 py-2">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" @click="unit.showDetails = !unit.showDetails"
+                                                    class="btn btn-ghost btn-icon btn-sm shrink-0"
+                                                    :aria-expanded="unit.showDetails ? 'true' : 'false'"
+                                                    :aria-label="(unit.showDetails ? 'Masquer' : 'Afficher') + ' la fiche de ' + unit.name">
+                                                <span class="army-chevron" :class="unit.showDetails && 'is-open'">{{ ui.icon('chevron-right', 'size-4') }}</span>
+                                            </button>
+                                            <span class="min-w-32 flex-1 truncate text-fg" x-text="unit.name" :title="unit.name"></span>
+                                            <div class="ml-auto flex items-center gap-2">
+                                            <input type="number" min="1" max="99" x-model.number="unit.quantity"
+                                                   @input="unit.quantity = unit.quantity < 1 ? 1 : (unit.quantity > 99 ? 99 : unit.quantity)"
+                                                   :aria-label="'Quantité : ' + unit.name"
+                                                   class="input army-qty">
+                                            <span class="w-16 shrink-0 text-right text-small font-semibold text-accent-text tabular-nums" x-text="(unit.points * unit.quantity) + ' pts'"></span>
+                                            <button type="button" @click="removeUnit(unit.uid)"
+                                                    class="btn btn-ghost btn-icon btn-sm shrink-0 hover:text-danger-text"
+                                                    :aria-label="'Retirer ' + unit.name">
+                                                {{ ui.icon('x') }}
+                                            </button>
+                                            </div>
+                                        </div>
+
+                                        {# --- Fiche stats / armes / capacités --- #}
+                                        <div x-show="unit.showDetails" x-cloak class="roster-sheet mt-2 border-t border-line pt-3 px-0 pb-1">
+
+                                            <template x-if="unit.statsData && unit.statsData.keywords && unit.statsData.keywords.length">
+                                                <p class="text-caption text-muted">
+                                                    <span class="eyebrow">Mots-clés</span>
+                                                    <span class="block mt-1 text-fg-secondary" x-text="unit.statsData.keywords.join(', ')"></span>
+                                                </p>
+                                            </template>
+
+                                            {# --- STATS --- #}
+                                            <template x-for="model in (unit.statsData?.models || [])" :key="model.name">
+                                                <div>
+                                                    <p class="mb-1.5 text-small font-semibold text-fg" x-text="model.name"></p>
+                                                    <dl class="statline">
+                                                        <div><dt><abbr title="Mouvement">M</abbr></dt><dd x-text="model.stats.M"></dd></div>
+                                                        <div><dt><abbr title="Endurance">E</abbr></dt><dd x-text="model.stats.T"></dd></div>
+                                                        <div><dt><abbr title="Sauvegarde">Sv</abbr></dt><dd x-text="model.stats.Sv"></dd></div>
+                                                        <div><dt><abbr title="Points de vie">PV</abbr></dt><dd x-text="model.stats.W"></dd></div>
+                                                        <div><dt><abbr title="Commandement">Cd</abbr></dt><dd x-text="model.stats.LD"></dd></div>
+                                                        <div><dt><abbr title="Contrôle d'objectif">Co</abbr></dt><dd x-text="model.stats.OC"></dd></div>
+                                                    </dl>
+                                                </div>
+                                            </template>
+
+                                            {# --- ARMES : par modèle si plusieurs, puis rôles --- #}
+                                            <div>
+                                                <p class="eyebrow mb-2">Armes</p>
+                                                <template x-for="model in (unit.statsData?.models || [])" :key="'w-' + model.name">
+                                                    <div>
+                                                        <template x-if="unit.statsData.models.length > 1">
+                                                            <p class="mb-1 text-caption font-semibold text-fg-secondary" x-text="model.name"></p>
+                                                        </template>
+                                                        <template x-if="model.weapons && model.weapons.length">
+                                                            {{ _self.weapons_table('model.weapons') }}
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-for="role in (unit.statsData?.roles || [])" :key="'rw-' + role.name">
+                                                    <div>
+                                                        <p class="mb-1 text-caption font-semibold uppercase text-primary-text" x-text="role.name"></p>
+                                                        <template x-if="role.weapons && role.weapons.length">
+                                                            {{ _self.weapons_table('role.weapons') }}
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+
+                                            {# --- CAPACITÉS : par défaut, puis rôles --- #}
+                                            <template x-if="(unit.statsData?.abilities?.length) || (unit.statsData?.roles?.length)">
+                                                <div>
+                                                    <p class="eyebrow mb-2">Capacités</p>
+                                                    <template x-for="a in (unit.statsData?.abilities || [])" :key="a.name">
+                                                        <p class="mb-1.5 text-small text-fg-secondary">
+                                                            <strong class="text-fg" x-text="a.name"></strong> —
+                                                            <span x-text="a.description"></span>
+                                                        </p>
+                                                    </template>
+                                                    <template x-for="role in (unit.statsData?.roles || [])" :key="'ra-' + role.name">
+                                                        <div>
+                                                            <template x-if="role.abilities && role.abilities.length">
+                                                                <div>
+                                                                    <p class="mt-3 mb-1 text-caption font-semibold uppercase text-primary-text" x-text="role.name"></p>
+                                                                    <template x-for="a in role.abilities" :key="a.name">
+                                                                        <p class="mb-1.5 text-small text-fg-secondary">
+                                                                            <strong class="text-fg" x-text="a.name"></strong> —
+                                                                            <span x-text="a.description"></span>
+                                                                        </p>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </section>
+                    </template>
+                </div>
+            </section>
+        </div>
+
+        <input type="hidden" name="units_json" :value="unitsPayload">
+
+        {# Barre d'actions collante : total toujours visible (mobile et desktop) #}
+        <div class="army-form-bar">
+            <p class="min-w-0 text-small text-fg-secondary">
+                <span class="block text-caption text-muted">Total</span>
+                <strong class="text-h3 text-accent-text tabular-nums"><span x-text="totalPoints"></span> pts</strong>
+                <span class="hidden text-muted sm:inline"> · <span x-text="addedUnits.length"></span> unité(s)</span>
+            </p>
+            <div class="flex shrink-0 items-center gap-2">
+                <a href="{{ cancel_url }}" class="btn btn-ghost">Annuler</a>
+                <button type="submit" class="btn btn-primary">{{ ui.icon(is_edit ? 'check' : 'plus') }}{{ submit_label }}</button>
+            </div>
+        </div>
+    </form>
+</div>

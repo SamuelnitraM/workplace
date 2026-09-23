@@ -1,53 +1,36 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Mes listes d'armées{% endblock %}
 
 {% block body %}
 <div class="max-w-5xl mx-auto">
 
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold text-white">⚔️ Mes listes d'armées</h1>
-        <a href="{{ path('app_army_new') }}"
-           class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition">
-            ✚ Nouvelle liste
-        </a>
-    </div>
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Mes listes d'armée</h1>
+            <p class="page-header-subtitle">Composez vos listes, suivez vos points et partagez les publiques sur votre profil.</p>
+        </div>
+        {% if lists is not empty %}
+            <div class="page-header-actions">
+                <a href="{{ path('app_army_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Nouvelle liste</a>
+            </div>
+        {% endif %}
+    </header>
 
     {% if lists is empty %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-500">
-            Aucune liste d'armée pour le moment.
-            <a href="{{ path('app_army_new') }}" class="text-indigo-400 hover:text-indigo-300 ml-1">
-                Créez-en une !
-            </a>
-        </div>
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'swords',
+            title: 'Aucune liste d\'armée pour le moment',
+            text: 'Choisissez une faction et un détachement, ajoutez vos unités : le total de points se calcule tout seul. Rendez la liste publique pour l\'afficher sur votre profil.',
+            cta: {label: 'Créer ma première liste', url: path('app_army_new'), icon: 'plus'},
+        }) }}
     {% else %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for list in lists %}
-                <a href="{{ path('app_army_show', {id: list.id}) }}"
-                   class="bg-gray-800 rounded-xl border border-gray-700 p-5 hover:border-indigo-500 transition block">
-                    <div class="flex justify-between items-start mb-3">
-                        <h2 class="font-bold text-white text-lg">{{ list.name }}</h2>
-                        <span class="text-xs px-2 py-1 rounded
-                            {{ list.isPublic ? 'bg-green-700 text-green-300' : 'bg-gray-700 text-gray-400' }}">
-                            {{ list.isPublic ? '🌍 Public' : '🔒 Privé' }}
-                        </span>
-                    </div>
-                    <div class="space-y-1">
-                        <p class="text-indigo-400 text-sm font-semibold">{{ list.faction }}</p>
-                        {% if list.detachment %}
-                            <p class="text-gray-400 text-sm">{{ list.detachment }}</p>
-                        {% endif %}
-                        <p class="text-gray-500 text-sm">
-                            {{ list.units|length }} unité(s) —
-                            <span class="text-yellow-400 font-semibold">{{ list.totalPoints }} pts</span>
-                        </p>
-                    </div>
-                    <p class="text-gray-600 text-xs mt-3">
-                        Créée le {{ list.createdAt|date('d/m/Y') }}
-                    </p>
-                </a>
+                <li class="flex">{{ include('army/_card.html.twig', {list: list}) }}</li>
             {% endfor %}
-        </div>
+        </ul>
     {% endif %}
 
 </div>
