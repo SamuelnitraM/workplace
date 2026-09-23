@@ -1,72 +1,143 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}{{ category.name }} — Forum{% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
-
-    <div class="flex justify-between items-center mb-8">
-        <div>
-            <a href="{{ path('app_forum_index') }}" class="text-gray-400 hover:text-white text-sm transition">
-                ← Retour au forum
-            </a>
-            <h1 class="text-3xl font-bold text-white mt-1">{{ category.name }}</h1>
-        </div>
-        {% if app.user %}
-            <a href="{{ path('app_thread_new', {slug: category.slug}) }}"
-               class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition">
-                ✏️ Nouveau sujet
-            </a>
+<header class="page-header">
+    <div class="min-w-0">
+        {{ include('forum/_breadcrumb.html.twig', {category: category}) }}
+        <h1 class="page-header-title">{{ category.name }}</h1>
+        {% if category.description %}
+            <p class="page-header-subtitle">{{ category.description }}</p>
         {% endif %}
     </div>
+    {% if app.user and category.allowThreads %}
+        <div class="page-header-actions">
+            <a href="{{ path('app_thread_new', {slug: category.slug}) }}" class="btn btn-primary">
+                {{- ui.icon('plus') }}Nouveau sujet
+            </a>
+        </div>
+    {% endif %}
+</header>
 
-    {% if threads is empty %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-400">
-            Aucun sujet dans cette catégorie.
-            {% if app.user %}
-                <a href="{{ path('app_thread_new', {slug: category.slug}) }}"
-                   class="text-indigo-400 hover:text-indigo-300 ml-1">Soyez le premier !</a>
+<div class="space-y-8">
+    {% if category.grouping %}
+        {# Catégorie de regroupement : ses sous-catégories en liste, à la place des sujets #}
+        <section aria-labelledby="subcategories-title">
+            <h2 id="subcategories-title" class="section-title">{{ ui.icon('folder') }}Sous-catégories</h2>
+            {% if category.children|length > 0 %}
+                <div class="card overflow-hidden">
+                    {{ include('forum/_category_list.html.twig', {children: category.children}) }}
+                </div>
+            {% else %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'folder',
+                    title: 'Aucune sous-catégorie pour le moment',
+                    compact: true,
+                    heading: 3,
+                }) }}
             {% endif %}
-        </div>
-    {% else %}
-        <div class="space-y-3">
-            {% for thread in threads.items %}
-                <a href="{{ path('app_thread_show', {slug: thread.slug}) }}" class="block bg-gray-800 rounded-xl border {{ thread.isPinned ? 'border-yellow-600' : 'border-gray-700' }} p-5 hover:border-indigo-500 transition">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-start gap-3">
-                            <div class="flex flex-col gap-1 mt-1">
-                                {% if thread.isPinned %}
-                                    <span class="text-yellow-400 text-xs">📌 Épinglé</span>
-                                {% endif %}
-                                {% if thread.isLocked %}
-                                    <span class="text-red-400 text-xs">🔒 Fermé</span>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <div class="text-lg font-semibold text-white hover:text-indigo-400 transition">
-                                    {{ thread.title }}
-                                </div>
-                                <div class="text-sm text-gray-500 mt-1">
-                                    Par <span class="text-gray-400">{{ thread.author.username }}</span>
-                                    le {{ thread.createdAt|date('d/m/Y à H:i') }}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-right text-sm text-gray-500 shrink-0 ml-4">
-                            <div>{{ thread.posts|length }} réponse(s)</div>
-                            <div>{{ thread.views }} vue(s)</div>
-                        </div>
-                    </div>
-                </a>
-            {% endfor %}
-        </div>
-
-        {# Pagination #}
-        <div class="mt-6 flex justify-center">
-            {{ knp_pagination_render(threads) }}
-        </div>
-
+        </section>
+    {% elseif category.children|length > 0 %}
+        <section aria-labelledby="subcategories-title">
+            <h2 id="subcategories-title" class="eyebrow mb-3">Sous-catégories</h2>
+            {{ include('forum/_subcategories.html.twig', {children: category.children}) }}
+        </section>
     {% endif %}
 
+    {% if threads is null %}
+        {# Regroupement sans sujet hérité : rien de plus à afficher #}
+    {% elseif threads is empty %}
+        {% if not category.allowThreads %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'folder',
+                title: 'Aucun sujet dans cette catégorie',
+                text: category.children|length > 0
+                    ? 'Les discussions se passent dans les sous-catégories ci-dessus.'
+                    : 'La création de sujets n\'est pas ouverte dans cette catégorie.',
+                cta: {label: 'Retour au forum', url: path('app_forum_index'), icon: 'arrow-left'},
+            }) }}
+        {% elseif app.user %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'message-square',
+                title: 'Aucun sujet pour l\'instant',
+                text: 'Lancez la discussion : une question, un schéma de peinture, une liste à faire relire…',
+                hint: app.user.threads is empty ? 'Votre premier sujet débloque le badge Pionnier I (+50 XP).' : null,
+                cta: {label: 'Créer le premier sujet', url: path('app_thread_new', {slug: category.slug}), icon: 'pencil'},
+            }) }}
+        {% else %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'message-square',
+                title: 'Aucun sujet pour l\'instant',
+                text: 'Inscrivez-vous pour lancer la première discussion de cette catégorie.',
+                hint: 'Votre premier sujet débloque le badge Pionnier I (+50 XP).',
+                cta: {label: 'Créer mon compte', url: path('app_register')},
+                secondary: {label: 'J\'ai déjà un compte', url: path('app_login')},
+            }) }}
+        {% endif %}
+    {% else %}
+        <section aria-labelledby="threads-title">
+            {% if category.grouping %}
+                {# Sujets créés avant la désactivation : toujours consultables #}
+                <h2 id="threads-title" class="section-title">{{ ui.icon('message-square') }}Sujets existants</h2>
+                <div class="alert alert-info mb-4">
+                    {{ ui.icon('info') }}
+                    <p>La création de nouveaux sujets est désactivée dans cette catégorie ; les sujets ci-dessous restent consultables.</p>
+                </div>
+            {% else %}
+                <div class="mb-3 flex items-baseline justify-between gap-4">
+                    <h2 id="threads-title" class="section-title mb-0">{{ ui.icon('message-square') }}Sujets</h2>
+                    <p class="text-caption text-muted tabular-nums">{{ threads.getTotalItemCount }} sujet{{ threads.getTotalItemCount > 1 ? 's' }}</p>
+                </div>
+            {% endif %}
+
+            <ul role="list" class="card overflow-hidden">
+                {% for thread in threads.items %}
+                    {% set replies = max(thread.posts|length - 1, 0) %}
+                    {% set activity = thread.updatedAt ?? thread.createdAt %}
+                    <li class="list-row list-row-interactive relative items-start {{ thread.isPinned ? 'shadow-[inset_3px_0_0_var(--color-accent)]' }}">
+                        {{ ui.avatar(thread.author, 'md', 'mt-0.5') }}
+                        <div class="list-row-main">
+                            {% if thread.isPinned or thread.isLocked %}
+                                <p class="mb-1 flex flex-wrap gap-1.5">
+                                    {% if thread.isPinned %}<span class="chip chip-accent">{{ ui.icon('pin') }}Épinglé</span>{% endif %}
+                                    {% if thread.isLocked %}<span class="chip">{{ ui.icon('lock') }}Fermé</span>{% endif %}
+                                </p>
+                            {% endif %}
+                            <h3 class="font-semibold text-fg leading-snug break-words">
+                                <a href="{{ path('app_thread_show', {slug: thread.slug}) }}"
+                                   class="rounded-sm hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ thread.title }}</a>
+                            </h3>
+                            <p class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption text-muted">
+                                <span>par <span class="font-medium text-fg-secondary">{{ thread.author.username }}</span></span>
+                                {{ include('gamification/_user_title.html.twig', {user: thread.author}) }}
+                                <span aria-hidden="true">·</span>
+                                <time datetime="{{ thread.createdAt|date('c') }}" title="{{ thread.createdAt|date('d/m/Y à H:i') }}">{{ thread.createdAt|time_ago }}</time>
+                            </p>
+                            {# Statistiques compactes (mobile) #}
+                            <p class="mt-1.5 flex flex-wrap items-center gap-x-3 text-caption text-muted sm:hidden">
+                                <span class="inline-flex items-center gap-1">{{ ui.icon('message-circle', 'size-3.5') }}{{ replies }} réponse{{ replies > 1 ? 's' }}</span>
+                                <span class="inline-flex items-center gap-1">{{ ui.icon('eye', 'size-3.5') }}{{ thread.views }} vue{{ thread.views > 1 ? 's' }}</span>
+                            </p>
+                        </div>
+                        <div class="hidden sm:flex w-40 shrink-0 flex-col items-end gap-1 text-right">
+                            <p class="flex items-center gap-3 text-small text-fg-secondary tabular-nums">
+                                <span class="inline-flex items-center gap-1" title="Réponses">{{ ui.icon('message-circle', 'size-4 text-muted') }}{{ replies }}<span class="sr-only"> réponse{{ replies > 1 ? 's' }}</span></span>
+                                <span class="inline-flex items-center gap-1" title="Vues">{{ ui.icon('eye', 'size-4 text-muted') }}{{ thread.views }}<span class="sr-only"> vue{{ thread.views > 1 ? 's' }}</span></span>
+                            </p>
+                            {% if replies > 0 %}
+                                <p class="text-caption text-muted">Activité <time datetime="{{ activity|date('c') }}" title="{{ activity|date('d/m/Y à H:i') }}">{{ activity|time_ago }}</time></p>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+
+            <div class="mt-6">
+                {{ knp_pagination_render(threads, 'forum/_pagination.html.twig') }}
+            </div>
+        </section>
+    {% endif %}
 </div>
 {% endblock %}

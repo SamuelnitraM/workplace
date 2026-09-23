@@ -1,0 +1,23 @@
+{# Fil d'Ariane du forum : Forum › Parent › … › Catégorie
+   Paramètres : category (Category), link_last (bool, défaut false) #}
+{% import '_macros/ui.html.twig' as ui %}
+{% set link_last = link_last ?? false %}
+<nav aria-label="Fil d'Ariane" class="mb-2 text-small text-muted">
+    <ol class="flex flex-wrap items-center gap-x-1 gap-y-1">
+        <li>
+            <a href="{{ path('app_forum_index') }}" class="inline-flex items-center gap-1.5 rounded-sm hover:text-fg hover:underline underline-offset-4">
+                {{- ui.icon('messages-square', 'size-4') -}}Forum
+            </a>
+        </li>
+        {% for crumb in category.breadcrumb %}
+            <li aria-hidden="true" class="text-muted">{{ ui.icon('chevron-right', 'size-4') }}</li>
+            <li class="min-w-0">
+                {% if loop.last and not link_last %}
+                    <span class="text-fg-secondary font-medium" aria-current="page">{{ crumb.name }}</span>
+                {% else %}
+                    <a href="{{ path('app_forum_category', {slug: crumb.slug}) }}" class="rounded-sm hover:text-fg hover:underline underline-offset-4">{{ crumb.name }}</a>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ol>
+</nav>

@@ -28,7 +28,7 @@ class ThreadFormType extends AbstractType
                 'label' => 'Contenu',
                 'mapped' => false,
                 'attr' => [
-                    'placeholder' => 'Rédigez votre message...',
+                    'placeholder' => 'Rédigez le contenu de votre sujet...',
                     'rows' => 8
                 ],
                 'constraints' => [

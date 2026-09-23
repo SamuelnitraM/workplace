@@ -1,44 +1,79 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Forum — SprueHub{% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
+<header class="page-header">
+    <div>
+        <h1 class="page-header-title">Forum</h1>
+        <p class="page-header-subtitle">Techniques de peinture, listes d'armée, rapports de bataille : posez vos questions et partagez votre expérience.</p>
+    </div>
+</header>
 
-    <h1 class="text-3xl font-bold text-white mb-8">💬 Forum</h1>
-
-    {% if categories is empty %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center text-gray-400">
-            Aucune catégorie pour le moment.
-        </div>
-    {% else %}
-        <div class="space-y-4">
-            {% for category in categories %}
-                <a href="{{ path('app_forum_category', {slug: category.slug}) }}"
-                class="block bg-gray-800 rounded-xl border border-gray-700 p-6 hover:border-indigo-500 transition">
-
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <div class="text-xl font-bold text-indigo-400 hover:text-indigo-300 transition">
-                                {{ category.name }}
-                            </div>
-
-                            {% if category.description %}
-                                <p class="text-gray-400 text-sm mt-1">
-                                    {{ category.description }}
-                                </p>
-                            {% endif %}
-                        </div>
-
-                        <div class="text-right text-sm text-gray-500">
-                            <div>{{ category.threads|length }} sujet(s)</div>
-                        </div>
-                    </div>
-
-                </a>
-            {% endfor %}
-        </div>
+{% if categories is empty %}
+    {{ include('_partials/_empty_state.html.twig', {
+        icon: 'messages-square',
+        title: 'Le forum se prépare',
+        text: 'Aucune catégorie n\'est encore ouverte. En attendant, retrouvez les autres passionnés dans les groupes.',
+        cta: app.user
+            ? {label: 'Découvrir les groupes', url: path('app_group_index'), icon: 'users'}
+            : {label: 'Créer mon compte', url: path('app_register')},
+        secondary: app.user ? null : {label: 'J\'ai déjà un compte', url: path('app_login')},
+    }) }}
+{% else %}
+    {# Regroupe les racines : chaque catégorie de regroupement forme une section ;
+       les racines ordinaires consécutives partagent une même liste. #}
+    {% set blocks = [] %}
+    {% set run = [] %}
+    {% for category in categories %}
+        {% if category.grouping %}
+            {% if run is not empty %}
+                {% set blocks = blocks|merge([{grouping: null, items: run}]) %}
+                {% set run = [] %}
+            {% endif %}
+            {% set blocks = blocks|merge([{grouping: category, items: category.children}]) %}
+        {% else %}
+            {% set run = run|merge([category]) %}
+        {% endif %}
+    {% endfor %}
+    {% if run is not empty %}
+        {% set blocks = blocks|merge([{grouping: null, items: run}]) %}
     {% endif %}
 
-</div>
+    <div class="space-y-8">
+        {% for block in blocks %}
+            {% if block.grouping %}
+                {% set group = block.grouping %}
+                {% set group_total = threadTotals[group.id] ?? 0 %}
+                <section aria-labelledby="forum-section-{{ group.id }}">
+                    <div class="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                        <div class="min-w-0">
+                            <h2 id="forum-section-{{ group.id }}" class="section-title mb-0">
+                                <a href="{{ path('app_forum_category', {slug: group.slug}) }}" class="rounded-sm hover:text-primary-text">{{ group.name }}</a>
+                            </h2>
+                            {% if group.description %}
+                                <p class="mt-0.5 text-small text-fg-secondary">{{ group.description }}</p>
+                            {% endif %}
+                        </div>
+                        <p class="text-caption text-muted tabular-nums">{{ group_total }} sujet{{ group_total > 1 ? 's' }}</p>
+                    </div>
+                    <div class="card overflow-hidden">
+                        {% if block.items|length > 0 %}
+                            {{ include('forum/_category_list.html.twig', {children: block.items, icon: 'folder'}) }}
+                        {% else %}
+                            <p class="px-4 py-5 text-small text-muted">Aucune sous-catégorie pour le moment.</p>
+                        {% endif %}
+                    </div>
+                </section>
+            {% else %}
+                <section aria-label="Catégories">
+                    <div class="card overflow-hidden">
+                        {{ include('forum/_category_list.html.twig', {children: block.items, icon: 'messages-square', heading: 2}) }}
+                    </div>
+                </section>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endif %}
 {% endblock %}

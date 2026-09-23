@@ -1,0 +1,36 @@
+{# Pagination KnpPaginator au style du design system (.pagination / .page-link).
+   Usage : {{ knp_pagination_render(items, 'forum/_pagination.html.twig') }} #}
+{% import '_macros/ui.html.twig' as ui %}
+{% if pageCount > 1 %}
+    <nav class="pagination" aria-label="Pagination">
+        {% if previous is defined %}
+            <a class="page-link" rel="prev" href="{{ path(route, knp_pagination_query(query, previous, options)) }}" aria-label="Page précédente">{{ ui.icon('chevron-left') }}</a>
+        {% else %}
+            <span class="page-link opacity-40" aria-hidden="true">{{ ui.icon('chevron-left') }}</span>
+        {% endif %}
+
+        {% if startPage > 1 %}
+            <a class="page-link" href="{{ path(route, knp_pagination_query(query, 1, options)) }}" aria-label="Page 1">1</a>
+            {% if startPage > 2 %}<span class="page-gap" aria-hidden="true">…</span>{% endif %}
+        {% endif %}
+
+        {% for page in pagesInRange %}
+            {% if page != current %}
+                <a class="page-link" href="{{ path(route, knp_pagination_query(query, page, options)) }}" aria-label="Page {{ page }}">{{ page }}</a>
+            {% else %}
+                <span class="page-link" aria-current="page" aria-label="Page {{ page }}, page actuelle">{{ page }}</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if pageCount > endPage %}
+            {% if pageCount > endPage + 1 %}<span class="page-gap" aria-hidden="true">…</span>{% endif %}
+            <a class="page-link" href="{{ path(route, knp_pagination_query(query, pageCount, options)) }}" aria-label="Page {{ pageCount }}">{{ pageCount }}</a>
+        {% endif %}
+
+        {% if next is defined %}
+            <a class="page-link" rel="next" href="{{ path(route, knp_pagination_query(query, next, options)) }}" aria-label="Page suivante">{{ ui.icon('chevron-right') }}</a>
+        {% else %}
+            <span class="page-link opacity-40" aria-hidden="true">{{ ui.icon('chevron-right') }}</span>
+        {% endif %}
+    </nav>
+{% endif %}

@@ -30,7 +30,7 @@ class PostCrudController extends AbstractCrudController
             });
         yield TextareaField::new('content', 'Contenu')
             ->hideOnIndex();
-        yield BooleanField::new('isFirst', 'Premier post')
+        yield BooleanField::new('isFirst', 'Message d\'origine')
             ->hideOnForm();
         yield DateTimeField::new('createdAt', 'Créé le')
             ->hideOnForm();

@@ -1,0 +1,57 @@
+{# Liste de catégories en lignes (à placer dans une .card).
+   Paramètres : children (Category[]), threadTotals (sujets, sous-catégories incluses),
+                lastActivities (id => date de dernière activité, sous-catégories incluses ; tableau vide = inconnu),
+                icon (facultatif, défaut 'folder'), heading (niveau du titre de ligne, défaut 3) #}
+{% import '_macros/ui.html.twig' as ui %}
+{% set row_icon = icon ?? 'folder' %}
+{% set row_heading = heading ?? 3 %}
+{% set activities = lastActivities ?? [] %}
+<ul role="list">
+    {% for child in children %}
+        {% set total = threadTotals[child.id] ?? 0 %}
+        {% set last = activities[child.id] ?? null %}
+        <li class="list-row list-row-interactive relative items-start">
+            <span class="icon-tile mt-0.5" aria-hidden="true">{{ ui.icon(row_icon) }}</span>
+            <div class="list-row-main">
+                <h{{ row_heading }} class="font-semibold text-fg leading-snug">
+                    {# Lien étiré : toute la ligne est cliquable (les sous-catégories restent au-dessus) #}
+                    <a href="{{ path('app_forum_category', {slug: child.slug}) }}"
+                       class="rounded-sm hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ child.name }}</a>
+                </h{{ row_heading }}>
+                {% if child.description %}
+                    <p class="mt-0.5 text-small text-fg-secondary line-clamp-2">{{ child.description }}</p>
+                {% endif %}
+                {% if child.children|length > 0 %}
+                    <ul class="relative mt-2 flex flex-wrap gap-1.5" aria-label="Sous-catégories de {{ child.name }}">
+                        {% for grandChild in child.children %}
+                            <li>
+                                <a href="{{ path('app_forum_category', {slug: grandChild.slug}) }}" class="chip">
+                                    {{- ui.icon('folder') }}{{ grandChild.name -}}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                {# Statistiques compactes (mobile) #}
+                <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted sm:hidden">
+                    <span class="inline-flex items-center gap-1">{{ ui.icon('message-square', 'size-3.5') }}{{ total }} sujet{{ total > 1 ? 's' }}</span>
+                    {% if last %}
+                        <span class="inline-flex items-center gap-1">{{ ui.icon('clock', 'size-3.5') }}<time datetime="{{ last|date('c') }}" title="{{ last|date('d/m/Y à H:i') }}">{{ last|time_ago }}</time></span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="hidden sm:block w-36 shrink-0 text-right">
+                <p class="text-small text-fg tabular-nums">
+                    <span class="font-semibold">{{ total }}</span> <span class="text-muted">sujet{{ total > 1 ? 's' }}</span>
+                </p>
+                {% if last %}
+                    <p class="text-caption text-muted">
+                        Activité <time datetime="{{ last|date('c') }}" title="{{ last|date('d/m/Y à H:i') }}">{{ last|time_ago }}</time>
+                    </p>
+                {% elseif activities is not empty %}
+                    <p class="text-caption text-muted">Aucune activité</p>
+                {% endif %}
+            </div>
+        </li>
+    {% endfor %}
+</ul>

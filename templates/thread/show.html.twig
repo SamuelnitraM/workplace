@@ -1,114 +1,173 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}{{ thread.title }}{% endblock %}
 
 {% block body %}
-<div class="max-w-4xl mx-auto">
+{% set can_reply = app.user and not thread.isLocked and form %}
+{% set total_posts = posts.getTotalItemCount %}
+{% set reply_count = max(total_posts - 1, 0) %}
+<div class="container-reading">
 
-    <div class="mb-6">
-        <a href="{{ path('app_forum_category', {slug: thread.category.slug}) }}"
-           class="text-gray-400 hover:text-white text-sm transition">
-            ← Retour à {{ thread.category.name }}
-        </a>
-        <h1 class="text-3xl font-bold text-white mt-1">{{ thread.title }}</h1>
-        <div class="text-sm text-gray-500 mt-1">
-            Par <span class="text-gray-400">{{ thread.author.username }}</span>
-            le {{ thread.createdAt|date('d/m/Y à H:i') }}
-            — {{ thread.views }} vue(s)
-            {% if app.user %}
-                <form method="post" action="{{ path('app_gamification_activity', {key: 'share'}) }}" class="inline-block ml-2">
-                    <input type="hidden" name="_token" value="{{ csrf_token('gamification_share') }}">
-                    <button type="submit" class="text-indigo-400 hover:text-indigo-300">↗ Partager</button>
-                </form>
+    <header class="page-header block">
+        <div class="min-w-0">
+            {{ include('forum/_breadcrumb.html.twig', {category: thread.category, link_last: true}) }}
+            {% if thread.isPinned or thread.isLocked %}
+                <p class="mb-2 flex flex-wrap gap-1.5">
+                    {% if thread.isPinned %}<span class="chip chip-accent">{{ ui.icon('pin') }}Épinglé</span>{% endif %}
+                    {% if thread.isLocked %}<span class="chip">{{ ui.icon('lock') }}Fermé</span>{% endif %}
+                </p>
             {% endif %}
+            <h1 class="page-header-title break-words">{{ thread.title }}</h1>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-small text-muted">
+                    <a href="{{ path('app_profil_show', {username: thread.author.username}) }}" class="inline-flex items-center gap-2 rounded-pill hover:text-fg">
+                        {{- ui.avatar(thread.author, 'xs') -}}
+                        <span class="font-medium text-fg-secondary">{{ thread.author.username }}</span>
+                    </a>
+                    {{ include('gamification/_user_title.html.twig', {user: thread.author}) }}
+                    <span aria-hidden="true">·</span>
+                    <time datetime="{{ thread.createdAt|date('c') }}" title="{{ thread.createdAt|date('d/m/Y à H:i') }}">{{ thread.createdAt|time_ago }}</time>
+                    <span aria-hidden="true">·</span>
+                    <span class="inline-flex items-center gap-1">{{ ui.icon('eye', 'size-4') }}{{ thread.views }} vue{{ thread.views > 1 ? 's' }}</span>
+                    <span aria-hidden="true">·</span>
+                    <span class="inline-flex items-center gap-1">{{ ui.icon('message-circle', 'size-4') }}{{ reply_count }} réponse{{ reply_count > 1 ? 's' }}</span>
+                </div>
+                {% if app.user %}
+                    <div class="page-header-actions">
+                        <form method="post" action="{{ path('app_gamification_activity', {key: 'share'}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('gamification_share') }}">
+                            <button type="submit" class="btn btn-ghost btn-sm">{{ ui.icon('external-link') }}Partager</button>
+                        </form>
+                        {% if can_reply %}
+                            <a href="#reply" class="btn btn-primary btn-sm">{{ ui.icon('message-circle') }}Répondre</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
         </div>
-    </div>
+    </header>
 
     {% if thread.isLocked %}
-        <div class="bg-red-900/30 border border-red-700 rounded-xl p-4 mb-6 text-red-400">
-            🔒 Ce sujet est fermé, il n'est plus possible de répondre.
+        <div class="alert alert-warning mb-6" role="status">
+            {{ ui.icon('lock') }}
+            <p>Ce sujet est fermé : il n'est plus possible d'y répondre ni de voter.</p>
         </div>
     {% endif %}
 
-    {# POSTS #}
+    {# MESSAGES #}
     <div class="space-y-4 mb-8">
         {% for post in posts.items %}
-            <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 flex gap-5">
+            {% set is_op = post.author.id == thread.author.id %}
+            <article id="post-{{ post.id }}" class="card forum-post {{ post.isFirst ? 'forum-post-first' }}" aria-label="Message de {{ post.author.username }}">
+                <header class="flex items-start gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
+                    <a href="{{ path('app_profil_show', {username: post.author.username}) }}" class="shrink-0 rounded-pill" tabindex="-1" aria-hidden="true">
+                        {{- ui.avatar(post.author, 'md') -}}
+                    </a>
+                    <div class="min-w-0 flex-1">
+                        <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <a href="{{ path('app_profil_show', {username: post.author.username}) }}" class="font-semibold text-fg rounded-sm hover:text-primary-text">{{ post.author.username }}</a>
+                            {{ include('gamification/_user_title.html.twig', {user: post.author}) }}
+                            {% if post.isFirst %}
+                                <span class="chip chip-primary">{{ ui.icon('sparkles') }}Message original</span>
+                            {% elseif is_op %}
+                                <span class="chip" title="Auteur du sujet">Auteur</span>
+                            {% endif %}
+                        </p>
+                        <p class="mt-0.5 text-caption text-muted">
+                            Niv. {{ post.author.level }}
+                            <span aria-hidden="true">·</span>
+                            <time datetime="{{ post.createdAt|date('c') }}" title="{{ post.createdAt|date('d/m/Y à H:i') }}">{{ post.createdAt|time_ago }}</time>
+                        </p>
+                    </div>
+                    <a href="#post-{{ post.id }}" class="btn btn-ghost btn-icon btn-sm shrink-0 text-muted" aria-label="Lien vers ce message" title="Lien vers ce message">#</a>
+                </header>
 
-                {# AVATAR AUTEUR #}
-                <a class="shrink-0 group" href="{{ path('app_profil_show', {username: post.author.username}) }}" >
-                    <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-lg group-hover:ring-2 group-hover:ring-indigo-400 transition">
-                        {% if post.author.avatar %}
-                            <img src="{{ asset('uploads/avatars/' ~ post.author.avatar) }}"
-                                 alt="Avatar"
-                                 class="w-12 h-12 rounded-full object-cover">
-                        {% else %}
-                            {{ post.author.username|first|upper }}
-                        {% endif %}
-                    </div>
-                    <div class="text-center text-xs text-gray-500 mt-1 group-hover:text-white transition mt-1">
-                        {{ post.author.username }}
-                    </div>
-                </a>
-
-                {# CONTENU #}
-                <div class="flex-1">
-                    <div class="text-sm text-gray-500 mb-2">
-                        {{ post.createdAt|date('d/m/Y à H:i') }}
-                        {% if post.isFirst %}
-                            <span class="ml-2 text-indigo-400 text-xs">✦ Message original</span>
-                        {% endif %}
-                    </div>
-                    <div class="text-gray-200 leading-relaxed">
-                        {{ post.content|nl2br }}
-                    </div>
-
-                    {% if app.user and app.user.id != post.author.id %}
-                        <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-700">
-                            <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'positive'}) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_positive') }}">
-                                <button type="submit" class="px-3 py-1.5 rounded-lg border {{ post.hasVoteFrom(app.user, 'positive') ? 'border-green-500 bg-green-500/20 text-green-300' : 'border-gray-600 text-gray-300 hover:border-green-500 hover:text-green-300' }} transition">
-                                    👍 Positif <span class="ml-1">{{ post.getVoteCount('positive') }}</span>
-                                </button>
-                            </form>
-                            <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'helpful'}) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_helpful') }}">
-                                <button type="submit" class="px-3 py-1.5 rounded-lg border {{ post.hasVoteFrom(app.user, 'helpful') ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300' : 'border-gray-600 text-gray-300 hover:border-indigo-500 hover:text-indigo-300' }} transition">
-                                    ♥ Aide <span class="ml-1">{{ post.getVoteCount('helpful') }}</span>
-                                </button>
-                            </form>
-                        </div>
-                    {% elseif not app.user %}
-                        <div class="text-xs text-gray-500 mt-4">Connectez-vous pour voter.</div>
-                    {% endif %}
+                <div class="post-content px-4 py-4 sm:px-5 sm:pl-[4.5rem]">
+                    {{ post.content|nl2br }}
                 </div>
 
-            </div>
-            {# Pagination #}
-        <div class="mt-4 mb-8 flex justify-center">
-            {{ knp_pagination_render(posts) }}
-        </div>
+                {% set positive = post.getVoteCount('positive') %}
+                {% set helpful = post.getVoteCount('helpful') %}
+                <footer class="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3 sm:px-5 sm:pl-[4.5rem]">
+                    {% if app.user and app.user.id != post.author.id and not thread.isLocked %}
+                        {% set voted_positive = post.hasVoteFrom(app.user, 'positive') %}
+                        {% set voted_helpful = post.hasVoteFrom(app.user, 'helpful') %}
+                        <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'positive'}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_positive') }}">
+                            <input type="hidden" name="page" value="{{ posts.currentPageNumber }}">
+                            <button type="submit" class="btn btn-sm btn-toggle" aria-pressed="{{ voted_positive ? 'true' : 'false' }}"
+                                    title="{{ voted_positive ? 'Retirer mon vote « Positif »' : 'Voter « Positif »' }}">
+                                {{- ui.icon('thumbs-up') }}Positif<span class="btn-toggle-count">{{ positive }}</span>
+                            </button>
+                        </form>
+                        <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'helpful'}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_helpful') }}">
+                            <input type="hidden" name="page" value="{{ posts.currentPageNumber }}">
+                            <button type="submit" class="btn btn-sm btn-toggle" aria-pressed="{{ voted_helpful ? 'true' : 'false' }}"
+                                    title="{{ voted_helpful ? 'Retirer mon vote « Aide »' : 'Voter « Aide » : cette réponse m\'a aidé' }}">
+                                {{- ui.icon('heart') }}Aide<span class="btn-toggle-count">{{ helpful }}</span>
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="chip">{{ ui.icon('thumbs-up') }}<span class="sr-only">Votes positifs :</span>{{ positive }}</span>
+                        <span class="chip">{{ ui.icon('heart') }}<span class="sr-only">Votes « aide » :</span>{{ helpful }}</span>
+                        {% if not app.user and loop.first %}
+                            <a href="{{ path('app_login') }}" class="btn btn-link btn-sm ml-auto">Connectez-vous pour voter</a>
+                        {% endif %}
+                    {% endif %}
+                </footer>
+            </article>
         {% endfor %}
     </div>
 
+    <div class="mb-8">
+        {{ knp_pagination_render(posts, 'forum/_pagination.html.twig') }}
+    </div>
+
+    {# Aucune réponse : appel à répondre #}
+    {% if can_reply and total_posts <= 1 %}
+        <div class="mb-6">
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'message-circle',
+                title: 'Aucune réponse pour l\'instant',
+                text: app.user.id == thread.author.id
+                    ? 'Votre sujet attend ses premières réponses. Vous pouvez compléter votre propos ci-dessous.'
+                    : 'Partagez votre avis ou votre expérience : soyez le premier à répondre.',
+                cta: {label: 'Écrire une réponse', for: form.content.vars.id, icon: 'pencil'},
+                compact: true,
+            }) }}
+        </div>
+    {% endif %}
+
     {# FORMULAIRE DE RÉPONSE #}
-    {% if app.user and not thread.isLocked %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">💬 Votre réponse</h2>
+    {% if can_reply %}
+        <section id="reply" class="card forum-post" aria-labelledby="reply-title">
+            <div class="card-header">
+                <h2 id="reply-title" class="flex items-center gap-2 text-h3">{{ ui.icon('message-circle', 'size-5 text-muted') }}Votre réponse</h2>
+            </div>
             {{ form_start(form) }}
-                {{ form_widget(form.content, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500'}}) }}
-                {{ form_errors(form.content) }}
-                <button type="submit"
-                        class="mt-4 bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
-                    Envoyer la réponse
-                </button>
+                <div class="card-body">
+                    {{ form_errors(form) }}
+                    <label for="{{ form.content.vars.id }}" class="sr-only">Votre réponse</label>
+                    {{ form_widget(form.content) }}
+                    {{ form_errors(form.content) }}
+                    <p class="help mt-2">Restez courtois et constructif. Les sauts de ligne sont conservés.</p>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">{{ ui.icon('send') }}Envoyer la réponse</button>
+                </div>
             {{ form_end(form) }}
-        </div>
+        </section>
     {% elseif not app.user %}
-        <div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-400">
-            <a href="{{ path('app_login') }}" class="text-indigo-400 hover:text-indigo-300">Connectez-vous</a>
-            pour répondre à ce sujet.
-        </div>
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'message-circle',
+            title: total_posts <= 1 ? 'Soyez le premier à répondre' : 'Envie de participer ?',
+            text: 'Connectez-vous ou créez un compte pour répondre à ce sujet.',
+            cta: {label: 'Créer mon compte', url: path('app_register')},
+            secondary: {label: 'Se connecter', url: path('app_login')},
+            compact: true,
+        }) }}
     {% endif %}
 
 </div>

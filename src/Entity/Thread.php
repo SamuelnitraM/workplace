@@ -47,7 +47,7 @@ class Thread
     /**
      * @var Collection<int, Post>
      */
-    #[ORM\OneToMany(targetEntity: Post::class, mappedBy: 'thread', orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: Post::class, mappedBy: 'thread', orphanRemoval: true, fetch: 'EXTRA_LAZY')]
     private Collection $posts;
 
     public function __construct()
