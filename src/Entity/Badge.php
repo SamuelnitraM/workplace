@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Gamification\BadgeCatalog;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -55,4 +56,8 @@ class Badge
 	public function setHidden(bool $hidden): static { $this->hidden = $hidden; return $this; }
 	public function getXpReward(): int { return $this->xpReward; }
 	public function setXpReward(int $xpReward): static { $this->xpReward = max(0, $xpReward); return $this; }
+	/** Palier (bronze, silver, gold, premium : classes CSS badge-tier-*), calculé depuis la récompense XP. */
+	public function getTier(): string { return BadgeCatalog::tierFor($this->xpReward); }
+	/** Palier d'affichage (Bronze, Argent, Or, Premium), calculé depuis la récompense XP. */
+	public function getTierLabel(): string { return BadgeCatalog::tierLabel(BadgeCatalog::tierFor($this->xpReward)); }
 }

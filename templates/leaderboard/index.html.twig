@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Classement général — SprueHub{% endblock %}
+
+{# Icône (jeu SVG) de chaque critère de LeaderboardService::SORTS #}
+{% set sortIcons = {niveau: 'star', semaine: 'calendar', mois: 'calendar', badges: 'medal', serie: 'flame', sujets: 'file-text', votes: 'thumbs-up'} %}
+
+{% macro metric(sort, value) %}
+    {%- set n = value|number_format(0, ',', ' ') -%}
+    {%- if sort == 'niveau' -%}{{ n }} XP
+    {%- elseif sort == 'semaine' or sort == 'mois' -%}+{{ n }} XP
+    {%- elseif sort == 'badges' -%}{{ n }} badge{{ value > 1 ? 's' }}
+    {%- elseif sort == 'serie' -%}{{ n }} jour{{ value > 1 ? 's' }}
+    {%- elseif sort == 'sujets' -%}{{ n }} sujet{{ value > 1 ? 's' }}
+    {%- else -%}{{ n }} vote{{ value > 1 ? 's' }}
+    {%- endif -%}
+{% endmacro %}
+
+{# Pastille de rang : or / argent / bronze pour le podium, numéro ensuite #}
+{% macro rank(rank, size) %}
+    {%- set tones = {1: 'bg-accent text-accent-fg', 2: 'bg-slate-300 text-slate-900', 3: 'bg-amber-700 text-white'} -%}
+    {%- if rank <= 3 -%}
+        <span class="flex {{ size|default('size-8') }} shrink-0 items-center justify-center rounded-pill text-small font-bold {{ tones[rank] }}" aria-label="{{ rank == 1 ? '1re' : rank ~ 'e' }} place">{{ rank }}</span>
+    {%- else -%}
+        <span class="w-8 shrink-0 text-center text-small font-semibold tabular-nums text-muted"><span class="sr-only">Rang </span>{{ rank }}</span>
+    {%- endif -%}
+{% endmacro %}
+
+{% macro level(u) %}
+    <div class="w-24 sm:w-28">
+        <div class="text-caption font-semibold {{ u.maxLevel ? 'text-accent-text' : 'text-primary-text' }}">Niv. {{ u.level }}</div>
+        <div class="progress progress-sm mt-1 {{ u.maxLevel ? 'progress-accent' : '' }}" role="progressbar" aria-valuenow="{{ u.experienceProgress }}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="{{ u.maxLevel ? 'Niveau maximum atteint' : 'Progression vers le niveau ' ~ (u.level + 1) }}"
+             title="{{ u.experience|number_format(0, ',', ' ') }} XP{{ u.maxLevel ? ' — niveau maximum' : ' / ' ~ u.nextLevelExperience|number_format(0, ',', ' ') ~ ' XP' }}">
+            <div class="progress-bar" style="width: {{ u.experienceProgress }}%"></div>
+        </div>
+    </div>
+{% endmacro %}
+
+{% block body %}
+{% import _self as lb %}
+{% set sort = board.sort %}
+{% set viewerId = app.user ? app.user.id : null %}
+{% set showPodium = board.page == 1 and board.rows|length > 0 %}
+{% set metricIcon = sort == 'serie' ? 'flame' : (sort == 'badges' ? 'medal' : null) %}
+
+<div class="mx-auto max-w-4xl">
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Classement général</h1>
+            <p class="page-header-subtitle">Les membres les plus actifs de la communauté (top {{ maxRanked }}).</p>
+        </div>
+    </header>
+
+    {# Critères : liens (URL partageable ?tri=…) #}
+    <nav aria-label="Critère de classement" class="mb-3">
+        <ul class="tabs tabs-pills w-fit max-w-full flex-wrap">
+            {% for key, s in sorts %}
+                <li class="shrink-0">
+                    <a href="{{ path('app_leaderboard', key == 'niveau' ? {} : {tri: key}) }}"
+                       class="tab"{% if key == sort %} aria-current="page"{% endif %}>
+                        {{ ui.icon(sortIcons[key] ?? 'trophy') }}{{ s.label }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </nav>
+    <p class="mb-6 text-small text-muted">{{ current.description }}</p>
+
+    {% if streakStatus %}
+        <div class="alert {{ streakStatus.atRisk ? 'alert-warning' : 'alert-info' }} mb-6">
+            {{ ui.icon(streakStatus.atRisk ? 'alert-triangle' : 'flame') }}
+            <div>
+                {% if streakStatus.streak > 0 %}
+                    <p>
+                        Votre série : <strong class="font-semibold text-fg">{{ streakStatus.streak }} jour{{ streakStatus.streak > 1 ? 's' }}</strong>
+                        — prochain bonus de {{ streakStatus.bonusXp }} XP dans {{ streakStatus.nextBonusIn }} jour{{ streakStatus.nextBonusIn > 1 ? 's' }} de connexion.
+                    </p>
+                    {% if streakStatus.atRisk %}
+                        <p class="mt-1">Protection de série en cours : {{ streakStatus.missedDays }} jour{{ streakStatus.missedDays > 1 ? 's' }} d'absence.</p>
+                    {% endif %}
+                {% else %}
+                    <p>Vous n'avez pas de série en cours. Connectez-vous chaque jour pour en démarrer une (jusqu'à 3 jours d'absence tolérés).</p>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if board.rows is empty %}
+        {% if not app.user %}
+            {% set emptyCta = {label: 'Créer mon compte', url: path('app_register'), icon: 'user-plus'} %}
+            {% set emptyText = 'Inscrivez-vous et soyez le premier à y figurer.' %}
+        {% elseif sort == 'sujets' %}
+            {% set emptyCta = {label: 'Publier un sujet', url: path('app_forum_index'), icon: 'pencil'} %}
+            {% set emptyText = 'Aucun sujet n\'a encore été publié : ouvrez le bal sur le forum.' %}
+        {% elseif sort == 'votes' %}
+            {% set emptyCta = {label: 'Répondre sur le forum', url: path('app_forum_index'), icon: 'message-circle'} %}
+            {% set emptyText = 'Aucune réponse n\'a encore reçu de vote : partagez vos conseils sur le forum.' %}
+        {% elseif sort == 'serie' %}
+            {% set emptyCta = null %}
+            {% set emptyText = 'Aucune série de connexions en cours : revenez demain pour démarrer la vôtre.' %}
+        {% else %}
+            {% set emptyCta = {label: 'Participer au forum', url: path('app_forum_index'), icon: 'message-circle'} %}
+            {% set emptyText = 'Participez à la vie du site pour gagner de l\'XP et des badges.' %}
+        {% endif %}
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: sortIcons[sort] ?? 'trophy',
+            title: 'Personne n\'apparaît encore dans ce classement',
+            text: emptyText,
+            hint: sort == 'sujets' and (not app.user or app.user.threads is empty) ? 'Votre premier sujet débloque le badge Pionnier I (+50 XP).' : null,
+            cta: emptyCta,
+            secondary: app.user ? null : {label: 'Se connecter', url: path('app_login')},
+        }, with_context = false) }}
+    {% else %}
+        {# Podium (écrans moyens et plus) : 2e, 1er, 3e #}
+        {% if showPodium %}
+            {% set podiumStyles = {
+                1: {order: 'order-2', pad: 'pt-7 pb-6', tint: 'border-accent/60 from-accent-soft', text: 'text-accent-text', avatar: 'xl'},
+                2: {order: 'order-1', pad: 'pt-6 pb-5 mt-6', tint: 'border-slate-400/50 from-slate-400/10', text: 'text-fg', avatar: 'lg'},
+                3: {order: 'order-3', pad: 'pt-6 pb-5 mt-10', tint: 'border-amber-700/60 from-amber-700/15', text: 'text-fg', avatar: 'lg'},
+            } %}
+            <ol class="mb-6 hidden grid-cols-3 items-start gap-4 sm:grid" aria-label="Podium">
+                {% for row in board.rows|slice(0, 3) %}
+                    {% set st = podiumStyles[row.rank] %}
+                    {% set u = row.user %}
+                    <li class="{{ st.order }} {{ st.pad }} {{ st.tint }} relative flex flex-col items-center gap-2 rounded-card border bg-gradient-to-b to-surface px-3 text-center shadow-raised {{ u.id == viewerId ? 'outline-2 outline-offset-2 outline-primary-text' : '' }}">
+                        {% if row.rank == 1 %}<span class="text-accent-text">{{ ui.icon('crown', 'size-6') }}</span>{% endif %}
+                        <span class="relative">
+                            {{ ui.avatar(u, st.avatar) }}
+                            <span class="absolute -bottom-1 left-1/2 -translate-x-1/2">{{ lb.rank(row.rank, 'size-7') }}</span>
+                        </span>
+                        <a href="{{ path('app_profil_show', {username: u.username}) }}" class="mt-2 break-all font-semibold text-fg hover:text-primary-text">{{ u.username }}</a>
+                        {% if u.titleBadge is defined %}{% include 'gamification/_user_title.html.twig' ignore missing with {user: u} %}{% endif %}
+                        {{ lb.level(u) }}
+                        <span class="inline-flex items-center gap-1 font-bold {{ st.text }}">{% if metricIcon %}{{ ui.icon(metricIcon, 'size-4') }}{% endif %}{{ lb.metric(sort, row.metric) }}</span>
+                    </li>
+                {% endfor %}
+            </ol>
+        {% endif %}
+
+        <ol class="card overflow-hidden {{ showPodium and board.rows|length <= 3 ? 'sm:hidden' : '' }}">
+            {% for row in board.rows %}
+                {% set u = row.user %}
+                {% set mine = u.id == viewerId %}
+                <li class="list-row gap-3 {{ mine ? 'bg-primary-soft' : '' }} {{ showPodium and row.rank <= 3 ? 'sm:hidden' : '' }}"
+                    {% if mine %}id="ma-position"{% endif %}>
+                    {{ lb.rank(row.rank) }}
+                    {{ ui.avatar(u, 'md') }}
+                    <div class="list-row-main">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <a href="{{ path('app_profil_show', {username: u.username}) }}" class="max-w-full truncate font-semibold text-fg hover:text-primary-text">{{ u.username }}</a>
+                            {% if mine %}<span class="chip chip-primary">Vous</span>{% endif %}
+                            {% if u.titleBadge is defined %}{% include 'gamification/_user_title.html.twig' ignore missing with {user: u} %}{% endif %}
+                        </div>
+                        <div class="mt-1">{{ lb.level(u) }}</div>
+                    </div>
+                    <span class="inline-flex shrink-0 items-center gap-1 text-right text-small font-semibold tabular-nums sm:text-body {{ sort == 'serie' ? 'text-accent-text' : 'text-primary-text' }}">
+                        {% if metricIcon %}{{ ui.icon(metricIcon, 'size-4') }}{% endif %}{{ lb.metric(sort, row.metric) }}
+                    </span>
+                </li>
+            {% endfor %}
+        </ol>
+
+        {% if board.pages > 1 %}
+            <nav aria-label="Pagination" class="mt-6 flex flex-wrap items-center justify-center gap-1">
+                {% set base = sort == 'niveau' ? {} : {tri: sort} %}
+                {% if board.page > 1 %}
+                    <a href="{{ path('app_leaderboard', base|merge(board.page - 1 > 1 ? {page: board.page - 1} : {})) }}" class="btn btn-ghost btn-sm">{{ ui.icon('chevron-left') }}Précédent</a>
+                {% endif %}
+                {% for p in 1..board.pages %}
+                    <a href="{{ path('app_leaderboard', base|merge(p > 1 ? {page: p} : {})) }}"
+                       {% if p == board.page %}aria-current="page"{% endif %}
+                       class="btn btn-sm min-w-9 {{ p == board.page ? 'btn-secondary border-primary-text text-fg' : 'btn-ghost' }}">{{ p }}</a>
+                {% endfor %}
+                {% if board.page < board.pages %}
+                    <a href="{{ path('app_leaderboard', base|merge({page: board.page + 1})) }}" class="btn btn-ghost btn-sm">Suivant{{ ui.icon('chevron-right') }}</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+
+    {# Position du membre connecté, toujours visible si elle n'est pas sur la page affichée #}
+    {% if app.user and not (board.me and board.me.onPage) %}
+        <div class="sticky bottom-[calc(var(--bottom-bar-h)+env(safe-area-inset-bottom)+0.75rem)] z-(--z-sticky) mt-6 md:bottom-4">
+            <div class="flex items-center gap-3 rounded-card border border-primary-text/50 bg-overlay/95 px-4 py-3 shadow-overlay backdrop-blur">
+                {{ ui.avatar(app.user, 'sm') }}
+                {% if board.me %}
+                    <span class="font-semibold text-fg">Votre position : <span class="text-primary-text">#{{ board.me.rank }}</span></span>
+                    <span class="flex-1"></span>
+                    <span class="inline-flex shrink-0 items-center gap-1 text-small font-semibold text-primary-text">{% if metricIcon %}{{ ui.icon(metricIcon, 'size-4') }}{% endif %}{{ lb.metric(sort, board.me.metric) }}</span>
+                {% else %}
+                    <span class="text-small text-fg-secondary">Vous n'apparaissez pas encore dans ce classement.</span>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

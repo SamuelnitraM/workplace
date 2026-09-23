@@ -1,0 +1,14 @@
+{#
+    Titre d'un membre : badge débloqué choisi comme titre (User.titleBadge), pastille aux couleurs du palier.
+    Ne rend rien si le membre n'a pas de titre.
+    Paramètres : user (App\Entity\User, requis) ; size (optionnel) : 'sm' (défaut) ou 'md'.
+    Pensez à charger la relation (leftJoin … titleBadge + addSelect) dans les listes d'auteurs (pas de N+1).
+    Ex. : {{ include('gamification/_user_title.html.twig', {user: post.author}) }}
+#}
+{% set title_badge = user is defined and user ? user.titleBadge : null %}
+{% if title_badge %}
+    <span class="user-title badge-tier-{{ title_badge.tier }}{% if (size ?? 'sm') == 'md' %} user-title-md{% endif %}" title="Titre : {{ title_badge.name }} (badge {{ title_badge.tierLabel }})">
+        <span class="user-title-icon" aria-hidden="true">{{ title_badge.icon }}</span>
+        <span class="user-title-name">{{ title_badge.name }}</span>
+    </span>
+{% endif %}

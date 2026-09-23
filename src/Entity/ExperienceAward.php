@@ -6,6 +6,8 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\UniqueConstraint(name: 'UNIQ_EXPERIENCE_AWARD_KEY', columns: ['user_id', 'action_key'])]
+// Classement « XP de la semaine / du mois » : index couvrant (plage de dates → somme par membre)
+#[ORM\Index(name: 'IDX_EXPERIENCE_AWARD_CREATED', columns: ['created_at', 'user_id', 'amount'])]
 class ExperienceAward
 {
     #[ORM\Id]
