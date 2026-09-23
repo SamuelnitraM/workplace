@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Historique d'XP — {{ user.username }}{% endblock %}
+
+{% block body %}
+<div class="container-reading">
+    <header class="page-header">
+        <div>
+            <p class="page-header-eyebrow">
+                <a href="{{ path('app_profil_show', {username: user.username, _fragment: 'badges'}) }}" class="link">Profil</a>{{ ui.icon('chevron-right', 'size-4') }}Badges
+            </p>
+            <h1 class="page-header-title">Historique d'XP</h1>
+            <p class="page-header-subtitle inline-flex items-center gap-1.5">{{ ui.icon('lock', 'size-4') }}Visible par vous uniquement.</p>
+        </div>
+        <div class="text-right">
+            <p class="text-h2 font-bold text-accent-text tabular-nums">{{ history.total }} XP</p>
+            <p class="text-caption text-muted">{{ history.count }} gain{{ history.count > 1 ? 's' }}</p>
+        </div>
+    </header>
+
+    <div class="card">
+        {{ include('profil/_xp_history_rows.html.twig', {rows: history.rows}) }}
+    </div>
+
+    {% if history.pages > 1 %}
+        <nav class="mt-4 flex items-center justify-between gap-2 text-small" aria-label="Pagination de l'historique">
+            {% if history.page > 1 %}
+                <a href="{{ path('app_profil_xp_history', {username: user.username, page: history.page - 1}) }}" class="btn btn-secondary btn-sm">{{ ui.icon('chevron-left') }}Plus récents</a>
+            {% else %}<span></span>{% endif %}
+            <span class="text-muted">Page {{ history.page }} / {{ history.pages }}</span>
+            {% if history.page < history.pages %}
+                <a href="{{ path('app_profil_xp_history', {username: user.username, page: history.page + 1}) }}" class="btn btn-secondary btn-sm">Plus anciens{{ ui.icon('chevron-right') }}</a>
+            {% else %}<span></span>{% endif %}
+        </nav>
+    {% endif %}
+</div>
+{% endblock %}

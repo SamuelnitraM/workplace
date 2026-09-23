@@ -4,15 +4,22 @@ namespace App\Entity;
 
 use App\Repository\GalleryPhotoRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: GalleryPhotoRepository::class)]
 class GalleryPhoto
 {
+    public const DESCRIPTION_MAX_LENGTH = 500;
+
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
     private ?string $filename = null;
+
+    #[ORM\Column(length: self::DESCRIPTION_MAX_LENGTH, nullable: true)]
+    #[Assert\Length(max: self::DESCRIPTION_MAX_LENGTH)]
+    private ?string $description = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
@@ -32,6 +39,13 @@ class GalleryPhoto
     public function getId(): ?int { return $this->id; }
     public function getFilename(): ?string { return $this->filename; }
     public function setFilename(string $filename): static { $this->filename = $filename; return $this; }
+    public function getDescription(): ?string { return $this->description; }
+    public function setDescription(?string $description): static
+    {
+        $description = $description === null ? null : trim(str_replace("\r\n", "\n", $description));
+        $this->description = $description === '' ? null : $description;
+        return $this;
+    }
     public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
     public function isVisible(): bool { return $this->isVisible; }
     public function setIsVisible(bool $isVisible): static { $this->isVisible = $isVisible; return $this; }

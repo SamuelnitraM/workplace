@@ -1,453 +1,556 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
 {% block title %}Profil — {{ user.username }}{% endblock %}
 
 {% block body %}
-<style>
-    @keyframes badge-violet-border {
-        0%, 100% { border-color: #7e22ce; box-shadow: 0 0 8px rgba(126, 34, 206, .45); }
-        50% { border-color: #d946ef; box-shadow: 0 0 16px rgba(217, 70, 239, .75); }
-    }
-    .badge-hidden-unlocked { border-width: 2px; animation: badge-violet-border 2.4s ease-in-out infinite; }
-</style>
-<div class="max-w-5xl mx-auto">
+{% set photo_count = galleryPhotos|length %}
+{% set gallery_full = photo_count >= 10 %}
+<div class="profile max-w-5xl mx-auto" data-controller="tabs">
 
-    {# CARTE PROFIL #}
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-8 mb-6">
-        <div class="flex items-center gap-6">
+    {# ================= EN-TÊTE DU PROFIL ================= #}
+    <header class="card profile-hero">
+        <div class="profile-cover" aria-hidden="true"></div>
 
-            {# AVATAR #}
-            <div class="w-24 h-24 rounded-full bg-indigo-600 flex items-center justify-center text-4xl font-bold shrink-0">
-                {% if user.avatar %}
-                    <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" 
-                         alt="Avatar" class="w-24 h-24 rounded-full object-cover">
-                {% else %}
-                    {{ user.username|first|upper }}
+        <div class="profile-hero-body">
+            <div class="profile-hero-top">
+                {{ ui.avatar(user, 'xl', 'avatar-ring profile-avatar') }}
+
+                {# ---- Actions ---- #}
+                <div class="profile-actions">
+                    {% if isOwner %}
+                        <a href="{{ path('app_profil_edit') }}" class="btn btn-primary">{{ ui.icon('pencil') }}Modifier le profil</a>
+                        <a href="{{ path('app_group_invitation_list') }}" class="btn btn-secondary">
+                            {{ ui.icon('mail') }}Invitations
+                            {% if pendingInvitationsCount > 0 %}
+                                <span class="count-badge">{{ pendingInvitationsCount }}<span class="sr-only"> en attente</span></span>
+                            {% endif %}
+                        </a>
+                        <a href="{{ path('app_army_index') }}" class="btn btn-ghost">{{ ui.icon('swords') }}Mes listes d'armée</a>
+
+                    {% elseif app.user %}
+                        {% if friendship is null %}
+                            <form method="post" action="{{ path('app_friendship_request', {username: user.username}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                <button type="submit" class="btn btn-primary">{{ ui.icon('user-plus') }}Ajouter en ami</button>
+                            </form>
+                        {% elseif friendship.status == 'pending' and friendship.requester == app.user %}
+                            <span class="profile-status chip chip-info">{{ ui.icon('clock') }}Demande envoyée</span>
+                        {% elseif friendship.status == 'pending' and friendship.receiver == app.user %}
+                            <form method="post" action="{{ path('app_friendship_accept', {id: friendship.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                <button type="submit" class="btn btn-primary">{{ ui.icon('user-check') }}Accepter la demande</button>
+                            </form>
+                            <form method="post" action="{{ path('app_friendship_refuse', {id: friendship.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                <button type="submit" class="btn btn-ghost text-danger-text">{{ ui.icon('x') }}Refuser</button>
+                            </form>
+                        {% elseif friendship.status == 'accepted' %}
+                            <div x-data="{ open: false }" class="dropdown" @keydown.escape="open = false">
+                                <button type="button" class="btn btn-secondary" @click="open = !open" :aria-expanded="open.toString()" aria-expanded="false" aria-haspopup="true">
+                                    {{ ui.icon('user-check', 'size-5 text-success-text') }}Amis{{ ui.icon('chevron-down') }}
+                                </button>
+                                <div class="menu menu-start" x-show="open" x-cloak @click.outside="open = false" x-transition.opacity>
+                                    <form method="post" action="{{ path('app_friendship_remove', {username: user.username}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                        <button type="submit" class="menu-item menu-item-danger w-full">{{ ui.icon('x') }}Retirer l’ami</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% elseif friendship.status == 'blocked' and friendship.receiver == app.user %}
+                            <form method="post" action="{{ path('app_friendship_unblock', {username: user.username}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                <button type="submit" class="btn btn-secondary">{{ ui.icon('lock') }}Débloquer</button>
+                            </form>
+                        {% elseif friendship.status == 'blocked' and friendship.requester == app.user %}
+                            <span class="profile-status chip">{{ ui.icon('x-circle') }}Demande refusée</span>
+                        {% endif %}
+
+                        <a href="{{ path('app_message_show', {username: user.username}) }}"
+                           class="btn {{ friendship is not null and friendship.status == 'accepted' ? 'btn-primary' : 'btn-secondary' }}">
+                            {{ ui.icon('message-circle') }}Message
+                        </a>
+
+                        {% if myGroups is defined and myGroups is not empty %}
+                            <div x-data="{ open: false }" class="dropdown" @keydown.escape="open = false">
+                                <button type="button" class="btn btn-ghost" @click="open = !open" :aria-expanded="open.toString()" aria-expanded="false" aria-haspopup="true">
+                                    {{ ui.icon('users') }}Inviter{{ ui.icon('chevron-down') }}
+                                </button>
+                                <div class="menu profile-invite-menu" x-show="open" x-cloak @click.outside="open = false" x-transition.opacity>
+                                    <p class="menu-label eyebrow">Inviter dans un groupe</p>
+                                    {% for group in myGroups %}
+                                        <form method="post" action="{{ path('app_group_invitation_send', {username: user.username}) }}">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('group_invite') }}">
+                                            <input type="hidden" name="group_id" value="{{ group.id }}">
+                                            <button type="submit" class="menu-item w-full">
+                                                {{ ui.icon(group.isPublic ? 'globe' : 'lock') }}
+                                                <span class="min-w-0 flex-1 truncate text-left">{{ group.name }}</span>
+                                                <span class="text-caption text-muted">{{ group.isPublic ? 'Public' : 'Privé' }}</span>
+                                            </button>
+                                        </form>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ---- Identité ---- #}
+            <div class="profile-identity mt-3">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <h1 class="text-h1 font-bold text-fg break-all">{{ user.username }}</h1>
+                    {{ include('gamification/_user_title.html.twig', {user: user, size: 'md'}) }}
+                    {% if 'ROLE_ADMIN' in user.roles %}
+                        <span class="chip chip-danger">{{ ui.icon('shield') }}Admin</span>
+                    {% elseif 'ROLE_MODERATOR' in user.roles %}
+                        <span class="chip chip-success">{{ ui.icon('shield-check') }}Modérateur</span>
+                    {% endif %}
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-small text-muted">
+                    {% if user.favoriteFaction %}
+                        <span class="chip chip-primary">{{ ui.icon('swords') }}{{ user.favoriteFaction }}</span>
+                    {% endif %}
+                    <span class="inline-flex items-center gap-1.5">{{ ui.icon('calendar', 'size-4') }}Membre depuis le {{ user.createdAt|date('d/m/Y') }}</span>
+                </div>
+                {% if user.bio %}
+                    <p class="mt-3 max-w-reading text-fg-secondary whitespace-pre-line break-words">{{ user.bio }}</p>
                 {% endif %}
             </div>
 
-            {# INFOS #}
-            <div class="flex flex-col">
-                <div class="flex items-center gap-3">
-                    <h1 class="text-2xl font-bold text-white">{{ user.username }}</h1>
-                    {% if 'ROLE_ADMIN' in user.roles %}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-600 text-white border border-red-500 shadow-sm shadow-red-900/20">Admin</span>
-                    {% elseif 'ROLE_MODERATOR' in user.roles %}
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white border border-emerald-500 shadow-sm shadow-emerald-900/20">Modérateur</span>
-                    {% endif %}
-                </div>
-                {% if user.favoriteFaction %}
-                    <p class="text-indigo-400">⚔️ {{ user.favoriteFaction }}</p>
-                {% endif %}
-                <p class="text-gray-500 text-sm mt-1">
-                    Membre depuis le {{ user.createdAt|date('d/m/Y') }}
-                </p>
-                {% if user.bio %}
-                    <p class="text-gray-300 mt-3">{{ user.bio }}</p>
-                {% endif %}
-
-                {# COMPTEUR D'AMIS #}
-                <div class="flex gap-4 mt-3">
-                    {% if isOwner %}
-                        <a href="{{ path('app_friendship_list') }}"
-                        class="text-sm hover:text-indigo-400 transition">
-                    {% else %}
-                        <span class="text-sm cursor-default">
-                    {% endif %}
-                        <span class="font-bold text-white">
-                            {{ user.friendshipAsRequester|filter(f => f.status == 'accepted')|length
-                            + user.friendshipAsReceiver|filter(f => f.status == 'accepted')|length }}
-                        </span>
-                        <span class="text-gray-400">ami(s)</span>
-                    {% if isOwner %}
-                        </a>
-                    {% else %}
-                        </span>
-                    {% endif %}
-                    <span class="text-gray-400 text-sm">
-                        <span class="font-bold text-white">{{ user.threads|length }}</span>
-                        sujets
-                    </span>
-                    <span class="text-gray-400 text-sm">
-                        <span class="font-bold text-white">{{ user.posts|length }}</span>
-                        messages
-                    </span>
-                </div>
-
-                <div class="mt-5 w-full max-w-md">
-                    <div class="flex items-center justify-between text-sm mb-2">
-                        <span class="font-semibold text-indigo-300">Niveau {{ user.level }}</span>
-                        <span class="text-gray-400">{{ user.experience }} XP</span>
+            {# ---- Statistiques + niveau ---- #}
+            <div class="profile-hero-footer">
+                <dl class="profile-stats">
+                    <div class="profile-stat">
+                        <dt>Amis</dt>
+                        {% if isOwner %}
+                            <dd><a href="{{ path('app_friendship_list') }}" class="profile-stat-link">{{ friends|length }}<span class="sr-only"> — voir mes amis</span></a></dd>
+                        {% else %}
+                            <dd>{{ friends|length }}</dd>
+                        {% endif %}
                     </div>
-                    <div class="h-3 rounded-full bg-gray-700 overflow-hidden" role="progressbar" aria-valuenow="{{ user.experienceProgress }}" aria-valuemin="0" aria-valuemax="100" aria-label="Progression d'expérience">
-                        <div class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all" style="width: {{ user.experienceProgress }}%"></div>
+                    <div class="profile-stat"><dt>Sujets</dt><dd>{{ user.threads|length }}</dd></div>
+                    <div class="profile-stat"><dt>Messages</dt><dd>{{ user.posts|length }}</dd></div>
+                </dl>
+
+                <div class="profile-level">
+                    <div class="flex items-center justify-between gap-3 text-small">
+                        <span class="inline-flex items-center gap-1.5 font-semibold text-accent-text">{{ ui.icon('star', 'size-4') }}Niveau {{ user.level }}</span>
+                        <span class="text-muted tabular-nums">{% if user.maxLevel %}{{ user.experience }} XP{% else %}{{ user.experience }} / {{ user.nextLevelExperience }} XP{% endif %}</span>
+                    </div>
+                    <div class="progress progress-accent mt-2" role="progressbar" aria-valuenow="{{ user.experienceProgress }}" aria-valuemin="0" aria-valuemax="100" aria-label="Progression d'expérience">
+                        <div class="progress-bar" style="width: {{ user.experienceProgress }}%"></div>
                     </div>
                     {% if user.level < 50 %}
-                        <p class="text-xs text-gray-500 mt-1">{{ user.experienceProgress }}% vers le niveau {{ user.level + 1 }}</p>
+                        <p class="mt-1.5 text-caption text-muted">{{ user.experienceProgress }} % vers le niveau {{ user.level + 1 }}</p>
                     {% else %}
-                        <p class="text-xs text-yellow-400 mt-1">Niveau maximum atteint</p>
+                        <p class="mt-1.5 text-caption text-accent-text">Niveau maximum atteint</p>
                     {% endif %}
                 </div>
             </div>
         </div>
+    </header>
 
-{# BOUTON MODIFIER #}
-<div class="mt-6 flex gap-3 flex-wrap">
-    {% if isOwner %}
-
-        <a href="{{ path('app_profil_edit') }}" class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
-            ✏️ Modifier mon profil
-        </a>
-
-        <a href="{{ path('app_group_invitation_list') }}" class="relative inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
-            📬 Invitations
-            {% if pendingInvitationsCount > 0 %}
-                <span class="w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
-                    {{ pendingInvitationsCount }}
-                </span>
-            {% endif %}
-        </a>
-
-        <a href="{{ path('app_army_index') }}" class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
-                ⚔️ Mes listes d'armées
-        </a>
-
-    {# BOUTONS POUR LES AUTRES PROFILS #}
-    {% elseif app.user %}
-        {% if friendship is null %}
-            <form method="post" action="{{ path('app_friendship_request', {username: user.username}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                <button type="submit"
-                        class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
-                    ➕ Ajouter en ami
-                </button>
-            </form>
-        {% elseif friendship.status == 'pending' and friendship.requester == app.user %}
-            <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
-                ⏳ Demande envoyée
-            </span>
-        {% elseif friendship.status == 'pending' and friendship.receiver == app.user %}
-            <form method="post" action="{{ path('app_friendship_accept', {id: friendship.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                <button type="submit"
-                        class="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm">
-                    ✅ Accepter la demande
-                </button>
-            </form>
-            <form method="post" action="{{ path('app_friendship_refuse', {id: friendship.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                <button type="submit"
-                        class="bg-red-600 hover:bg-red-700 px-5 py-2 rounded-lg transition text-sm">
-                    ❌ Refuser
-                </button>
-            </form>
-        {% elseif friendship.status == 'accepted' %}
-        <div x-data="{ open: false }" class="relative inline-block">
-
-            {# BOUTON PRINCIPAL #}
-            <button
-                @click="open = !open"
-                class="bg-green-900/30 border border-green-700 px-5 py-2 rounded-lg text-sm text-green-400 hover:bg-green-900/50 transition flex items-center gap-2"
-            >
-                ✅ Amis
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 9l-7 7-7-7" />
-                </svg>
+    {# ================= ONGLETS ================= #}
+    <div class="profile-tabs-bar">
+        <div id="profile-tabs" class="tabs profile-tabs" role="tablist" aria-label="Sections du profil">
+            <button type="button" role="tab" id="tab-gallery" aria-controls="panel-gallery" aria-selected="true" data-tab="gallery" data-tabs-target="tab" data-action="tabs#select" class="tab">
+                {{ ui.icon('camera') }}Galerie<span class="tab-count">{{ isOwner ? photo_count ~ '/10' : photo_count }}</span>
             </button>
-
-            {# DROPDOWN #}
-            <div
-                x-show="open"
-                @click.outside="open = false"
-                x-transition
-                class="absolute left-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50 p-2"
-            >
-                <form method="post" action="{{ path('app_friendship_remove', {username: user.username}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-
-                    <button type="submit"
-                            class="w-full text-left px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-600/20 hover:text-red-300 transition">
-                        ❌ Retirer l’ami
-                    </button>
-                </form>
-            </div>
-
-        </div>
-        {% elseif friendship.status == 'blocked' and friendship.receiver == app.user %}
-            <form method="post" action="{{ path('app_friendship_unblock', {username: user.username}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                <button type="submit"
-                        class="bg-gray-600 hover:bg-green-700 px-5 py-2 rounded-lg transition text-sm text-gray-300 hover:text-white">
-                    🔓 Débloquer
+            <button type="button" role="tab" id="tab-armies" aria-controls="panel-armies" aria-selected="false" data-tab="armies" data-tabs-target="tab" data-action="tabs#select" class="tab">
+                {{ ui.icon('swords') }}Armées<span class="sr-only"> publiques</span><span class="tab-count">{{ publicArmyLists|length }}</span>
+            </button>
+            <button type="button" role="tab" id="tab-badges" aria-controls="panel-badges" aria-selected="false" data-tab="badges" data-tabs-target="tab" data-action="tabs#select" class="tab">
+                {{ ui.icon('medal') }}Badges<span class="tab-count">{{ profileBadges.unlocked }}/{{ profileBadges.total }}</span>
+            </button>
+            {% if user.showActivity %}
+                <button type="button" role="tab" id="tab-activity" aria-controls="panel-activity" aria-selected="false" data-tab="activity" data-tabs-target="tab" data-action="tabs#select" class="tab">
+                    {{ ui.icon('clock') }}Activité<span class="sr-only"> récente</span>
                 </button>
-            </form>
-        {% elseif friendship.status == 'blocked' and friendship.requester == app.user %}
-            <span class="bg-gray-600 px-5 py-2 rounded-lg text-sm text-gray-400">
-                ❌ Refusé
-            </span>
-        {% endif %}
-
-        <a href="{{ path('app_message_show', {username: user.username}) }}"
-           class="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg transition text-sm">
-            ✉️ Envoyer un message
-        </a>
-
-        {% if myGroups is defined and myGroups is not empty %}
-            <div x-data="{ open: false }" class="relative">
-                <button @click="open = !open"
-                        class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
-                    👥 Inviter dans un groupe
-                </button>
-                <div x-show="open"
-                     @click.outside="open = false"
-                     x-transition
-                     class="absolute left-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50 p-4">
-                    <h3 class="text-white font-semibold mb-3">Choisir un groupe</h3>
-                    <div class="space-y-2">
-                        {% for group in myGroups %}
-                            <form method="post" action="{{ path('app_group_invitation_send', {username: user.username}) }}">
-                                <input type="hidden" name="group_id" value="{{ group.id }}">
-                                <button type="submit"
-                                        class="w-full text-left px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-white transition">
-                                    {{ group.name }}
-                                    <span class="text-gray-400 text-xs ml-1">
-                                        {{ group.isPublic ? '🌍' : '🔒' }}
-                                    </span>
-                                </button>
-                            </form>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-    {% endif %}
-</div>
+            {% endif %}
         </div>
     </div>
 
-    <nav id="profile-tabs" class="flex justify-center gap-2 border-b border-gray-700 mb-6" role="tablist">
-        <button type="button" role="tab" aria-selected="true" data-tab="gallery" class="profile-tab px-4 py-3 border-b-2 border-indigo-500 text-white text-sm cursor-pointer">📷 Galerie</button>
-        <button type="button" role="tab" aria-selected="false" data-tab="armies" class="profile-tab px-4 py-3 border-b-2 border-transparent text-gray-400 text-sm cursor-pointer">⚔️ Armées publiques</button>
-        <button type="button" role="tab" aria-selected="false" data-tab="badges" class="profile-tab px-4 py-3 border-b-2 border-transparent text-gray-400 text-sm cursor-pointer">🏅 Badges</button>
-        {% if user.showActivity %}<button type="button" role="tab" aria-selected="false" data-tab="activity" class="profile-tab px-4 py-3 border-b-2 border-transparent text-gray-400 text-sm cursor-pointer">◷ Activité récente</button>{% endif %}
-    </nav>
+    {# ================= GALERIE ================= #}
+    <section id="panel-gallery" role="tabpanel" aria-labelledby="tab-gallery" data-panel="gallery" data-tabs-target="panel" data-controller="profile-gallery" class="profile-gallery">
+        {% if isOwner %}
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <p class="text-small text-muted max-w-reading">Survolez ou touchez une photo puis cochez-la pour la supprimer. L'œil masque une photo aux visiteurs.</p>
+                <div class="flex items-center gap-3 min-w-44" title="{{ photo_count }} photo{{ photo_count > 1 ? 's' }} sur 10">
+                    <div class="progress progress-sm flex-1 {{ gallery_full ? 'progress-accent' : '' }}" role="progressbar" aria-valuenow="{{ photo_count }}" aria-valuemin="0" aria-valuemax="10" aria-label="Photos publiées">
+                        <div class="progress-bar" style="width: {{ photo_count * 10 }}%"></div>
+                    </div>
+                    <span class="text-small font-semibold tabular-nums {{ gallery_full ? 'text-accent-text' : 'text-fg-secondary' }}">{{ photo_count }}/10</span>
+                </div>
+            </div>
+        {% endif %}
 
-    <section data-panel="gallery">
-        <div class="grid grid-cols-4 md:grid-cols-6 gap-3">
+        <div class="gallery-grid">
             {% if isOwner %}
-                <form method="post" enctype="multipart/form-data" action="{{ path('app_profil_gallery_upload', {username: user.username}) }}" class="profile-upload-zone relative aspect-square overflow-hidden bg-gray-800 border border-gray-700 rounded-xl text-center" data-upload-zone data-upload-locked="{{ galleryPhotos|length >= 10 ? 'true' : 'false' }}">
+                <form id="gallery-upload-form" method="post" enctype="multipart/form-data" action="{{ path('app_profil_gallery_upload', {username: user.username}) }}" class="upload-zone bg-surface{% if gallery_full %} is-locked{% endif %}" data-profile-gallery-target="zone" data-action="dragover->profile-gallery#dragOver dragleave->profile-gallery#dragLeave drop->profile-gallery#drop" data-upload-locked="{{ gallery_full ? 'true' : 'false' }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('gallery_upload') }}">
-                    <input type="file" id="profile-photo-upload" name="photo" accept="image/jpeg,image/png,image/webp" required class="sr-only" data-upload-input {% if galleryPhotos|length >= 10 %}disabled{% endif %}>
-                    <label for="profile-photo-upload" class="absolute inset-0 z-10 flex {% if galleryPhotos|length < 10 %}cursor-pointer{% else %}pointer-events-none{% endif %} flex-col items-center justify-center p-3 text-sm text-gray-300" data-upload-label>
-                        <span class="relative z-10 rounded-lg bg-gray-900/75 px-3 py-2">{% if galleryPhotos|length >= 10 %}Limite de 10 photos atteinte{% else %}＋ Ajouter une photo{% endif %}</span>
+                    <input type="file" id="profile-photo-upload" name="photo" accept="image/jpeg,image/png,image/webp" required class="sr-only" data-profile-gallery-target="input" data-action="change->profile-gallery#fileChanged" {% if gallery_full %}disabled{% endif %}>
+                    <label for="profile-photo-upload" class="upload-zone-label{% if gallery_full %} pointer-events-none{% endif %}" data-profile-gallery-target="label">
+                        {{ ui.icon(gallery_full ? 'lock' : 'image-plus', 'upload-zone-icon') }}
+                        <span class="upload-zone-text">{% if gallery_full %}Limite de 10 photos atteinte{% else %}Ajouter une photo{% endif %}</span>
+                        {% if not gallery_full %}<small class="upload-zone-hint">ou glissez-la ici · JPG, PNG, WebP</small>{% endif %}
                     </label>
-                    <button type="submit" class="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 {% if galleryPhotos|length >= 10 %}hidden{% endif %} bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm">Publier</button>
-                    <div class="absolute inset-0 bg-cover bg-center opacity-0 transition-opacity" data-upload-preview></div>
+                    <button type="submit" data-profile-gallery-target="submit" data-action="profile-gallery#submitClick" class="btn btn-primary btn-sm absolute bottom-3 left-1/2 z-20 -translate-x-1/2 {% if gallery_full %}hidden{% endif %}">Publier</button>
+                    <div class="upload-zone-preview opacity-0" data-profile-gallery-target="preview"></div>
                 </form>
             {% endif %}
+
             {% for photo in galleryPhotos %}
-                <div class="gallery-photo group relative aspect-square overflow-hidden rounded-lg" data-photo-id="{{ photo.id }}">
-                    <button type="button" class="gallery-select absolute left-2 top-2 z-10 hidden h-7 w-7 items-center justify-center rounded-full border-2 border-white/80 bg-gray-900/70 text-white shadow hover:bg-red-600" aria-label="Sélectionner la photo">✓</button>
+                {% set stats = galleryStats[photo.id] ?? {likes: 0, comments: 0} %}
+                <div class="gallery-photo group{% if isOwner and not photo.isVisible %} is-hidden-photo{% endif %}" data-photo-id="{{ photo.id }}"{% if isOwner %} data-action="mouseenter->profile-gallery#showSelector mouseleave->profile-gallery#hideSelector"{% endif %}>
                     {% if isOwner %}
-                        <form method="post" action="{{ path('app_profil_gallery_visibility', {username: user.username, id: photo.id}) }}" class="absolute right-2 top-2 z-20 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button type="button" data-action="profile-gallery#toggleSelection" class="gallery-select is-idle" aria-label="Sélectionner la photo pour la supprimer">{{ ui.icon('check', 'size-4') }}</button>
+                        <form method="post" action="{{ path('app_profil_gallery_visibility', {username: user.username, id: photo.id}) }}" class="gallery-photo-action">
                             <input type="hidden" name="_token" value="{{ csrf_token('gallery_visibility_' ~ photo.id) }}">
-                            <button type="submit" class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white/80 bg-gray-900/70 text-white shadow hover:bg-gray-700" aria-label="{{ photo.isVisible ? 'Masquer la photo' : 'Rendre la photo visible' }}">
-                                {% if photo.isVisible %}
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
-                                {% else %}
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m3 3 18 18M10.584 10.587a2 2 0 0 0 2.829 2.829M9.88 5.09A10.94 10.94 0 0 1 12 5c4.477 0 8.268 2.943 9.542 7a10.98 10.98 0 0 1-4.132 5.411M6.228 6.228C4.441 7.46 3.14 9.5 2.458 12c.605 1.927 1.651 3.614 3.04 4.94"/></svg>
-                                {% endif %}
+                            <button type="submit" class="gallery-tile-btn" aria-label="{{ photo.isVisible ? 'Masquer la photo' : 'Rendre la photo visible' }}" title="{{ photo.isVisible ? 'Masquer la photo aux visiteurs' : 'Rendre la photo visible' }}">
+                                {{ ui.icon(photo.isVisible ? 'eye' : 'eye-off', 'size-4') }}
                             </button>
                         </form>
                     {% endif %}
-                    <button type="button" class="h-full w-full cursor-zoom-in" data-gallery-image="{{ asset('uploads/gallery/' ~ photo.filename) }}" aria-label="Ouvrir la photo en grand">
-                        <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}" alt="Photo de {{ user.username }}" class="h-full w-full object-cover {% if isOwner and not photo.isVisible %}blur-sm transition duration-200 hover:blur-none{% endif %}">
-                    </button>
+                    <a href="{{ path('app_gallery_photo_show', {username: user.username, id: photo.id}) }}" class="gallery-photo-link" data-action="profile-gallery#followLink" aria-label="Voir la photo{% if photo.description %} : {{ photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description }}{% endif %} ({{ stats.likes }} j'aime, {{ stats.comments }} commentaire{{ stats.comments > 1 ? 's' : '' }}){% if isOwner and not photo.isVisible %} — masquée{% endif %}">
+                        <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}" alt="Photo de {{ user.username }}" loading="lazy" decoding="async" class="gallery-photo-img">
+                        {% if isOwner and not photo.isVisible %}
+                            <span class="gallery-photo-flag" aria-hidden="true">{{ ui.icon('eye-off', 'size-3.5') }}Masquée</span>
+                        {% endif %}
+                        <span class="gallery-photo-stats" aria-hidden="true">
+                            <span>{{ ui.icon('heart', 'size-4') }}{{ stats.likes }}</span>
+                            <span>{{ ui.icon('message-circle', 'size-4') }}{{ stats.comments }}</span>
+                        </span>
+                    </a>
                 </div>
             {% endfor %}
         </div>
-        {% if isOwner and galleryPhotos|length >= 10 %}<p class="mt-3 text-center text-sm text-gray-500">Limite de 10 photos atteinte.</p>{% endif %}
-        {% if not isOwner and galleryPhotos is empty %}<div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-500">Aucune photo dans la galerie.</div>{% endif %}
+
         {% if isOwner %}
-            <form id="gallery-delete-form" method="post" action="{{ path('app_profil_gallery_delete', {username: user.username}) }}">
+            {# Barre de sélection : affichée en CSS dès qu'une photo est cochée (:has(.is-selected)), compteur CSS #}
+            <div class="gallery-toolbar" role="region" aria-label="Photos sélectionnées">
+                <p class="gallery-toolbar-count">{{ ui.icon('check-circle', 'size-5') }}<span><span class="gallery-toolbar-number"></span> sélectionnée(s)</span></p>
+                <div class="flex items-center gap-2">
+                    <a href="{{ path('app_profil_show', {username: user.username}) }}" class="btn btn-ghost btn-sm">Annuler</a>
+                    <button type="submit" form="gallery-delete-form" data-action="profile-gallery#submitClick" class="btn btn-danger btn-sm">{{ ui.icon('trash') }}Supprimer</button>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if isOwner and not gallery_full %}
+            <div class="field mt-4 max-w-reading" data-profile-gallery-target="description">
+                <label for="gallery-upload-description" class="label">Description de la photo <span class="label-hint">(facultatif)</span></label>
+                <textarea id="gallery-upload-description" name="description" form="gallery-upload-form" rows="2" maxlength="{{ galleryDescriptionMaxLength }}" placeholder="Quelques mots sur votre figurine, votre peinture, votre table…" class="textarea" aria-describedby="gallery-upload-description-help"></textarea>
+                <p id="gallery-upload-description-help" class="help">{{ galleryDescriptionMaxLength }} caractères maximum — choisissez d'abord la photo, puis « Publier ».</p>
+            </div>
+        {% endif %}
+        {% if isOwner and gallery_full %}
+            <p class="mt-4 inline-flex items-center gap-2 text-small text-muted">{{ ui.icon('info', 'size-4') }}Limite de 10 photos atteinte : supprimez-en une pour en publier une nouvelle.</p>
+        {% endif %}
+
+        {% if galleryPhotos is empty %}
+            <div class="mt-4">
+                {% if isOwner %}
+                    {{ include('_partials/_empty_state.html.twig', {
+                        icon: 'camera',
+                        title: 'Votre galerie est vide',
+                        text: 'Montrez vos figurines, vos schémas de peinture ou votre table de jeu : jusqu\'à 10 photos, que la communauté peut aimer et commenter.',
+                        cta: {label: 'Ajouter ma première photo', for: 'profile-photo-upload', icon: 'image-plus'},
+                        compact: true,
+                    }) }}
+                {% elseif app.user %}
+                    {{ include('_partials/_empty_state.html.twig', {
+                        icon: 'camera',
+                        title: user.username ~ ' n\'a pas encore partagé de photo',
+                        text: 'Revenez plus tard… ou montrez l\'exemple en ajoutant vos propres photos.',
+                        cta: {label: 'Ma galerie', url: path('app_profil_show', {username: app.user.username}), icon: 'camera'},
+                        compact: true,
+                    }) }}
+                {% else %}
+                    {{ include('_partials/_empty_state.html.twig', {
+                        icon: 'camera',
+                        title: user.username ~ ' n\'a pas encore partagé de photo',
+                        text: 'Inscrivez-vous pour partager vos propres figurines avec la communauté.',
+                        cta: {label: 'Créer mon compte', url: path('app_register')},
+                        secondary: {label: 'Se connecter', url: path('app_login')},
+                        compact: true,
+                    }) }}
+                {% endif %}
+            </div>
+        {% endif %}
+        {% if isOwner %}
+            <form id="gallery-delete-form" data-profile-gallery-target="deleteForm" method="post" action="{{ path('app_profil_gallery_delete', {username: user.username}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('gallery_delete') }}">
             </form>
         {% endif %}
     </section>
 
-    <section data-panel="badges" hidden>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {% for badge in profileBadges %}
-                {% set badgeTier = badge.xpReward >= 150 ? 'gold' : (badge.xpReward >= 75 ? 'silver' : 'bronze') %}
-                {% set badgePanel = badge.xpReward >= 150 ? 'bg-yellow-950/30 border-yellow-500/70' : (badge.xpReward >= 75 ? 'bg-slate-700/40 border-slate-300/70' : 'bg-orange-950/30 border-orange-600/70') %}
-                {% set badgeIcon = badge.xpReward >= 150 ? 'bg-yellow-500/20 text-yellow-300 ring-2 ring-yellow-400/50' : (badge.xpReward >= 75 ? 'bg-slate-300/20 text-slate-200 ring-2 ring-slate-300/50' : 'bg-orange-600/20 text-orange-300 ring-2 ring-orange-500/50') %}
-                <article class="min-h-48 rounded-xl border p-5 text-center flex flex-col items-center justify-center {% if not badge.connected %}border-orange-500/80 ring-1 ring-orange-500/30{% elseif badge.unlocked and badge.hidden %}bg-gray-950 border-transparent badge-hidden-unlocked{% elseif badge.unlocked %}{{ badgePanel }}{% else %}bg-gray-800 border-gray-700{% endif %}">
-                    <div class="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 {% if badge.unlocked and badge.hidden %}bg-gray-900 ring-2 ring-fuchsia-400 opacity-100{% elseif badge.unlocked %}{{ badgeIcon }} opacity-100{% else %}bg-gray-700 grayscale opacity-70{% endif %}" aria-hidden="true">{{ badge.icon }}</div>
-                    {% if badge.unlocked or not badge.hidden %}
-                        <h3 class="font-semibold {% if badge.unlocked and badge.hidden %}text-fuchsia-200{% elseif badge.unlocked %}text-white{% else %}text-gray-300{% endif %}">{{ badge.name }}</h3>
-                        <p class="text-xs mt-1 {% if badge.unlocked and badge.hidden %}text-fuchsia-300{% elseif badge.unlocked %}text-gray-300{% else %}text-gray-500{% endif %}">{{ badge.description }}</p>
-                        {% if badge.unlocked %}<span class="text-[11px] mt-2 {% if badge.hidden %}text-fuchsia-300{% elseif badge.xpReward >= 150 %}text-yellow-400{% elseif badge.xpReward >= 75 %}text-slate-300{% else %}text-orange-400{% endif %} font-semibold">+{{ badge.xpReward }} XP</span>{% endif %}
-                    {% else %}
-                        <h3 class="font-semibold text-gray-600 tracking-widest">?????</h3>
-                        <p class="text-xs mt-1 text-gray-700 blur-[2px] select-none">{{ badge.hiddenDescription }}</p>
+    {# ================= BADGES ================= #}
+    <section id="panel-badges" role="tabpanel" aria-labelledby="tab-badges" data-panel="badges" data-tabs-target="panel" hidden>
+        {% set current_title_code = user.titleBadge ? user.titleBadge.code : null %}
+        {% set badges_percent = profileBadges.total > 0 ? (profileBadges.unlocked * 100 / profileBadges.total)|round : 0 %}
+
+        {# En-tête : niveau, XP, badges obtenus #}
+        <div class="card mb-8">
+            <div class="card-body grid gap-5 md:grid-cols-[minmax(0,1fr)_14rem] md:items-start">
+                <div>
+                    <div class="flex flex-wrap items-baseline justify-between gap-3">
+                        <h2 class="text-h3 text-fg inline-flex items-center gap-2">{{ ui.icon('star', 'size-5 text-accent-text') }}Niveau {{ user.level }}{% if user.maxLevel %} <span class="chip chip-accent">Niveau max</span>{% endif %}</h2>
+                        <span class="text-small text-muted tabular-nums">
+                            {% if user.maxLevel %}{{ user.experience }} XP{% else %}{{ user.experience }} / {{ user.nextLevelExperience }} XP{% endif %}
+                        </span>
+                    </div>
+                    <div class="progress progress-accent mt-2" role="progressbar" aria-valuenow="{{ user.experienceProgress }}" aria-valuemin="0" aria-valuemax="100" aria-label="Progression vers le niveau suivant">
+                        <div class="progress-bar" style="width: {{ user.experienceProgress }}%"></div>
+                    </div>
+
+                    {# Gains quotidiens : phrase générique (visiteurs) ou personnalisée (propriétaire) #}
+                    <div class="card-inset mt-4 p-3 text-small text-fg-secondary" data-daily-xp-info>
+                        {% if streakStatus %}
+                            {% set s = streakStatus %}
+                            <p class="flex gap-2">
+                                {{ ui.icon('flame', 'size-5 shrink-0 text-accent-text') }}
+                                <span>Connecte-toi chaque jour : <strong class="text-primary-text">+{{ dailyLoginXp }} XP par jour</strong>, et <strong class="text-accent-text">+{{ streakBonusXp }} XP bonus</strong> tous les {{ streakBonusEvery }} jours de série.
+                                Ta série actuelle : <strong class="text-fg">{{ s.streak }} jour{{ s.streak > 1 ? 's' }}</strong>.</span>
+                            </p>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                {% if s.countedToday %}
+                                    <span class="chip chip-success">{{ ui.icon('check') }}XP du jour obtenue</span>
+                                {% else %}
+                                    <span class="chip">{{ ui.icon('clock') }}XP du jour pas encore obtenue</span>
+                                {% endif %}
+                                {% if s.countedToday and s.streak > 0 and s.streak % streakBonusEvery == 0 %}
+                                    <span class="chip chip-accent">{{ ui.icon('sparkles') }}Bonus de série obtenu aujourd'hui !</span>
+                                {% endif %}
+                                <span class="chip">{{ ui.icon('calendar') }}Prochain bonus dans {{ s.nextBonusIn }} jour{{ s.nextBonusIn > 1 ? 's' }} de connexion</span>
+                                {% if s.atRisk %}
+                                    <span class="chip chip-warning">{{ ui.icon('alert-triangle') }}Série en danger : reconnecte-toi avant le {{ s.expiresOn|date('d/m') }}</span>
+                                {% endif %}
+                            </div>
+                            <p class="mt-2 text-caption text-muted">Pas d'inquiétude : ta série est conservée jusqu'à {{ streakMaxMissedDays }} jours d'absence.</p>
+                        {% else %}
+                            <p class="flex gap-2">
+                                {{ ui.icon('flame', 'size-5 shrink-0 text-accent-text') }}
+                                <span>Connecte-toi chaque jour : <strong class="text-primary-text">+{{ dailyLoginXp }} XP par jour</strong>, et <strong class="text-accent-text">+{{ streakBonusXp }} XP bonus</strong> tous les {{ streakBonusEvery }} jours de série. La série est conservée jusqu'à {{ streakMaxMissedDays }} jours d'absence.</span>
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="md:border-l md:border-line md:pl-5 md:text-center">
+                    <p class="eyebrow">Badges obtenus</p>
+                    <p class="mt-1 text-h1 font-bold text-fg tabular-nums">{{ profileBadges.unlocked }}<span class="text-h3 text-muted"> / {{ profileBadges.total }}</span></p>
+                    <div class="progress progress-sm mt-2" role="progressbar" aria-valuenow="{{ profileBadges.unlocked }}" aria-valuemin="0" aria-valuemax="{{ profileBadges.total }}" aria-label="Badges obtenus">
+                        <div class="progress-bar" style="width: {{ badges_percent }}%"></div>
+                    </div>
+                    {% if user.titleBadge %}
+                        <p class="mt-3 text-caption text-muted">Titre affiché</p>
+                        <div class="mt-1">{{ include('gamification/_user_title.html.twig', {user: user, size: 'md'}) }}</div>
                     {% endif %}
-                </article>
-            {% endfor %}
+                </div>
+            </div>
         </div>
+
+        {% if isOwner and profileBadges.unlocked == 0 %}
+            <div class="mb-8">
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'medal',
+                    title: 'Aucun badge obtenu pour l\'instant',
+                    text: 'Les badges ci-dessous se débloquent en participant à la vie du site : forum, galerie, groupes, listes d\'armée…',
+                    hint: user.threads is empty ? 'Le plus rapide : publiez votre premier sujet pour débloquer Pionnier I (+50 XP).' : null,
+                    cta: {label: 'Publier sur le forum', url: path('app_forum_index'), icon: 'pencil'},
+                    compact: true,
+                }) }}
+            </div>
+        {% elseif not isOwner and profileBadges.unlocked == 0 %}
+            <p class="mb-8 text-center text-small text-muted">{{ user.username }} n'a pas encore obtenu de badge.</p>
+        {% endif %}
+
+        {% for category, badges in profileBadges.categories %}
+            {% set cat_unlocked = badges|filter(b => b.unlocked)|length %}
+            <div class="mb-3 flex items-center justify-between gap-3 {% if not loop.first %}mt-10{% endif %}">
+                <h3 class="eyebrow">{{ category }}</h3>
+                <span class="text-caption text-muted tabular-nums">{{ cat_unlocked }}/{{ badges|length }}</span>
+            </div>
+            <div class="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {% for badge in badges %}
+                    {% set is_current = isOwner and badge.code == current_title_code %}
+                    <article class="badge-card badge-tier-{{ badge.tier }}{% if not badge.unlocked %} badge-locked{% endif %}{% if is_current %} is-current-title{% endif %}" data-badge="{{ badge.code }}" aria-label="{{ badge.name }} — {{ badge.unlocked ? 'obtenu' : 'verrouillé' }}{% if is_current %} — titre actuel{% endif %}">
+                        {% if is_current %}
+                            <span class="badge-current-flag">{{ ui.icon('crown', 'size-3.5') }}Titre actuel</span>
+                        {% elseif not badge.unlocked %}
+                            <span class="badge-lock" aria-hidden="true">{{ ui.icon('lock', 'size-3.5') }}</span>
+                        {% endif %}
+                        <div class="badge-medal mb-1" aria-hidden="true">{{ badge.icon }}</div>
+                        <h4 class="badge-name font-semibold text-fg">{{ badge.name }}</h4>
+                        <span class="badge-tier-pill">{{ badge.tierLabel }}</span>
+                        <p class="mt-1 text-caption text-fg-secondary">{{ badge.description }}</p>
+                        <p class="text-caption font-semibold badge-accent-text">{{ badge.xp > 0 ? '+' ~ badge.xp ~ ' XP' : 'Honorifique' }}</p>
+                        {% if badge.unlocked %}
+                            <p class="inline-flex items-center gap-1 text-caption text-muted">{{ ui.icon('check-circle', 'size-3.5 text-success-text') }}Obtenu le {{ badge.unlockedAt|date('d/m/Y') }}</p>
+                        {% elseif badge.progress %}
+                            <div class="mt-1 w-full text-left">
+                                <div class="mb-1 flex justify-between gap-2 text-caption text-muted"><span>{{ badge.progress.label }}</span><span class="tabular-nums">{{ badge.progress.percent }} %</span></div>
+                                <div class="badge-progress-bar" role="progressbar" aria-valuenow="{{ badge.progress.current }}" aria-valuemin="0" aria-valuemax="{{ badge.progress.target }}" aria-label="Progression : {{ badge.progress.label }}"><span style="width: {{ badge.progress.percent }}%"></span></div>
+                                {% if badge.progress.items is not empty %}
+                                    <ul class="mt-2 grid grid-cols-2 gap-x-2 gap-y-0.5 text-caption">
+                                        {% for label, visited in badge.progress.items %}
+                                            <li class="flex items-center gap-1 {{ visited ? 'text-success-text' : 'text-muted' }}">{{ ui.icon(visited ? 'check' : 'clock', 'size-3 shrink-0') }}{{ label }}<span class="sr-only">{{ visited ? ' (fait)' : ' (à faire)' }}</span></li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <p class="text-caption text-muted">Verrouillé</p>
+                        {% endif %}
+                        {% set rarity = badgeRarity[badge.code] ?? null %}
+                        {% if rarity %}
+                            <p class="badge-rarity mt-auto pt-2" title="{{ rarity.holders }} membre{{ rarity.holders > 1 ? 's' }} sur {{ rarity.members }}">
+                                <span class="badge-rarity-label badge-rarity-{{ rarity.key }}">{{ rarity.label }}</span>
+                                <span class="block mt-1">
+                                {% if rarity.holders > 0 %}
+                                    Débloqué par {{ rarity.percentLabel }} % des membres ({{ rarity.holders }})
+                                {% else %}
+                                    Encore jamais débloqué
+                                {% endif %}
+                                </span>
+                            </p>
+                        {% endif %}
+                        {% if isOwner and badge.unlocked %}
+                            <form method="post" action="{{ path('app_profil_title') }}" class="{{ rarity ? '' : 'mt-auto ' }}pt-2">
+                                <input type="hidden" name="_token" value="{{ csrf_token('profile_title') }}">
+                                {% if badge.code == current_title_code %}
+                                    <input type="hidden" name="badge" value="">
+                                    <button type="submit" class="btn btn-ghost btn-sm">{{ ui.icon('x') }}Retirer le titre</button>
+                                {% else %}
+                                    <input type="hidden" name="badge" value="{{ badge.code }}">
+                                    <button type="submit" class="btn btn-secondary btn-sm">{{ ui.icon('crown') }}Utiliser comme titre</button>
+                                {% endif %}
+                            </form>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% endfor %}
+
+        {# Historique d'XP : privé (propriétaire uniquement), replié par défaut #}
+        {% if isOwner and xpHistory %}
+            <details class="xp-history card mt-10" data-xp-history>
+                <summary class="xp-history-summary">
+                    <span class="flex min-w-0 items-center gap-2 font-semibold text-fg">
+                        {{ ui.icon('chevron-right', 'xp-history-chevron size-5 text-muted') }}
+                        {{ ui.icon('bar-chart', 'size-5 text-accent-text') }}
+                        <span>Historique d'XP <span class="block text-caption font-normal text-muted sm:inline">(visible par vous uniquement)</span></span>
+                    </span>
+                    <span class="shrink-0 text-small text-muted"><strong class="text-accent-text">{{ xpHistory.total }} XP</strong> · {{ xpHistory.count }} gain{{ xpHistory.count > 1 ? 's' }}</span>
+                </summary>
+                <div class="border-t border-line">
+                    {{ include('profil/_xp_history_rows.html.twig', {rows: xpHistory.rows}) }}
+                    <div class="card-footer justify-between flex-wrap text-small">
+                        <span class="text-muted">Total : <strong class="text-fg">{{ xpHistory.total }} XP</strong>{% if xpHistory.count > xpHistory.rows|length %} — {{ xpHistory.rows|length }} derniers gains affichés sur {{ xpHistory.count }}{% endif %}</span>
+                        {% if xpHistory.count > xpHistory.rows|length %}
+                            <a href="{{ path('app_profil_xp_history', {username: user.username}) }}" class="btn btn-link btn-sm">Voir tout l'historique{{ ui.icon('arrow-right', 'size-4') }}</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </details>
+        {% endif %}
     </section>
 
-    <div id="gallery-lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 p-6" role="dialog" aria-modal="true" aria-label="Photo agrandie">
-        <button type="button" class="absolute right-5 top-4 text-4xl text-white" data-lightbox-close aria-label="Fermer">&times;</button>
-        <img src="" alt="Photo agrandie" class="max-h-[90vh] max-w-[90vw] object-contain" data-lightbox-image>
-    </div>
-
-    <section data-panel="armies" hidden>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% if isOwner %}<a href="{{ path('app_army_new') }}" class="bg-indigo-600/20 border border-indigo-500 rounded-xl p-5 hover:bg-indigo-600/30 transition flex items-center justify-center text-center min-h-36"><span class="text-indigo-300 font-semibold">＋ Créer une armée</span></a>{% endif %}
-            {% for list in publicArmyLists %}<a href="{{ path('app_army_show', {id: list.id}) }}" class="bg-gray-800 rounded-xl border border-gray-700 p-5 hover:border-indigo-500 transition block"><div class="flex justify-between items-start gap-3 mb-3"><h3 class="font-bold text-white text-lg">{{ list.name }}</h3><span class="text-xs px-2 py-1 rounded bg-green-700 text-green-300">🌍 Public</span></div><p class="text-indigo-400 text-sm font-semibold">{{ list.faction }}</p><p class="text-gray-500 text-sm mt-2">{{ list.units|length }} unité(s) — <span class="text-yellow-400 font-semibold">{{ list.totalPoints }} pts</span></p></a>{% endfor %}
-        </div>
-        {% if not isOwner and publicArmyLists is empty %}<div class="bg-gray-800 rounded-xl border border-gray-700 p-6 text-center text-gray-500">Aucune liste d'armée publique.</div>{% endif %}
+    {# ================= ARMÉES PUBLIQUES ================= #}
+    <section id="panel-armies" role="tabpanel" aria-labelledby="tab-armies" data-panel="armies" data-tabs-target="panel" hidden>
+        {% if publicArmyLists is empty %}
+            {% if isOwner %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'swords',
+                    title: 'Aucune liste d\'armée publique',
+                    text: 'Créez une liste et cochez « publique » pour la présenter ici aux visiteurs de votre profil.',
+                    cta: {label: 'Créer une liste d\'armée', url: path('app_army_new'), icon: 'plus'},
+                    secondary: {label: 'Mes listes d\'armée', url: path('app_army_index')},
+                    compact: true,
+                }) }}
+            {% elseif app.user %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'swords',
+                    title: user.username ~ ' n\'a pas encore de liste d\'armée publique',
+                    text: 'Et vous, quelle armée alignez-vous ? Composez votre liste en quelques clics.',
+                    cta: {label: 'Créer ma liste d\'armée', url: path('app_army_new'), icon: 'plus'},
+                    compact: true,
+                }) }}
+            {% else %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'swords',
+                    title: user.username ~ ' n\'a pas encore de liste d\'armée publique',
+                    text: 'Inscrivez-vous pour composer et partager vos propres listes d\'armée.',
+                    cta: {label: 'Créer mon compte', url: path('app_register')},
+                    secondary: {label: 'Se connecter', url: path('app_login')},
+                    compact: true,
+                }) }}
+            {% endif %}
+        {% else %}
+            {% if isOwner %}
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <p class="text-small text-muted">Vos listes publiques, visibles par les visiteurs de votre profil.</p>
+                    <div class="flex gap-2">
+                        <a href="{{ path('app_army_index') }}" class="btn btn-ghost btn-sm">Toutes mes listes</a>
+                        <a href="{{ path('app_army_new') }}" class="btn btn-secondary btn-sm">{{ ui.icon('plus') }}Nouvelle liste</a>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for list in publicArmyLists %}
+                    {{ include('army/_card.html.twig', {list: list, heading: 3}) }}
+                {% endfor %}
+            </div>
+        {% endif %}
     </section>
 
-    {% if user.showActivity %}<section data-panel="activity" hidden>
-        <div class="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700">
-            {% if activities is empty %}<p class="p-6 text-center text-gray-500">Pas d'activité récente.</p>{% endif %}
-            {% for activity in activities %}<div class="p-4 flex justify-between gap-4 text-sm"><span class="text-gray-300">{{ user.username }} {{ activity.label }} <span class="text-white">{% if activity.subject %}« {{ activity.subject }} »{% else %}une photo{% endif %}</span></span><time class="text-gray-500 whitespace-nowrap">{{ activity.time }}</time></div>{% endfor %}
+    {# ================= ACTIVITÉ ================= #}
+    {% if user.showActivity %}
+    <section id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" data-panel="activity" data-tabs-target="panel" hidden>
+        <div class="card">
+            {% if activities is empty %}
+                {% if isOwner %}
+                    {{ include('_partials/_empty_state.html.twig', {
+                        icon: 'clock',
+                        title: 'Aucune activité récente',
+                        text: 'Vos sujets, réponses, listes d\'armée publiques, photos, amitiés et groupes publics apparaîtront ici.',
+                        cta: {label: 'Participer au forum', url: path('app_forum_index'), icon: 'message-circle'},
+                        secondary: {label: 'Rejoindre un groupe', url: path('app_group_index'), icon: 'users'},
+                        variant: 'plain',
+                        compact: true,
+                    }) }}
+                {% else %}
+                    {{ include('_partials/_empty_state.html.twig', {
+                        icon: 'clock',
+                        title: user.username ~ ' n\'a pas d\'activité récente',
+                        text: 'Ses prochains sujets, photos et listes d\'armée publiques apparaîtront ici.',
+                        cta: app.user ? {label: 'Voir le forum', url: path('app_forum_index'), icon: 'message-circle'} : {label: 'Créer mon compte', url: path('app_register')},
+                        variant: 'plain',
+                        compact: true,
+                    }) }}
+                {% endif %}
+            {% else %}
+                <ol>
+                    {% for activity in activities %}
+                        <li class="list-row items-start text-small">
+                            <span class="mt-0.5 text-muted">{{ ui.icon('clock', 'size-4') }}</span>
+                            <p class="list-row-main text-fg-secondary break-words">
+                                {{ user.username }} {{ activity.label }}
+                                {% if activity.url and activity.subject %}
+                                    <a href="{{ path(activity.url, activity.parameters) }}" class="link">« {{ activity.subject }} »</a>
+                                {% else %}
+                                    <span class="text-fg">{% if activity.subject %}« {{ activity.subject }} »{% else %}une photo{% endif %}</span>
+                                {% endif %}
+                            </p>
+                            <time class="shrink-0 text-caption text-muted whitespace-nowrap">{{ activity.time }}</time>
+                        </li>
+                    {% endfor %}
+                </ol>
+            {% endif %}
         </div>
     </section>
     {% endif %}
-
-    <script>
-        document.querySelectorAll('[data-upload-zone]').forEach(function (zone) {
-            var input = zone.querySelector('[data-upload-input]');
-            var preview = zone.querySelector('[data-upload-preview]');
-            var label = zone.querySelector('[data-upload-label]');
-
-            label.setAttribute('for', input.id = 'profile-photo-upload-' + Math.random().toString(36).slice(2));
-
-            function showPreview(file) {
-                if (!file || !file.type.startsWith('image/')) return;
-                var reader = new FileReader();
-                reader.onload = function (event) {
-                    preview.style.backgroundImage = 'url("' + event.target.result + '")';
-                    preview.classList.remove('opacity-0');
-                    label.querySelector('span').textContent = file.name;
-                };
-                reader.readAsDataURL(file);
-            }
-
-            input.addEventListener('change', function () { showPreview(input.files[0]); });
-            zone.addEventListener('dragover', function (event) {
-                if (zone.dataset.uploadLocked === 'true') return;
-                event.preventDefault();
-                zone.classList.add('border-indigo-500');
-            });
-            zone.addEventListener('dragleave', function () { zone.classList.remove('border-indigo-500'); });
-            zone.addEventListener('drop', function (event) {
-                if (zone.dataset.uploadLocked === 'true') return;
-                event.preventDefault();
-                zone.classList.remove('border-indigo-500');
-                if (event.dataTransfer.files.length) {
-                    input.files = event.dataTransfer.files;
-                    showPreview(input.files[0]);
-                }
-            });
-        });
-
-        var selectedPhotos = new Set();
-        var deleteForm = document.getElementById('gallery-delete-form');
-        var uploadZone = document.querySelector('[data-upload-zone]');
-        var uploadLabel = uploadZone && uploadZone.querySelector('[data-upload-label]');
-        var uploadPreview = uploadZone && uploadZone.querySelector('[data-upload-preview]');
-        var uploadSubmit = uploadZone && uploadZone.querySelector('button[type="submit"]');
-
-        document.querySelectorAll('.gallery-photo').forEach(function (photo) {
-            var selector = photo.querySelector('.gallery-select');
-            var imageButton = photo.querySelector('[data-gallery-image]');
-            {% if isOwner %}
-            photo.addEventListener('mouseenter', function () { selector.classList.remove('hidden'); selector.classList.add('flex'); });
-            photo.addEventListener('mouseleave', function () { if (!selectedPhotos.has(photo.dataset.photoId)) selector.classList.add('hidden'); });
-            selector.addEventListener('click', function (event) {
-                event.stopPropagation();
-                var id = photo.dataset.photoId;
-                if (selectedPhotos.has(id)) {
-                    selectedPhotos.delete(id);
-                    photo.classList.remove('ring-4', 'ring-red-500');
-                    selector.classList.add('hidden');
-                    selector.classList.remove('flex');
-                } else {
-                    selectedPhotos.add(id);
-                    photo.classList.add('ring-4', 'ring-red-500');
-                    selector.classList.remove('hidden');
-                }
-                updateDeleteMode();
-            });
-            {% endif %}
-            imageButton.addEventListener('click', function () {
-                if (selectedPhotos.size > 0) return;
-                var lightbox = document.getElementById('gallery-lightbox');
-                lightbox.querySelector('[data-lightbox-image]').src = imageButton.dataset.galleryImage;
-                lightbox.classList.remove('hidden');
-                lightbox.classList.add('flex');
-            });
-        });
-
-        function updateDeleteMode() {
-            if (!uploadZone) return;
-            var hasSelection = selectedPhotos.size > 0;
-            uploadZone.classList.toggle('bg-red-700', hasSelection);
-            uploadZone.classList.toggle('border-red-400', hasSelection);
-            uploadZone.classList.toggle('bg-gray-800', !hasSelection);
-            var uploadLocked = uploadZone.dataset.uploadLocked === 'true';
-            uploadLabel.classList.toggle('pointer-events-none', hasSelection || uploadLocked);
-            uploadZone.querySelector('[data-upload-label] span').textContent = hasSelection ? '' : (uploadLocked ? 'Limite de 10 photos atteinte' : '＋ Ajouter une photo');
-            uploadSubmit.textContent = hasSelection ? 'Supprimer' : 'Publier';
-            uploadSubmit.classList.toggle('bg-red-600', hasSelection);
-            uploadSubmit.classList.toggle('hover:bg-red-700', hasSelection);
-            uploadSubmit.classList.toggle('bg-indigo-600', !hasSelection);
-            uploadSubmit.classList.toggle('hover:bg-indigo-700', !hasSelection);
-            uploadSubmit.classList.toggle('hidden', !hasSelection && uploadLocked);
-            uploadSubmit.classList.toggle('bottom-3', !hasSelection);
-            uploadSubmit.classList.toggle('top-1/2', hasSelection);
-            uploadSubmit.classList.toggle('-translate-y-1/2', hasSelection);
-            if (hasSelection) {
-                uploadSubmit.setAttribute('form', 'gallery-delete-form');
-            } else {
-                uploadSubmit.removeAttribute('form');
-            }
-            uploadSubmit.type = 'submit';
-            uploadSubmit.onclick = hasSelection ? function () {
-                deleteForm.querySelectorAll('input[name="photo_ids[]"]').forEach(function (input) { input.remove(); });
-                selectedPhotos.forEach(function (id) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden'; input.name = 'photo_ids[]'; input.value = id;
-                    deleteForm.appendChild(input);
-                });
-            } : null;
-        }
-
-        var lightbox = document.getElementById('gallery-lightbox');
-        if (lightbox) {
-            lightbox.addEventListener('click', function (event) { if (event.target === lightbox || event.target.closest('[data-lightbox-close]')) { lightbox.classList.add('hidden'); lightbox.classList.remove('flex'); } });
-        }
-
-        document.querySelectorAll('#profile-tabs .profile-tab').forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                document.querySelectorAll('#profile-tabs .profile-tab').forEach(function (item) {
-                    var selected = item === tab;
-                    item.setAttribute('aria-selected', selected ? 'true' : 'false');
-                    item.classList.toggle('border-indigo-500', selected);
-                    item.classList.toggle('text-white', selected);
-                    item.classList.toggle('border-transparent', !selected);
-                    item.classList.toggle('text-gray-400', !selected);
-                });
-                document.querySelectorAll('[data-panel]').forEach(function (panel) {
-                    panel.hidden = panel.dataset.panel !== tab.dataset.tab;
-                });
-            });
-        });
-    </script>
 
 </div>
 {% endblock %}

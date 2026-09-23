@@ -11,17 +11,20 @@ use App\Repository\GalleryPhotoRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Repository\UserRepository;
+use App\Security\Voter\GalleryPhotoVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\String\Slugger\SluggerInterface;
 use App\Service\GamificationService;
+use App\Service\AvatarUploader;
+use App\Service\GalleryPhotoUploader;
+use App\Gamification\BadgeRarity;
+use App\Gamification\ExperienceHistory;
 
 #[Route('/profil', name: 'app_profil_')]
 class ProfilController extends AbstractController
@@ -37,7 +40,8 @@ public function show(
     GroupMemberRepository $groupMemberRepository,
     GalleryPhotoRepository $galleryPhotoRepository,
     GamificationService $gamification,
-    EntityManagerInterface $em
+    BadgeRarity $badgeRarity,
+    ExperienceHistory $experienceHistory,
 ): Response {
     $user = $userRepository->findOneBy(['username' => $username]);
 
@@ -45,39 +49,40 @@ public function show(
         throw $this->createNotFoundException('Utilisateur introuvable');
     }
 
-    $gamification->syncAllBadges($user);
-	$em->flush();
-
     $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();
     $galleryPhotos = $isOwner ? $galleryPhotoRepository->findByOwner($user) : $galleryPhotoRepository->findVisibleByOwner($user);
     $publicArmyLists = $armyListRepository->findBy(['owner' => $user, 'isPublic' => true], ['createdAt' => 'DESC']);
     $friends = $friendshipRepository->findAcceptedFriends($user);
     $activities = [];
-    foreach ($user->getPosts() as $post) {
-        $activities[] = ['date' => $post->getCreatedAt(), 'label' => 'a posté dans', 'subject' => $post->getThread()->getTitle(), 'url' => null];
-    }
-    foreach ($publicArmyLists as $list) {
-        $activities[] = ['date' => $list->getCreatedAt(), 'label' => 'a créé la liste', 'subject' => $list->getName(), 'url' => 'app_army_show', 'parameters' => ['id' => $list->getId()]];
-    }
-    foreach ($galleryPhotos as $photo) {
-        $activities[] = ['date' => $photo->getCreatedAt(), 'label' => 'a ajouté une photo', 'subject' => null, 'url' => null];
-    }
-    foreach ($friends as $friendship) {
-        $friend = $friendship->getRequester() === $user ? $friendship->getReceiver() : $friendship->getRequester();
-        $activities[] = ['date' => $friendship->getCreatedAt(), 'label' => 'est devenu ami avec', 'subject' => $friend->getUsername(), 'url' => 'app_profil_show', 'parameters' => ['username' => $friend->getUsername()]];
-    }
-    foreach ($user->getGroupMembers() as $membership) {
-        if ($membership->getUsergroup()->isPublic()) {
-            $activities[] = ['date' => $membership->getJoinedAt(), 'label' => 'a rejoint le groupe', 'subject' => $membership->getUsergroup()->getName(), 'url' => null];
+    if ($user->isShowActivity()) {
+        foreach ($user->getPosts() as $post) {
+            $activities[] = ['date' => $post->getCreatedAt(), 'label' => 'a écrit dans le sujet', 'subject' => $post->getThread()->getTitle(), 'url' => 'app_thread_show', 'parameters' => ['slug' => $post->getThread()->getSlug()]];
         }
+        foreach ($publicArmyLists as $list) {
+            $activities[] = ['date' => $list->getCreatedAt(), 'label' => 'a créé la liste d\'armée', 'subject' => $list->getName(), 'url' => 'app_army_show', 'parameters' => ['id' => $list->getId()]];
+        }
+        foreach ($galleryPhotos as $photo) {
+            if ($photo->isVisible()) {
+                $activities[] = ['date' => $photo->getCreatedAt(), 'label' => 'a ajouté une photo', 'subject' => null, 'url' => null, 'parameters' => []];
+            }
+        }
+        foreach ($friends as $friendship) {
+            $friend = $friendship->getRequester() === $user ? $friendship->getReceiver() : $friendship->getRequester();
+            $activities[] = ['date' => $friendship->getCreatedAt(), 'label' => 'est devenu ami avec', 'subject' => $friend->getUsername(), 'url' => 'app_profil_show', 'parameters' => ['username' => $friend->getUsername()]];
+        }
+        foreach ($user->getGroupMembers() as $membership) {
+            if ($membership->getUsergroup()->isPublic()) {
+                $activities[] = ['date' => $membership->getJoinedAt(), 'label' => 'a rejoint le groupe', 'subject' => $membership->getUsergroup()->getName(), 'url' => 'app_group_show', 'parameters' => ['slug' => $membership->getUsergroup()->getSlug()]];
+            }
+        }
+        usort($activities, static fn (array $left, array $right) => $right['date'] <=> $left['date']);
+        $activities = array_slice($activities, 0, 10);
+        foreach ($activities as &$activity) {
+            $seconds = max(0, time() - $activity['date']->getTimestamp());
+            $activity['time'] = $seconds < 3600 ? 'il y a ' . max(1, intdiv($seconds, 60)) . ' min' : ($seconds < 86400 ? 'il y a ' . intdiv($seconds, 3600) . 'h' : 'il y a ' . intdiv($seconds, 86400) . 'j');
+        }
+        unset($activity);
     }
-    usort($activities, static fn (array $left, array $right) => $right['date'] <=> $left['date']);
-    $activities = array_slice($activities, 0, 10);
-    foreach ($activities as &$activity) {
-        $seconds = max(0, time() - $activity['date']->getTimestamp());
-        $activity['time'] = $seconds < 3600 ? 'il y a ' . max(1, intdiv($seconds, 60)) . ' min' : ($seconds < 86400 ? 'il y a ' . intdiv($seconds, 3600) . 'h' : 'il y a ' . intdiv($seconds, 86400) . 'j');
-    }
-    unset($activity);
 
     $friendship = null;
     if ($this->getUser() && !$isOwner) {
@@ -125,41 +130,38 @@ public function show(
         'myGroups' => $myGroups,
         'publicArmyLists' => $publicArmyLists,
         'galleryPhotos' => $galleryPhotos,
+        'galleryStats' => $galleryPhotoRepository->getStatsForPhotos($galleryPhotos),
+        'galleryDescriptionMaxLength' => GalleryPhoto::DESCRIPTION_MAX_LENGTH,
         'friends' => $friends,
         'activities' => $activities,
-        'profileBadges' => $gamification->getProfileBadges($user),
+        // Progression détaillée (compteurs, rubriques visitées) réservée au propriétaire du profil
+        'profileBadges' => $gamification->getProfileBadges($user, $isOwner),
+        'badgeRarity' => $badgeRarity->all(),
+        // Série de connexions et historique d'XP : privés (propriétaire uniquement)
+        'streakStatus' => $isOwner ? $gamification->getStreakStatus($user) : null,
+        'xpHistory' => $isOwner ? $experienceHistory->page($user, 1, ExperienceHistory::PREVIEW_SIZE) : null,
+        'dailyLoginXp' => GamificationService::DAILY_LOGIN_XP,
+        'streakBonusXp' => GamificationService::STREAK_BONUS_XP,
+        'streakBonusEvery' => GamificationService::STREAK_BONUS_EVERY,
+        'streakMaxMissedDays' => GamificationService::STREAK_MAX_MISSED_DAYS,
     ]);
 }
 
     #[Route('/{username}/gallery/upload', name: 'gallery_upload', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function uploadGalleryPhoto(string $username, Request $request, UserRepository $userRepository, GalleryPhotoRepository $galleryPhotoRepository, EntityManagerInterface $em, SluggerInterface $slugger): Response
+    public function uploadGalleryPhoto(string $username, Request $request, UserRepository $userRepository, EntityManagerInterface $em, GalleryPhotoUploader $galleryUploader): Response
     {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
         $user = $userRepository->findOneBy(['username' => $username]);
         if (!$user) throw $this->createNotFoundException('Utilisateur introuvable');
         if ($user !== $currentUser || !$this->isCsrfTokenValid('gallery_upload', $request->request->get('_token'))) throw $this->createAccessDeniedException();
-        if (count($galleryPhotoRepository->findByOwner($user)) >= 10) {
-            $this->addFlash('error', 'Votre galerie contient déjà 10 photos.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
-        }
-        /** @var UploadedFile|null $file */
-        $file = $request->files->get('photo');
-        if (!$file || !in_array($file->getMimeType(), ['image/jpeg', 'image/png', 'image/webp'], true) || $file->getSize() > 10 * 1024 * 1024) {
-            $this->addFlash('error', 'Photo invalide : JPG, PNG ou WEBP de 10 Mo maximum.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
-        }
 
-        $filename = $slugger->slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '-' . uniqid() . '.webp';
-        try { $file->move($this->getParameter('gallery_directory'), $filename); } catch (FileException) { throw new \RuntimeException('Upload impossible.'); }
-        $sourcePath = $this->getParameter('gallery_directory') . '/' . $filename;
-        if (!$this->optimizeGalleryImage($sourcePath)) {
-            @unlink($sourcePath);
-            $this->addFlash('error', 'La photo n’a pas pu être traitée.');
+        $result = $galleryUploader->upload($user, $request->files->get('photo'), (string) $request->request->get('description', ''));
+        if (is_string($result)) {
+            $this->addFlash('error', $result);
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
-        $em->persist((new GalleryPhoto())->setFilename($filename)->setOwner($user));
         $em->flush();
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);
     }
@@ -177,9 +179,10 @@ public function show(
 
         foreach ($request->request->all('photo_ids') as $photoId) {
             $photo = $galleryPhotoRepository->find((int) $photoId);
-            if ($photo && $photo->getOwner() === $user) {
+            if ($photo && $photo->getOwner() === $user && $this->isGranted(GalleryPhotoVoter::DELETE, $photo)) {
+                // Likes et commentaires supprimés par la base (ON DELETE CASCADE)
                 $em->remove($photo);
-                $path = $this->getParameter('gallery_directory') . '/' . $photo->getFilename();
+                $path = $this->getParameter('gallery_directory') . '/' . basename((string) $photo->getFilename());
                 if (is_file($path)) {
                     unlink($path);
                 }
@@ -207,73 +210,42 @@ public function show(
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);
     }
 
-    private function optimizeGalleryImage(string $path): bool
-    {
-        $imageInfo = @getimagesize($path);
-        if (!$imageInfo || !function_exists('imagewebp')) {
-            return false;
-        }
-
-        $source = match ($imageInfo['mime']) {
-            'image/jpeg' => @imagecreatefromjpeg($path),
-            'image/png' => @imagecreatefrompng($path),
-            'image/webp' => @imagecreatefromwebp($path),
-            default => false,
-        };
-        if (!$source) {
-            return false;
-        }
-
-        $width = imagesx($source);
-        $height = imagesy($source);
-        $scale = min(1, 1200 / max($width, $height));
-        $targetWidth = max(1, (int) round($width * $scale));
-        $targetHeight = max(1, (int) round($height * $scale));
-        $optimized = imagecreatetruecolor($targetWidth, $targetHeight);
-        imagealphablending($optimized, false);
-        imagesavealpha($optimized, true);
-        imagecopyresampled($optimized, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
-        $success = imagewebp($optimized, $path, 82);
-        imagedestroy($optimized);
-        imagedestroy($source);
-
-        return $success;
-    }
-
     // Modifier son propre profil — connecté uniquement
     #[Route('/settings/edit', name: 'edit')]
     #[IsGranted('ROLE_USER')]
-    public function edit(Request $request, EntityManagerInterface $em, SluggerInterface $slugger): Response
+    public function edit(Request $request, EntityManagerInterface $em, AvatarUploader $avatarUploader): Response
     {
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
         $form = $this->createForm(UserProfileFormType::class, $user);
         $form->handleRequest($request);
 
+        if ($form->isSubmitted() && !$form->isValid()) {
+            // Le formulaire est lié à l'utilisateur connecté : on annule les valeurs refusées sur l'entité
+            // (sinon app.user.username, utilisé dans la barre de navigation, contiendrait la valeur invalide).
+            // Le formulaire garde les valeurs saisies et ses erreurs pour le ré-affichage.
+            $em->refresh($user);
+        }
+
         if ($form->isSubmitted() && $form->isValid()) {
+            $oldAvatar = $user->getAvatar();
+            /** @var UploadedFile|null $avatarFile */
             $avatarFile = $form->get('avatarFile')->getData();
-            
+
             if ($request->request->get('delete_avatar') === '1') {
                 $user->setAvatar(null);
             }
 
-            if ($avatarFile) {
-                $originalFilename = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
-                $safeFilename = $slugger->slug($originalFilename);
-                $newFilename = $safeFilename . '-' . uniqid() . '.' . $avatarFile->guessExtension();
-
-                try {
-                    $avatarFile->move(
-                        $this->getParameter('avatars_directory'),
-                        $newFilename
-                    );
-                    $user->setAvatar($newFilename);
-                } catch (FileException $e) {
-                    $this->addFlash('error', 'Erreur lors de l\'upload de l\'avatar.');
-                }
+            // L'avatar est ré-encodé en WebP (suppression des métadonnées EXIF)
+            if ($avatarFile instanceof UploadedFile && ($error = $avatarUploader->upload($user, $avatarFile))) {
+                $this->addFlash('error', $error);
             }
 
             $em->flush();
+
+            // Suppression de l'ancien fichier s'il a été remplacé ou supprimé
+            $avatarUploader->deleteReplaced($oldAvatar, $user);
+
             $this->addFlash('success', 'Profil mis à jour avec succès !');
             return $this->redirectToRoute('app_profil_show', ['username' => $user->getUsername()]);
         }

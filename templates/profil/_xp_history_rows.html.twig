@@ -1,0 +1,18 @@
+{# Lignes de l'historique d'XP (grand livre experience_award). Paramètre : rows (ExperienceHistory::page()['rows']). #}
+{% if rows is empty %}
+    <p class="px-5 py-6 text-center text-small text-muted">Aucun gain d'XP pour le moment. Connecte-toi demain pour ton premier bonus quotidien !</p>
+{% else %}
+    <ol class="xp-rows">
+        {% for row in rows %}
+            <li class="xp-row">
+                <span class="xp-row-icon" aria-hidden="true">{{ row.icon }}</span>
+                <span class="min-w-0 flex-1">
+                    <span class="block truncate text-fg">{{ row.label }}</span>
+                    <time class="block text-caption text-muted sm:hidden" datetime="{{ row.date|date('c') }}">{{ row.date|date('d/m/Y H:i') }}</time>
+                </span>
+                <time class="hidden shrink-0 text-caption text-muted sm:block" datetime="{{ row.date|date('c') }}">{{ row.date|date('d/m/Y H:i') }}</time>
+                <span class="shrink-0 text-right font-semibold tabular-nums {{ row.amount > 0 ? 'chip chip-success' : 'chip' }}">+{{ row.amount }} XP</span>
+            </li>
+        {% endfor %}
+    </ol>
+{% endif %}

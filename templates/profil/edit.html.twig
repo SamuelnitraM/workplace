@@ -1,203 +1,133 @@
 {% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
 
-{% block title %}Modifier mon profil{% endblock %}
+{% block title %}Modifier mon profil — SprueHub{% endblock %}
 
 {% block body %}
-<div class="max-w-2xl mx-auto">
+<div class="container-reading" data-controller="avatar">
 
-    <div class="bg-gray-800 rounded-xl border border-gray-700 p-8">
-        <h1 class="text-2xl font-bold text-white mb-6">✏️ Modifier mon profil</h1>
+    <header class="page-header">
+        <div>
+            <p class="page-header-eyebrow"><a class="link" href="{{ path('app_profil_show', {username: app.user.username}) }}">Mon profil</a>{{ ui.icon('chevron-right', 'size-4') }}Paramètres</p>
+            <h1 class="page-header-title">Modifier mon profil</h1>
+            <p class="page-header-subtitle">Ta photo, ta présentation et ce que les autres membres voient de toi.</p>
+        </div>
+    </header>
 
-        {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
+    {{ form_start(form, {'attr': {'enctype': 'multipart/form-data', 'class': 'space-y-6'}}) }}
+        {{ form_errors(form) }}
 
-            <input type="hidden" name="delete_avatar" id="delete-avatar" value="0">
+        <input type="hidden" name="delete_avatar" id="delete-avatar" value="0" data-avatar-target="deleteInput">
 
-            <div class="space-y-5">
+        {# ─── Profil ─── #}
+        <section class="card" aria-labelledby="settings-profile">
+            <div class="card-header">
+                <h2 id="settings-profile" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('user') }}</span>Profil</h2>
+            </div>
+            <div class="card-body space-y-6">
 
-                <div class="flex flex-col items-center gap-4 py-4">
-                    <label class="block text-sm text-gray-400 mb-1">Photo de profil</label>
-                    
-                    <div class="flex flex-col items-center gap-4">
-                        <div class="relative group w-32 h-32">
-                            {# Selection Checkbox - Top Left #}
-                            {% if user.avatar %}
-                                <div id="select-avatar-container" class="absolute -top-2 -left-2 z-30">
-                                    <input type="checkbox" id="select-avatar" 
-                                           class="w-6 h-6 rounded-full border-2 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
-                                           onchange="toggleDeleteButton()">
-                                </div>
-                            {% endif %}
-
-                            {# Avatar Preview #}
-                            <div class="w-full h-full rounded-full bg-gray-700 border-2 border-gray-600 overflow-hidden relative">
-                                {% if user.avatar %}
-                                    <img src="{{ asset('uploads/avatars/' ~ user.avatar) }}" 
-                                         alt="Avatar actuel" 
-                                         id="avatar-preview"
-                                         class="w-full h-full object-cover transition group-hover:opacity-50">
-                                {% endif %}
-                                
-                                <div id="avatar-placeholder" class="w-full h-full flex items-center justify-center text-3xl font-bold text-gray-500 {% if user.avatar %}hidden{% endif %}">
-                                    {{ user.username|first|upper }}
-                                </div>
-                                
-                                {# Overlay with icon #}
-                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 cursor-pointer">
-                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    </svg>
-                                </div>
+                {# Photo de profil (assets/controllers/avatar_controller.js) #}
+                <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+                    <div class="group relative size-28 shrink-0">
+                        <div class="relative size-full overflow-hidden rounded-pill border-2 border-line-strong bg-surface-raised">
+                            <img {% if user.avatar %}src="{{ asset('uploads/avatars/' ~ user.avatar) }}" {% endif %}
+                                 alt="Photo de profil actuelle"
+                                 id="avatar-preview" data-avatar-target="preview"
+                                 class="size-full object-cover {{ user.avatar ? '' : 'hidden' }}">
+                            <div id="avatar-placeholder" data-avatar-target="placeholder" aria-hidden="true"
+                                 class="size-full items-center justify-center text-4xl font-bold text-muted {{ user.avatar ? 'hidden' : 'flex' }}">
+                                {{ user.username|first|upper }}
                             </div>
-
-                            {# Hidden Input linked by label #}
-                            <div class="absolute inset-0">
-                                {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'onchange': 'previewAvatar(this)'}, 'id': 'avatar-upload-input'}) }}
-                                <label for="avatar-upload-input" class="absolute inset-0 cursor-pointer"></label>
+                            <div class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-within:opacity-100" aria-hidden="true">
+                                {{ ui.icon('camera', 'size-7') }}
                             </div>
                         </div>
+                        {# Champ fichier masqué, ouvert par la photo ou le bouton « Changer la photo » #}
+                        <div class="absolute inset-0">
+                            {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'data-action': 'change->avatar#preview'}, 'id': 'avatar-upload-input'}) }}
+                            <label for="avatar-upload-input" class="absolute inset-0 cursor-pointer rounded-pill"><span class="sr-only">Choisir une nouvelle photo de profil</span></label>
+                        </div>
+                    </div>
 
+                    <div class="flex flex-col items-center gap-3 text-center sm:items-start sm:text-left">
+                        <div>
+                            <p class="label">Photo de profil</p>
+                            <p class="help">Clique sur la photo ou sur le bouton pour en choisir une nouvelle (JPG, PNG ou WEBP).</p>
+                        </div>
+                        <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                            <label for="avatar-upload-input" class="btn btn-secondary btn-sm cursor-pointer">{{ ui.icon('upload') }}Changer la photo</label>
+                            {% if user.avatar %}
+                                <div id="select-avatar-container" data-avatar-target="selectContainer">
+                                    <label class="check py-0 text-small text-fg-secondary">
+                                        <input type="checkbox" id="select-avatar" class="checkbox" data-avatar-target="selectCheckbox" data-action="change->avatar#toggleDelete">
+                                        <span>Retirer la photo actuelle</span>
+                                    </label>
+                                </div>
+                            {% endif %}
+                        </div>
                         {% if user.avatar %}
-                            <button type="button" 
-                                    id="btn-delete-avatar"
-                                    onclick="markAvatarForDeletion()" 
-                                    class="hidden bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg text-xs transition font-medium">
-                                🗑️ Supprimer la photo
+                            <button type="button" id="btn-delete-avatar"
+                                    data-avatar-target="deleteButton" data-action="avatar#markForDeletion"
+                                    class="btn btn-danger btn-sm hidden">
+                                {{ ui.icon('trash') }}Supprimer la photo
                             </button>
                         {% endif %}
-                    </div>
-                    <p class="text-xs text-gray-500 italic">Cliquez sur la photo pour la modifier</p>
-                    {{ form_errors(form.avatarFile) }}
-                </div>
-
-                <div>
-                    {{ form_label(form.username, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
-                    {{ form_widget(form.username, {'attr': {'class': 'w-full bg-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none transition ' ~ (form.username.vars.errors|length > 0 ? 'border border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border border-gray-600 focus:border-indigo-500')}}) }}
-                    <div class="mt-2 text-sm text-red-400">
-                        {{ form_errors(form.username) }}
+                        {{ form_errors(form.avatarFile) }}
                     </div>
                 </div>
 
-                <div>
-                    {{ form_label(form.bio, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
-                    {{ form_widget(form.bio, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500'}}) }}
-                    {{ form_errors(form.bio) }}
-                </div>
+                <hr class="divider my-0">
 
-                <div>
-                    {{ form_label(form.favoriteFaction, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-1'}}) }}
-                    {{ form_widget(form.favoriteFaction, {'attr': {'class': 'w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500'}}) }}
-                    {{ form_errors(form.favoriteFaction) }}
+                {{ form_row(form.username) }}
+                {{ form_row(form.bio) }}
+                <div class="grid items-start gap-5 sm:grid-cols-2">
+                    {{ form_row(form.favoriteFaction) }}
+                    {{ form_row(form.titleBadge, {help: form.titleBadge.vars.choices is empty
+                        ? 'Débloque un badge pour pouvoir l\'afficher comme titre.'
+                        : 'Seuls tes badges débloqués peuvent servir de titre.'}) }}
                 </div>
+            </div>
+        </section>
 
-                <div>
-                    {{ form_label(form.showActivity, null, {'label_attr': {'class': 'block text-sm text-gray-400 mb-2'}}) }}
-                    <div class="flex gap-5 text-sm text-gray-300">
+        {# ─── Confidentialité ─── #}
+        <section class="card" aria-labelledby="settings-privacy">
+            <div class="card-header">
+                <h2 id="settings-privacy" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('eye') }}</span>Confidentialité</h2>
+            </div>
+            <div class="card-body">
+                <fieldset class="field">
+                    <legend class="label mb-1.5">{{ form.showActivity.vars.label }}</legend>
+                    <div class="flex flex-wrap gap-x-6">
                         {% for choice in form.showActivity %}
-                            <label class="inline-flex items-center gap-2">{{ form_widget(choice) }} {{ choice.vars.label }}</label>
+                            <label class="check">{{ form_widget(choice) }}<span>{{ choice.vars.label }}</span></label>
                         {% endfor %}
                     </div>
                     {{ form_errors(form.showActivity) }}
+                </fieldset>
+                {% do form.showActivity.setRendered() %}
+            </div>
+        </section>
+
+        {# ─── Sécurité ─── #}
+        <section class="card" aria-labelledby="settings-security">
+            <div class="card-header">
+                <h2 id="settings-security" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('shield') }}</span>Sécurité</h2>
+            </div>
+            <div class="card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="font-medium text-fg">Mot de passe</p>
+                    <p class="text-small text-muted">Choisis une phrase facile à retenir mais difficile à deviner.</p>
                 </div>
-
-                <a href="{{ path('app_profil_change_password') }}" class="bg-gray-700 hover:bg-gray-600 px-5 py-2 rounded-lg transition text-sm">
-                    🔒 Changer le mot de passe
-                </a>
-
+                <a href="{{ path('app_profil_change_password') }}" class="btn btn-secondary shrink-0">{{ ui.icon('lock') }}Changer le mot de passe</a>
             </div>
+        </section>
 
-            <div class="flex gap-3 mt-8">
-                <button type="submit" 
-                        class="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg transition">
-                    💾 Sauvegarder
-                </button>
-                <a href="{{ path('app_profil_show', {username: app.user.username}) }}" 
-                   class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition">
-                    Annuler
-                </a>
-            </div>
+        {# ─── Barre d'enregistrement (collante en bas de l'écran) ─── #}
+        <div class="sticky bottom-[calc(var(--bottom-bar-h)+env(safe-area-inset-bottom))] z-(--z-sticky) -mx-4 flex items-center justify-end gap-2 border-t border-line bg-canvas/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-card sm:border md:bottom-4">
+            <a href="{{ path('app_profil_show', {username: app.user.username}) }}" class="btn btn-ghost">Annuler</a>
+            <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Enregistrer</button>
+        </div>
 
-        {{ form_end(form) }}
-    </div>
-
-    <script>
-        function previewAvatar(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('avatar-preview');
-                    const placeholder = document.getElementById('avatar-placeholder');
-                    const selectContainer = document.getElementById('select-avatar-container');
-                    const selectCheckbox = document.getElementById('select-avatar');
-                    const deleteBtn = document.getElementById('btn-delete-avatar');
-                    
-                    if (preview) {
-                        preview.src = e.target.result;
-                        preview.style.display = 'block';
-                    }
-                    
-                    if (placeholder) {
-                        placeholder.style.display = 'none';
-                    }
-                    
-                    if (selectContainer) {
-                        selectContainer.style.display = 'block';
-                    }
-
-                    if (selectCheckbox) {
-                        selectCheckbox.checked = false;
-                    }
-
-                    if (deleteBtn) {
-                        deleteBtn.classList.add('hidden');
-                    }
-                    
-                    document.getElementById('delete-avatar').value = '0';
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function toggleDeleteButton() {
-            const isSelected = document.getElementById('select-avatar').checked;
-            const btn = document.getElementById('btn-delete-avatar');
-            if (btn) {
-                btn.classList.toggle('hidden', !isSelected);
-            }
-        }
-
-        function markAvatarForDeletion() {
-            const preview = document.getElementById('avatar-preview');
-            const placeholder = document.getElementById('avatar-placeholder');
-            const deleteInput = document.getElementById('delete-avatar');
-            const selectContainer = document.getElementById('select-avatar-container');
-            const selectCheckbox = document.getElementById('select-avatar');
-            const deleteBtn = document.getElementById('btn-delete-avatar');
-            
-            if (preview) {
-                preview.style.display = 'none';
-            }
-            
-            if (placeholder) {
-                placeholder.style.display = 'flex';
-            }
-            
-            if (selectContainer) {
-                selectContainer.style.display = 'none';
-            }
-
-            if (selectCheckbox) {
-                selectCheckbox.checked = false;
-            }
-
-            if (deleteBtn) {
-                deleteBtn.classList.add('hidden');
-            }
-            
-            if (deleteInput) {
-                deleteInput.value = '1';
-            }
-        }
-    </script>
+    {{ form_end(form) }}
 </div>
 {% endblock %}
