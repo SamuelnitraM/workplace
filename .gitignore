@@ -18,3 +18,15 @@
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+
+###> local ###
+/.vs/
+*.sql
+*.bak
+###< local ###
+
+###> uploads ###
+# Fichiers envoyés par les utilisateurs (avatars, galerie) : jamais versionnés, seuls les dossiers le sont
+/public/uploads/*/*
+!/public/uploads/*/.gitkeep
+###< uploads ###
