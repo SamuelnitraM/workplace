@@ -4,7 +4,7 @@
 {% block title %}Signaler un contenu — SprueHub{% endblock %}
 
 {% block body %}
-<div class="container-form">
+<div class="max-w-reading mx-auto">
 
     <header class="page-header">
         <div>
@@ -14,14 +14,36 @@
     </header>
 
     {{ form_start(form, {attr: {class: 'card'}}) }}
-        <div class="card-body space-y-5">
-            <div class="alert alert-info">
-                {{ ui.icon('flag') }}
-                <p class="break-words">{{ targetDescription }}</p>
+        <div class="card-body space-y-6">
+            <div class="flex items-start gap-3 rounded-control bg-surface-raised p-3">
+                <span class="mt-0.5 text-muted">{{ ui.icon('flag') }}</span>
+                <div class="min-w-0">
+                    <p class="eyebrow text-muted">Contenu signalé</p>
+                    <p class="mt-1 break-words text-small text-fg-secondary">{{ targetDescription }}</p>
+                </div>
             </div>
+
             {{ form_errors(form) }}
-            {{ form_row(form.reason) }}
-            {{ form_row(form.details, {help: 'Facultatif, ' ~ constant('App\\Entity\\Report::DETAILS_MAX_LENGTH') ~ ' caractères maximum.'}) }}
+
+            <fieldset class="space-y-3">
+                <legend class="label">Pourquoi signales-tu ce contenu ?</legend>
+                <div class="grid gap-2 sm:grid-cols-2">
+                    {% for choice in form.reason %}
+                        {% set reason = form.reason.vars.choices[choice.vars.name].data %}
+                        <label class="choice-card items-start" for="{{ choice.vars.id }}">
+                            {{ form_widget(choice, {attr: {class: 'sr-only'}}) }}
+                            <span class="mt-0.5 text-primary-text">{{ ui.icon(reason.icon) }}</span>
+                            <span class="min-w-0">
+                                <span class="block font-semibold text-fg">{{ reason.label }}</span>
+                                <span class="mt-0.5 block text-caption font-normal text-muted">{{ reason.description }}</span>
+                            </span>
+                        </label>
+                    {% endfor %}
+                </div>
+                {{ form_errors(form.reason) }}
+            </fieldset>
+
+            {{ form_row(form.details, {help: 'Facultatif, ' ~ constant('App\\Entity\\Report::DETAILS_MAX_LENGTH') ~ ' caractères maximum. Un lien, une citation ou le contexte aident l\'équipe à trancher vite.'}) }}
         </div>
         <div class="card-footer">
             <a href="{{ backUrl }}" class="btn btn-ghost">Annuler</a>

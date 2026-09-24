@@ -204,3 +204,23 @@ Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_i
 - Mobile : barre du haut (logo, loupe, messages, notifications) + barre d'onglets du bas (Accueil, Forum, Publier, Groupes, Menu — visiteur : Accueil, Forum, Groupes, Classement, Connexion). Le messenger flottant est masqué < 768 px.
 - Messages flash : toasts (`_partials/shell/_toasts.html.twig`), types `success|error|warning|info`.
 - Pages : ne pas remettre de `<main>` ni de conteneur `max-w-7xl mx-auto px-*` — `<main id="main" class="container-app py-8">` est fourni ; utiliser `container-reading`/`container-form` à l'intérieur si besoin.
+
+## Fenêtres modales
+
+`<dialog class="modal">` ouvert par `showModal()` (contrôleur Stimulus `modal`, ou Alpine via `$refs`). Structure : `.modal-header` (`.modal-title` + bouton de fermeture), `.modal-body` (défile), `.modal-footer` (actions). Variantes : `.modal-wide` (fiches techniques), `.modal-media` (visionneuse d'image : fond noir, image à sa taille maximale, bouton `.modal-close`). Échap ferme la fenêtre ; un clic sur le fond aussi (`click->modal#closeOnBackdrop`).
+
+```twig
+<div data-controller="modal">
+  <button data-action="modal#open" data-modal-id-param="ma-fenetre">Ouvrir</button>
+  <dialog id="ma-fenetre" class="modal" aria-labelledby="ma-fenetre-titre" data-action="click->modal#closeOnBackdrop">
+    <div class="modal-header"><p class="modal-title" id="ma-fenetre-titre">Titre</p>
+      <button class="btn btn-ghost btn-icon btn-sm" data-action="modal#close" aria-label="Fermer">{{ ui.icon('x') }}</button></div>
+    <div class="modal-body">…</div>
+    <div class="modal-footer"><button class="btn btn-primary" data-action="modal#close">Compris</button></div>
+  </dialog>
+</div>
+```
+
+## Cartes de choix avec description
+
+`.choice-card` accepte une icône, un titre et une ligne d'explication (formulaire de signalement, type de liste d'armée) ; le bouton radio peut être masqué (`sr-only`), l'état coché reste visible par la bordure et le fond.

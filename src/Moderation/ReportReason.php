@@ -22,4 +22,30 @@ enum ReportReason: string
             self::Other => 'Autre motif',
         };
     }
+
+    /** Short explanation shown under the label in the report form. */
+    public function description(): string
+    {
+        return match ($this) {
+            self::Spam => 'Publicité, liens répétés, messages sans rapport avec la discussion.',
+            self::Harassment => 'Attaques personnelles, menaces, acharnement contre un membre.',
+            self::HateSpeech => 'Propos visant une origine, une religion, un genre, une orientation…',
+            self::Inappropriate => 'Violence, nudité ou contenu choquant sans avertissement.',
+            self::Scam => 'Fausse vente, demande d\'argent ou tentative d\'escroquerie.',
+            self::Other => 'Un autre problème : précise-le dans le champ ci-dessous.',
+        };
+    }
+
+    /** Icon name of templates/_partials/_icon.html.twig. */
+    public function icon(): string
+    {
+        return match ($this) {
+            self::Spam => 'mail',
+            self::Harassment => 'alert-triangle',
+            self::HateSpeech => 'ban',
+            self::Inappropriate => 'eye-off',
+            self::Scam => 'shield',
+            self::Other => 'help-circle',
+        };
+    }
 }
