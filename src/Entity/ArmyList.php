@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Army\BattleSize;
 use App\Repository\ArmyListRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -50,6 +51,10 @@ class ArmyList
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
+    /** Official list (matched play rules checked, points limit) when set; free list otherwise. */
+    #[ORM\Column(nullable: true, enumType: BattleSize::class)]
+    private ?BattleSize $battleSize = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -66,6 +71,48 @@ class ArmyList
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getBattleSize(): ?BattleSize
+    {
+        return $this->battleSize;
+    }
+
+    public function setBattleSize(?BattleSize $battleSize): static
+    {
+        $this->battleSize = $battleSize;
+        return $this;
+    }
+
+    public function isOfficial(): bool
+    {
+        return $this->battleSize !== null;
+    }
+
+    /** Private copy of the list (units included) owned by another member. */
+    public function duplicateFor(User $owner, string $name): self
+    {
+        $copy = (new self())
+            ->setName($name)
+            ->setFaction((string) $this->faction)
+            ->setDetachment($this->detachment)
+            ->setDescription($this->description)
+            ->setBattleSize($this->battleSize)
+            ->setOwner($owner);
+        foreach ($this->units as $unit) {
+            $copy->addUnit($unit->duplicate());
+        }
+        return $copy->setTotalPoints($copy->computeTotalPoints());
+    }
+
+    /** Sum of every unit, enhancements included. */
+    public function computeTotalPoints(): int
+    {
+        $total = 0;
+        foreach ($this->units as $unit) {
+            $total += $unit->getTotalPoints();
+        }
+        return $total;
     }
 
     public function getName(): ?string

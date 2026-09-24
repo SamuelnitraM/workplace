@@ -128,7 +128,7 @@ final class OnboardingController extends AbstractController
 
     private function factionStep(Request $request, User $user): Response
     {
-        $choices = UserProfileFormType::FACTION_CHOICES;
+        $choices = UserProfileFormType::factionChoices();
 
         if ($request->isMethod('POST')) {
             $this->denyUnlessCsrfValid($request);

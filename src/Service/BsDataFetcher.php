@@ -353,6 +353,14 @@ class BsDataFetcher
         return $this->extractor($graph)->extractDetachments();
     }
 
+    /**
+     * @return list<array{bsdataId: string, name: string, detachment: ?string, detachmentIds: list<string>, points: int, description: ?string}>
+     */
+    public function extractEnhancements(CatalogueGraph $graph): array
+    {
+        return $this->extractor($graph)->extractEnhancements();
+    }
+
     /** Extracteur configuré avec les mots-clés de faction de l'armée dont $graph est le catalogue principal. */
     public function extractor(CatalogueGraph $graph): UnitExtractor
     {

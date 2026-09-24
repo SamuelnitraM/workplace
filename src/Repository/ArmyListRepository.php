@@ -2,8 +2,10 @@
 
 namespace App\Repository;
 
+use App\Army\BattleSize;
 use App\Entity\ArmyList;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -21,28 +23,30 @@ class ArmyListRepository extends ServiceEntityRepository
         return $this->findBy(['owner' => $owner, 'isPublic' => true], ['createdAt' => 'DESC']);
     }
 
-    //    /**
-    //     * @return ArmyList[] Returns an array of ArmyList objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('a')
-    //            ->andWhere('a.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('a.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?ArmyList
-    //    {
-    //        return $this->createQueryBuilder('a')
-    //            ->andWhere('a.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    /**
+     * Public lists matching the Explorer filters, most recent first (owner loaded with the lists).
+     */
+    public function createPublicSearchQuery(string $faction, string $detachment, ?BattleSize $battleSize, string $search): Query
+    {
+        $queryBuilder = $this->createQueryBuilder('l')
+            ->addSelect('o')
+            ->innerJoin('l.owner', 'o')
+            ->where('l.isPublic = true')
+            ->orderBy('l.createdAt', 'DESC')
+            ->addOrderBy('l.id', 'DESC');
+        if ($faction !== '') {
+            $queryBuilder->andWhere('l.faction = :faction')->setParameter('faction', $faction);
+        }
+        if ($detachment !== '') {
+            $queryBuilder->andWhere('l.detachment = :detachment')->setParameter('detachment', $detachment);
+        }
+        if ($battleSize !== null) {
+            $queryBuilder->andWhere('l.battleSize = :battleSize')->setParameter('battleSize', $battleSize);
+        }
+        if ($search !== '') {
+            $queryBuilder->andWhere('l.name LIKE :search OR o.username LIKE :search')
+                ->setParameter('search', '%' . addcslashes($search, '%_\\') . '%');
+        }
+        return $queryBuilder->getQuery();
+    }
 }

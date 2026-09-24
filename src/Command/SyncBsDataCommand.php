@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Entity\FactionDetachement;
+use App\Entity\FactionEnhancement;
 use App\Entity\FactionSyncState;
 use App\Entity\FactionUnit;
 use App\Service\BsDataFetcher;
@@ -29,7 +30,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'army:sync-bsdata', description: 'Synchronise les unités depuis BSData (GitHub)')]
 class SyncBsDataCommand extends Command
 {
-    private const EXTRACTOR_VERSION = 13; // à incrémenter à chaque fois qu'on change ce qu'on extrait
+    private const EXTRACTOR_VERSION = 14; // à incrémenter à chaque fois qu'on change ce qu'on extrait
 
     public function __construct(
         private BsDataFetcher $fetcher,
@@ -217,6 +218,49 @@ class SyncBsDataCommand extends Command
         if ($removedDets) {
             $io->writeln("  Détachements : {$removedDets} obsolète(s) supprimé(s).");
         }
+
+        // --- Enhancements (only those of this faction's detachments) ---
+        $detachmentNames = [];
+        foreach ($syncedDetIds as $syncedDetachment) {
+            $detachmentNames[$syncedDetachment->getName()] = true;
+        }
+        $enhancementRepo = $this->em->getRepository(FactionEnhancement::class);
+        $existingEnhancements = [];
+        foreach ($enhancementRepo->findBy(['faction' => $factionLabel]) as $existingEnhancement) {
+            $existingEnhancements[$existingEnhancement->getDetachment() . '|' . $existingEnhancement->getBsdataId()] = $existingEnhancement;
+        }
+        $syncedEnhancementKeys = [];
+        foreach ($this->fetcher->extractEnhancements($graph) as $enhancementData) {
+            // Detachment given by name, or by the BSData id of the detachment the enhancement depends on
+            $targetDetachments = $enhancementData['detachment'] !== null ? [$enhancementData['detachment']] : [];
+            foreach ($enhancementData['detachmentIds'] as $detachmentId) {
+                if (isset($syncedDetIds[$detachmentId])) {
+                    $targetDetachments[] = $syncedDetIds[$detachmentId]->getName();
+                }
+            }
+            foreach (array_unique($targetDetachments) as $detachmentName) {
+                if (!isset($detachmentNames[$detachmentName])) {
+                    continue;
+                }
+                $key = $detachmentName . '|' . $enhancementData['bsdataId'];
+                $enhancement = $existingEnhancements[$key] ?? null;
+                if ($enhancement === null) {
+                    $enhancement = new FactionEnhancement($enhancementData['bsdataId'], $factionLabel, $detachmentName);
+                    $this->em->persist($enhancement);
+                    $existingEnhancements[$key] = $enhancement;
+                }
+                $enhancement->setName(mb_substr($enhancementData['name'], 0, 155));
+                $enhancement->setPoints($enhancementData['points']);
+                $enhancement->setDescription($enhancementData['description']);
+                $syncedEnhancementKeys[$key] = true;
+            }
+        }
+        foreach ($existingEnhancements as $key => $existingEnhancement) {
+            if (!isset($syncedEnhancementKeys[$key])) {
+                $this->em->remove($existingEnhancement);
+            }
+        }
+        $io->writeln('  Améliorations : ' . count($syncedEnhancementKeys) . ' synchronisées.');
 
         // --- État de synchro ---
         if (!$syncState) {

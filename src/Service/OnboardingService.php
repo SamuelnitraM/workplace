@@ -34,7 +34,7 @@ final class OnboardingService
     /** Valeurs de faction acceptées (mêmes choix que le formulaire de profil). */
     public static function factionValues(): array
     {
-        return array_merge(...array_map('array_values', array_values(UserProfileFormType::FACTION_CHOICES)));
+        return array_merge(...array_map('array_values', array_values(UserProfileFormType::factionChoices())));
     }
 
     /** Passe à l'étape suivante (sans jamais revenir en arrière dans l'étape mémorisée). Pas de flush. */

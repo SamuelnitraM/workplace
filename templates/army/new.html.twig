@@ -16,6 +16,10 @@
     <div {{ stimulus_controller('army-form', {
             unitsUrl: path('app_army_units_by_faction', {faction: '__FACTION__'}),
             detachmentsUrl: path('app_army_detachments_by_faction', {faction: '__FACTION__'}),
+            enhancementsUrl: path('app_army_enhancements_by_faction', {faction: '__FACTION__'}),
+            datasheetUrl: path('app_army_datasheet'),
+            unitDatasheetUrl: path('app_army_unit_datasheet'),
+            rules: rulesConfig,
             groups: unitGroups,
         }) }}>
         {# Formulaire rendu par le composant Alpine « armyForm » (assets/controllers/army_form_controller.js) #}
@@ -25,6 +29,7 @@
                 action: path('app_army_new'),
                 submit_label: 'Créer la liste',
                 unit_groups: unitGroups,
+                battle_sizes: enum_cases('App\\Army\\BattleSize'),
                 faction_groups: factionGroups,
                 cancel_url: path('app_army_index'),
             }) -}}

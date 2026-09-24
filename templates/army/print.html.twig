@@ -1,0 +1,72 @@
+{#
+    Printable army list: roster, then every datasheet. Standalone page (no site shell), light palette (.print-sheet),
+    printed or saved as PDF from the browser print dialog.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set battle_size = armyList.battleSize %}
+<!DOCTYPE html>
+<html lang="fr" class="print-sheet">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{{ armyList.name }} — impression</title>
+    {{ importmap('app') }}
+</head>
+<body>
+<main class="print-page">
+    <div class="print-toolbar mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-surface-raised p-3">
+        <p class="text-small text-fg-secondary">Dans la fenêtre d'impression, choisis « Enregistrer au format PDF » pour obtenir un fichier.</p>
+        <div class="flex gap-2">
+            <a href="{{ path('app_army_show', {id: armyList.id}) }}" class="btn btn-ghost">{{ ui.icon('arrow-left') }}Retour</a>
+            <button type="button" class="btn btn-primary" data-controller="print" data-action="print#print">{{ ui.icon('file-text') }}Imprimer / PDF</button>
+        </div>
+    </div>
+
+    <header class="mb-6">
+        <h1 class="text-h1 font-bold">{{ armyList.name }}</h1>
+        <p class="mt-1 text-fg-secondary">
+            {{ armyList.faction }}{% if armyList.detachment %} · {{ armyList.detachment }}{% endif %}
+            · {% if battle_size %}{{ battle_size.label }} ({{ battle_size.pointsLimit }} pts){% else %}Liste libre{% endif %}
+            · <strong class="text-fg">{{ armyList.totalPoints }} pts</strong>
+            · par {{ armyList.owner.username }}
+        </p>
+    </header>
+
+    <section class="mb-8" aria-labelledby="print-roster-title">
+        <h2 id="print-roster-title" class="datasheet-section-title">Composition</h2>
+        <table class="datasheet-table">
+            <thead>
+                <tr><th scope="col" class="datasheet-table-name">Unité</th><th scope="col">Qté</th><th scope="col">Points</th></tr>
+            </thead>
+            <tbody>
+                {% for group in unitGroups %}
+                    <tr><th scope="rowgroup" colspan="3" class="datasheet-table-name text-muted">{{ group.plural }}</th></tr>
+                    {% for unit in group.units %}
+                        <tr>
+                            <th scope="row" class="datasheet-table-name">
+                                {{ unit.name }}{% if unit.modelCount %} ({{ unit.modelCount }} fig.){% endif %}
+                                {% if unit.warlord or unit.enhancementName %}
+                                    <span class="datasheet-weapon-keywords">{{ unit.warlord ? 'Seigneur de guerre' }}{{ unit.warlord and unit.enhancementName ? ' · ' }}{{ unit.enhancementName }}</span>
+                                {% endif %}
+                            </th>
+                            <td>{{ unit.quantity }}</td>
+                            <td>{{ unit.totalPoints }}</td>
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+                <tr><th scope="row" class="datasheet-table-name">Total</th><td></td><td><strong>{{ armyList.totalPoints }}</strong></td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    {% for group in unitGroups %}
+        {% for unit in group.units %}
+            <section class="print-unit">
+                {{ include('army/_datasheet.html.twig', {unit: unit, heading_level: 2}) }}
+            </section>
+        {% endfor %}
+    {% endfor %}
+</main>
+</body>
+</html>

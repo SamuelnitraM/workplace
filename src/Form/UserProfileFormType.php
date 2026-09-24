@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Gamification\UserTitleManager;
 use App\Notification\NotificationSound;
 use App\Service\AvatarUploader;
+use App\Service\BsDataFetcher;
 use Doctrine\ORM\EntityRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
@@ -23,12 +24,19 @@ use Symfony\Component\Validator\Constraints\Regex;
 class UserProfileFormType extends AbstractType
 {
     /** Factions proposées (profil, présentation guidée), regroupées par famille. */
-    public const FACTION_CHOICES = [
-        'Space marines' => ['Space Marines' => 'Space Marines', 'Blood Angels' => 'Blood Angels', 'Dark Angels' => 'Dark Angels', 'Space Wolves' => 'Space Wolves', 'Grey Knights' => 'Grey Knights', 'Deathwatch' => 'Deathwatch'],
-        'Imperium' => ['Adeptus Custodes' => 'Adeptus Custodes', 'Sisters of Battle' => 'Sisters of Battle', 'Astra Militarum' => 'Astra Militarum', 'Adeptus Mechanicus' => 'Adeptus Mechanicus', 'Imperial Knights' => 'Imperial Knights'],
-        'Chaos' => ['Chaos Space Marines' => 'Chaos Space Marines', 'Death Guard' => 'Death Guard', 'Thousand Sons' => 'Thousand Sons', 'World Eaters' => 'World Eaters', "Emperor's Children" => "Emperor's Children", 'Chaos Knights' => 'Chaos Knights', 'Daemons' => 'Daemons'],
-        'Xenos' => ['Orks' => 'Orks', 'Eldar' => 'Eldar', 'Drukhari' => 'Drukhari', 'Tyranids' => 'Tyranids', 'Genestealer Cults' => 'Genestealer Cults', 'Tau' => 'Tau', 'Necrons' => 'Necrons', 'Leagues of Votann' => 'Leagues of Votann'],
-    ];
+    /**
+     * Favorite faction choices: the playable factions of the army builder, grouped like its menu.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public static function factionChoices(): array
+    {
+        $choices = [];
+        foreach (BsDataFetcher::FACTION_GROUPS as $group => $factions) {
+            $choices[$group] = array_combine($factions, $factions);
+        }
+        return $choices;
+    }
 
     public const BIO_MAX_LENGTH = 255;
 
@@ -66,7 +74,7 @@ class UserProfileFormType extends AbstractType
             ->add('favoriteFaction', ChoiceType::class, [
                 'label' => 'Faction favorite', 'required' => false,
                 'placeholder' => '-- Choisir une faction --',
-                'choices' => self::FACTION_CHOICES,
+                'choices' => self::factionChoices(),
             ])
             ->add('showActivity', ChoiceType::class, [
                 'label' => 'Afficher mon activité récente sur mon profil',

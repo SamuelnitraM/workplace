@@ -3,55 +3,27 @@
 
 {% block title %}{{ armyList.name }}{% endblock %}
 
-{# Tableau d'armes (profil de modèle ou rôle) #}
-{% macro weapons_table(weapons) %}
-    <div class="roster-table-wrap">
-        <table class="roster-table">
-            <thead>
-                <tr>
-                    <th scope="col" class="text-left">Arme</th>
-                    <th scope="col">Portée</th>
-                    <th scope="col"><abbr title="Attaques">A</abbr></th>
-                    <th scope="col"><abbr title="Capacité de tir / de combat">C/T</abbr></th>
-                    <th scope="col"><abbr title="Force">F</abbr></th>
-                    <th scope="col"><abbr title="Pénétration d'armure">PA</abbr></th>
-                    <th scope="col"><abbr title="Dégâts">D</abbr></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for w in weapons %}
-                    <tr>
-                        <th scope="row" class="text-left">{{ w.name|default('') }}</th>
-                        <td>{{ w.Range|default('-') }}</td>
-                        <td>{{ w.A|default('-') }}</td>
-                        <td>{{ w.BS ?? w.WS ?? '-' }}</td>
-                        <td>{{ w.S|default('-') }}</td>
-                        <td>{{ w.AP|default('-') }}</td>
-                        <td>{{ w.D|default('-') }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-{% endmacro %}
-
 {% block body %}
 {% set can_edit = is_granted('ARMY_EDIT', armyList) %}
 {% set model_count = armyList.units|reduce((carry, u) => carry + u.quantity, 0) %}
-<div class="max-w-4xl mx-auto">
+{% set battle_size = armyList.battleSize %}
+<div class="max-w-4xl mx-auto" data-controller="modal">
 
     <header class="page-header">
         <div class="min-w-0">
             {% if can_edit %}
                 <p class="page-header-eyebrow"><a href="{{ path('app_army_index') }}" class="link">Mes listes d'armée</a>{{ ui.icon('chevron-right', 'size-4') }}Liste</p>
             {% else %}
-                <p class="page-header-eyebrow"><a href="{{ path('app_profil_show', {username: armyList.owner.username, _fragment: 'armies'}) }}" class="link">Profil de {{ armyList.owner.username }}</a>{{ ui.icon('chevron-right', 'size-4') }}Liste d'armée</p>
+                <p class="page-header-eyebrow"><a href="{{ path('app_army_explorer') }}" class="link">Explorer</a>{{ ui.icon('chevron-right', 'size-4') }}Liste de <a href="{{ path('app_profil_show', {username: armyList.owner.username}) }}" class="link">{{ armyList.owner.username }}</a></p>
             {% endif %}
             <h1 class="page-header-title break-words">{{ armyList.name }}</h1>
             <div class="mt-3 flex flex-wrap items-center gap-2">
                 <span class="chip chip-primary">{{ ui.icon('shield') }}{{ armyList.faction }}</span>
-                {% if armyList.detachment %}
-                    <span class="chip">{{ armyList.detachment }}</span>
+                {% if armyList.detachment %}<span class="chip">{{ armyList.detachment }}</span>{% endif %}
+                {% if battle_size %}
+                    <span class="chip chip-accent">{{ ui.icon('trophy') }}Officielle · {{ battle_size.label }} {{ battle_size.pointsLimit }} pts</span>
+                {% else %}
+                    <span class="chip">{{ ui.icon('paintbrush') }}Liste libre</span>
                 {% endif %}
                 {% if armyList.isPublic %}
                     <span class="chip chip-success">{{ ui.icon('globe') }}Publique</span>
@@ -61,23 +33,65 @@
             </div>
         </div>
 
-        {% if can_edit %}
-            <div class="page-header-actions">
+        <div class="page-header-actions">
+            <div x-data="{ open: false }" class="dropdown" @keydown.escape="open = false">
+                <button type="button" class="btn btn-secondary" @click="open = !open" :aria-expanded="open.toString()" aria-expanded="false" aria-haspopup="true">
+                    {{ ui.icon('upload') }}Exporter{{ ui.icon('chevron-down') }}
+                </button>
+                <div class="menu" x-show="open" x-cloak @click.outside="open = false" x-transition.opacity>
+                    <button type="button" class="menu-item w-full" data-action="modal#open" data-modal-id-param="army-export" @click="open = false">{{ ui.icon('file-text') }}Texte (application officielle)</button>
+                    <a href="{{ path('app_army_export_text', {id: armyList.id}) }}" class="menu-item" data-turbo="false">{{ ui.icon('upload') }}Télécharger en .txt</a>
+                    <a href="{{ path('app_army_print', {id: armyList.id}) }}" class="menu-item" target="_blank" rel="noopener">{{ ui.icon('file-text') }}Imprimer / PDF</a>
+                    {% if armyList.isPublic %}
+                        <div class="menu-separator"></div>
+                        <div data-controller="clipboard" data-clipboard-text-value="{{ url('app_army_show', {id: armyList.id}) }}" data-clipboard-done-value="Lien copié !">
+                            <button type="button" class="menu-item w-full" data-action="clipboard#copy">{{ ui.icon('link') }}<span data-clipboard-target="label">Copier le lien de partage</span></button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% if app.user %}
+                <form method="post" action="{{ path('app_army_duplicate', {id: armyList.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('army_duplicate_' ~ armyList.id) }}">
+                    <button type="submit" class="btn {{ can_edit ? 'btn-ghost' : 'btn-primary' }}">{{ ui.icon('clipboard-list') }}{{ can_edit ? 'Dupliquer' : 'Dupliquer dans mes listes' }}</button>
+                </form>
+            {% endif %}
+            {% if can_edit %}
                 <form method="post" action="{{ path('app_army_delete', {id: armyList.id}) }}"
                       {{ stimulus_controller('confirm', {message: 'Supprimer cette liste ?'})|stimulus_action('confirm', 'ask', 'submit') }}>
                     <input type="hidden" name="_token" value="{{ csrf_token('army_delete_' ~ armyList.id) }}">
-                    <button type="submit" class="btn btn-ghost text-danger-text hover:text-danger-text">{{ ui.icon('trash') }}Supprimer</button>
+                    <button type="submit" class="btn btn-ghost btn-icon text-danger-text hover:text-danger-text" aria-label="Supprimer la liste">{{ ui.icon('trash') }}</button>
                 </form>
                 <a href="{{ path('app_army_edit', {id: armyList.id}) }}" class="btn btn-primary">{{ ui.icon('pencil') }}Modifier</a>
-            </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </header>
 
-    {# Résumé chiffré #}
+    {# Official list: rules status #}
+    {% if battle_size %}
+        {% if ruleReport.errors is not empty %}
+            <div class="alert alert-danger mb-6" role="alert">
+                {{ ui.icon('alert-circle') }}
+                <div><p class="alert-title">Liste non conforme</p><ul class="mt-1 list-disc pl-4">{% for message in ruleReport.errors %}<li>{{ message }}</li>{% endfor %}</ul></div>
+            </div>
+        {% elseif ruleReport.warnings is not empty %}
+            <div class="alert alert-warning mb-6" role="status">
+                {{ ui.icon('alert-triangle') }}
+                <div><p class="alert-title">Liste à compléter</p><ul class="mt-1 list-disc pl-4">{% for message in ruleReport.warnings %}<li>{{ message }}</li>{% endfor %}</ul></div>
+            </div>
+        {% else %}
+            <div class="alert alert-success mb-6" role="status">
+                {{ ui.icon('check-circle') }}
+                <p>Liste conforme au format {{ battle_size.label }} ({{ battle_size.pointsLimit }} pts).</p>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    {# Summary #}
     <dl class="mb-6 grid grid-cols-3 gap-3">
         <div class="card card-body">
             <dt class="text-caption text-muted">Total</dt>
-            <dd class="text-h2 font-bold text-accent-text tabular-nums">{{ armyList.totalPoints }}<span class="text-small font-semibold"> pts</span></dd>
+            <dd class="text-h2 font-bold text-accent-text tabular-nums">{{ armyList.totalPoints }}<span class="text-small font-semibold">{{ battle_size ? ' / ' ~ battle_size.pointsLimit : '' }} pts</span></dd>
         </div>
         <div class="card card-body">
             <dt class="text-caption text-muted">Unités</dt>
@@ -85,7 +99,7 @@
         </div>
         <div class="card card-body">
             <dt class="text-caption text-muted">Fiches différentes</dt>
-            <dd class="text-h2 font-bold text-fg tabular-nums">{{ armyList.units|length }}</dd>
+            <dd class="text-h2 font-bold text-fg tabular-nums">{{ armyList.units|map(u => u.name)|reduce((names, name) => name in names ? names : names|merge([name]), [])|length }}</dd>
         </div>
     </dl>
 
@@ -98,7 +112,7 @@
         </section>
     {% endif %}
 
-    {# UNITÉS #}
+    {# UNITS #}
     {% if armyList.units is empty %}
         {{ include('_partials/_empty_state.html.twig', {
             icon: 'swords',
@@ -110,14 +124,13 @@
         <section class="card" aria-labelledby="roster-title">
             <div class="card-header">
                 <h2 id="roster-title" class="text-h3 text-fg">Composition</h2>
-                <span class="text-caption text-muted">Touchez une unité pour voir sa fiche</span>
+                <span class="text-caption text-muted">Touche une unité pour ouvrir sa fiche</span>
             </div>
 
             <div class="roster-head" aria-hidden="true">
                 <span></span><span>Unité</span><span class="text-center">Qté</span><span class="text-right">Points</span>
             </div>
 
-            {# Unités regroupées par type (App\Army\UnitCategory) : en-tête avec icône, nombre et sous-total #}
             {% for group in unitGroups %}
             <section class="roster-group" aria-labelledby="roster-group-{{ group.key }}">
                 <div class="unit-group-head roster-group-head">
@@ -128,105 +141,25 @@
                 </div>
                 <ol class="roster">
                     {% for unit in group.units %}
-                        {% set row %}
-                            <span class="roster-chevron" aria-hidden="true">{% if unit.statsData %}{{ ui.icon('chevron-right', 'size-4') }}{% endif %}</span>
-                            <span class="roster-name">{{ unit.name }}</span>
-                            <span class="roster-qty"><span class="sr-only">Quantité : </span>×{{ unit.quantity }}</span>
-                            <span class="roster-points">
-                                {{ unit.points * unit.quantity }} pts
-                                {% if unit.quantity > 1 %}
-                                    <span class="block text-caption font-normal text-muted">{{ unit.points }} × {{ unit.quantity }}</span>
-                                {% endif %}
-                            </span>
-                        {% endset %}
                         <li class="roster-item">
-                            {% if unit.statsData %}
-                                <details class="roster-details">
-                                    <summary class="roster-row">{{ row }}</summary>
-                                    <div class="roster-sheet">
-                                        {% if unit.statsData.keywords|default([]) is not empty %}
-                                            <p class="text-caption text-muted">
-                                                <span class="eyebrow">Mots-clés</span>
-                                                <span class="block mt-1 text-fg-secondary">{{ unit.statsData.keywords|join(', ') }}</span>
-                                            </p>
-                                        {% endif %}
-                                        {% if unit.statsData.legends|default(false) or unit.statsData.invulnerableSave|default(null) %}
-                                            <p class="flex flex-wrap items-center gap-2">
-                                                {% if unit.statsData.legends|default(false) %}<span class="chip chip-warning">Legends</span>{% endif %}
-                                                {% if unit.statsData.invulnerableSave|default(null) %}<span class="chip">Sauvegarde invulnérable {{ unit.statsData.invulnerableSave }}</span>{% endif %}
-                                            </p>
-                                        {% endif %}
-
-                                        {# --- STATS : un profil par modèle --- #}
-                                        {% for model in unit.statsData.models|default([]) %}
-                                            {% set stats = model.stats|default({}) %}
-                                            <div>
-                                                {% if model.name|default('') %}<p class="mb-1.5 text-small font-semibold text-fg">{{ model.name }}</p>{% endif %}
-                                                <dl class="statline">
-                                                    <div><dt><abbr title="Mouvement">M</abbr></dt><dd>{{ stats.M|default('-') }}</dd></div>
-                                                    <div><dt><abbr title="Endurance">E</abbr></dt><dd>{{ stats.T|default('-') }}</dd></div>
-                                                    <div><dt><abbr title="Sauvegarde">Sv</abbr></dt><dd>{{ stats.Sv|default('-') }}</dd></div>
-                                                    <div><dt><abbr title="Points de vie">PV</abbr></dt><dd>{{ stats.W|default('-') }}</dd></div>
-                                                    <div><dt><abbr title="Commandement">Cd</abbr></dt><dd>{{ stats.LD|default('-') }}</dd></div>
-                                                    <div><dt><abbr title="Contrôle d'objectif">Co</abbr></dt><dd>{{ stats.OC|default('-') }}</dd></div>
-                                                </dl>
-                                            </div>
-                                        {% endfor %}
-
-                                        {# --- ARMES : par modèle si plusieurs, puis rôles --- #}
-                                        {% set has_weapons = false %}
-                                        {% for model in unit.statsData.models|default([]) %}{% if model.weapons|default([]) is not empty %}{% set has_weapons = true %}{% endif %}{% endfor %}
-                                        {% for role in unit.statsData.roles|default([]) %}{% if role.weapons|default([]) is not empty %}{% set has_weapons = true %}{% endif %}{% endfor %}
-                                        {% if has_weapons %}
-                                            <div>
-                                                <p class="eyebrow mb-2">Armes</p>
-                                                {% for model in unit.statsData.models|default([]) %}
-                                                    {% if model.weapons|default([]) is not empty %}
-                                                        {% if unit.statsData.models|default([])|length > 1 %}
-                                                            <p class="mb-1 text-caption font-semibold text-fg-secondary">{{ model.name|default('') }}</p>
-                                                        {% endif %}
-                                                        {{ _self.weapons_table(model.weapons) }}
-                                                    {% endif %}
-                                                {% endfor %}
-                                                {% for role in unit.statsData.roles|default([]) %}
-                                                    {% if role.weapons|default([]) is not empty %}
-                                                        <p class="mb-1 text-caption font-semibold uppercase text-primary-text">{{ role.name|default('') }}</p>
-                                                        {{ _self.weapons_table(role.weapons) }}
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
-
-                                        {# --- CAPACITÉS : par défaut, puis rôles --- #}
-                                        {% if (unit.statsData.abilities|default([]))|length > 0 or (unit.statsData.roles|default([]))|length > 0 %}
-                                            <div>
-                                                <p class="eyebrow mb-2">Capacités</p>
-                                                <ul class="space-y-1.5 text-small text-fg-secondary">
-                                                    {% set named_rules = (unit.statsData.coreAbilities|default([]))|merge(unit.statsData.factionAbilities|default([])) %}
-                                                    {% if named_rules is not empty %}
-                                                        <li><strong class="text-fg">Base et faction</strong> — {{ named_rules|join(', ') }}</li>
-                                                    {% endif %}
-                                                    {% for a in unit.statsData.abilities|default([]) %}
-                                                        <li><strong class="text-fg">{{ a.name|default('') }}</strong> — {{ a.description|default('') }}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                                {% for role in unit.statsData.roles|default([]) %}
-                                                    {% if role.abilities|default([]) is not empty %}
-                                                        <p class="mt-3 mb-1 text-caption font-semibold uppercase text-primary-text">{{ role.name|default('') }}</p>
-                                                        <ul class="space-y-1.5 text-small text-fg-secondary">
-                                                            {% for a in role.abilities %}
-                                                                <li><strong class="text-fg">{{ a.name|default('') }}</strong> — {{ a.description|default('') }}</li>
-                                                            {% endfor %}
-                                                        </ul>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                </details>
-                            {% else %}
-                                <div class="roster-row">{{ row }}</div>
-                            {% endif %}
+                            <button type="button" class="roster-row roster-row-button" data-action="modal#open" data-modal-id-param="datasheet-{{ unit.id }}" aria-haspopup="dialog">
+                                <span class="roster-chevron" aria-hidden="true">{{ ui.icon('file-text', 'size-4') }}</span>
+                                <span class="roster-name">
+                                    {{ unit.name }}
+                                    <span class="mt-1 flex flex-wrap gap-1.5">
+                                        {% if unit.warlord %}<span class="chip chip-accent">{{ ui.icon('crown') }}Seigneur de guerre</span>{% endif %}
+                                        {% if unit.enhancementName %}<span class="chip chip-primary">{{ ui.icon('sparkles') }}{{ unit.enhancementName }}</span>{% endif %}
+                                        {% if unit.modelCount %}<span class="chip">{{ unit.modelCount }} fig.</span>{% endif %}
+                                    </span>
+                                </span>
+                                <span class="roster-qty"><span class="sr-only">Quantité : </span>×{{ unit.quantity }}</span>
+                                <span class="roster-points">
+                                    {{ unit.totalPoints }} pts
+                                    {% if unit.quantity > 1 or unit.enhancementPoints > 0 %}
+                                        <span class="block text-caption font-normal text-muted">{{ unit.points }}{{ unit.quantity > 1 ? ' × ' ~ unit.quantity }}{{ unit.enhancementPoints > 0 ? ' + ' ~ unit.enhancementPoints }}</span>
+                                    {% endif %}
+                                </span>
+                            </button>
                         </li>
                     {% endfor %}
                 </ol>
@@ -238,7 +171,36 @@
                 <span class="text-h3 font-bold text-accent-text tabular-nums">{{ armyList.totalPoints }} pts</span>
             </div>
         </section>
+
+        {# Datasheet windows #}
+        {% for unit in armyList.units %}
+            <dialog id="datasheet-{{ unit.id }}" class="modal modal-wide" aria-labelledby="datasheet-{{ unit.id }}-title" data-action="click->modal#closeOnBackdrop">
+                <div class="modal-header">
+                    <p class="modal-title" id="datasheet-{{ unit.id }}-title">Fiche technique</p>
+                    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="modal#close" aria-label="Fermer">{{ ui.icon('x') }}</button>
+                </div>
+                <div class="modal-body">
+                    {{ include('army/_datasheet.html.twig', {unit: unit, heading_level: 2}) }}
+                </div>
+            </dialog>
+        {% endfor %}
     {% endif %}
+
+    {# Text export window #}
+    <dialog id="army-export" class="modal" aria-labelledby="army-export-title" data-action="click->modal#closeOnBackdrop">
+        <div class="modal-header">
+            <p class="modal-title" id="army-export-title">Export texte</p>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="modal#close" aria-label="Fermer">{{ ui.icon('x') }}</button>
+        </div>
+        <div class="modal-body" data-controller="clipboard" data-clipboard-done-value="Texte copié !">
+            <p class="mb-3 text-small text-fg-secondary">Format de l'application officielle : colle-le dans un autre outil, ou dans l'import de SprueHub.</p>
+            <label for="army-export-text" class="sr-only">Texte de la liste</label>
+            <textarea id="army-export-text" class="textarea font-mono text-caption" rows="14" readonly data-clipboard-target="source">{{ exportText }}</textarea>
+            <div class="mt-3 flex justify-end">
+                <button type="button" class="btn btn-primary" data-action="clipboard#copy">{{ ui.icon('clipboard-list') }}<span data-clipboard-target="label">Copier le texte</span></button>
+            </div>
+        </div>
+    </dialog>
 
 </div>
 {% endblock %}

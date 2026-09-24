@@ -1,6 +1,7 @@
 {#
     Carte d'une liste d'armée (index « Mes listes d'armée » et onglet « Armées publiques » du profil).
-    Paramètres : list (App\Entity\ArmyList, requis) ; heading (niveau de titre, défaut 2) ; show_visibility (défaut true).
+    Paramètres : list (App\Entity\ArmyList, requis) ; heading (niveau de titre, défaut 2) ; show_visibility (défaut true) ;
+    show_owner (default false: list author, Explorer page).
 #}
 {% import '_macros/ui.html.twig' as ui %}
 {% set heading = heading ?? 2 %}
@@ -17,8 +18,12 @@
                 {% endif %}
             {% endif %}
         </div>
+        {% if show_owner ?? false %}
+            <p class="-mt-1 text-caption text-muted">par {{ list.owner.username }}</p>
+        {% endif %}
         <div class="flex flex-wrap items-center gap-2">
             <span class="chip chip-primary">{{ ui.icon('shield') }}{{ list.faction }}</span>
+            {% if list.battleSize %}<span class="chip chip-accent">{{ list.battleSize.pointsLimit }} pts</span>{% endif %}
             {% if list.detachment %}
                 <span class="text-small text-fg-secondary">{{ list.detachment }}</span>
             {% endif %}

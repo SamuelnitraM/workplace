@@ -904,6 +904,140 @@ final class UnitExtractor
     }
 
     /**
+     * Enhancements of every detachment. Two layouts exist in BSData:
+     *  - "<Detachment> Enhancements" groups, shared or nested in a shared "Enhancements…" group;
+     *  - a shared "Enhancements…" group lists every enhancement, each hidden unless its detachment is selected.
+     * The detachment is given by name in the first case, by BSData id (detachmentIds) in the second.
+     *
+     * @return list<array{bsdataId: string, name: string, detachment: ?string, detachmentIds: list<string>, points: int, description: ?string}>
+     */
+    public function extractEnhancements(): array
+    {
+        $enhancements = [];
+        // Root groups: "Enhancements", "Enhancements - Upgrades", "Enhancement Upgrades"… and "<Detachment> Enhancements"
+        foreach ($this->graph->sharedGroups() as ['node' => $root]) {
+            $name = (string) ($root['name'] ?? '');
+            if (str_ends_with($name, ' Enhancements')) {
+                $this->collectEnhancements($root, trim(substr($name, 0, -strlen(' Enhancements'))), $enhancements, [$root['id'] ?? '' => true]);
+            } elseif (str_starts_with($name, 'Enhancement')) {
+                $this->collectEnhancements($root, null, $enhancements, [$root['id'] ?? '' => true]);
+            }
+        }
+        return array_values($enhancements);
+    }
+
+    /**
+     * @param array<string, array> $enhancements unique key => enhancement (filled)
+     * @param array<string, true> $visited group ids already explored
+     */
+    private function collectEnhancements(array $group, ?string $detachment, array &$enhancements, array $visited): void
+    {
+        $entries = $group['selectionEntries'] ?? [];
+        $children = $group['selectionEntryGroups'] ?? [];
+        foreach ($group['entryLinks'] ?? [] as $link) {
+            $target = $this->graph->get($link['targetId'] ?? null);
+            if ($target === null) {
+                continue;
+            }
+            $linked = ['name' => $link['name'] ?? $target['name'] ?? '', 'modifiers' => array_merge($link['modifiers'] ?? [], $target['modifiers'] ?? [])] + $target;
+            match ($link['type'] ?? null) {
+                'selectionEntryGroup' => $children[] = $linked,
+                'selectionEntry' => $entries[] = $linked,
+                default => null,
+            };
+        }
+        foreach ($entries as $entry) {
+            if (!isset($entry['id'], $entry['name']) || ($entry['type'] ?? 'upgrade') !== 'upgrade') {
+                continue;
+            }
+            $detachmentIds = $detachment === null ? $this->detachmentConditionIds($entry) : [];
+            if ($detachment === null && $detachmentIds === []) {
+                continue;
+            }
+            $enhancements[($detachment ?? implode(',', $detachmentIds)) . '|' . $entry['id']] = [
+                'bsdataId' => (string) $entry['id'],
+                'name' => (string) $entry['name'],
+                'detachment' => $detachment,
+                'detachmentIds' => $detachmentIds,
+                'points' => $this->enhancementPoints($entry),
+                'description' => $this->enhancementDescription($entry),
+            ];
+        }
+        foreach ($children as $child) {
+            $childId = (string) ($child['id'] ?? '');
+            if ($childId === '' || isset($visited[$childId])) {
+                continue;
+            }
+            $name = (string) ($child['name'] ?? '');
+            $childDetachment = str_ends_with($name, ' Enhancements') ? trim(substr($name, 0, -strlen(' Enhancements'))) : $detachment;
+            $this->collectEnhancements($child, $childDetachment, $enhancements, $visited + [$childId => true]);
+        }
+    }
+
+    /**
+     * Ids of the selections an entry depends on: "hidden" modifiers whose condition is
+     * "fewer than 1" or "exactly 0" selection of <id> (the detachment); the caller keeps the ids of known detachments.
+     *
+     * @return list<string>
+     */
+    private function detachmentConditionIds(array $entry): array
+    {
+        $ids = [];
+        foreach ($entry['modifiers'] ?? [] as $modifier) {
+            if (($modifier['field'] ?? null) !== 'hidden' || ($modifier['value'] ?? null) !== true) {
+                continue;
+            }
+            foreach ($this->flattenConditions($modifier) as $condition) {
+                $type = $condition['type'] ?? null;
+                $value = (int) ($condition['value'] ?? -1);
+                $missingSelection = ($type === 'lessThan' && $value === 1) || ($type === 'equalTo' && $value === 0);
+                if (($condition['field'] ?? null) === 'selections' && $missingSelection && isset($condition['childId'])) {
+                    $ids[] = (string) $condition['childId'];
+                }
+            }
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Conditions of a modifier, nested condition groups included.
+     *
+     * @return list<array>
+     */
+    private function flattenConditions(array $node): array
+    {
+        $conditions = $node['conditions'] ?? [];
+        foreach ($node['conditionGroups'] ?? [] as $conditionGroup) {
+            $conditions = array_merge($conditions, $this->flattenConditions($conditionGroup));
+        }
+        return $conditions;
+    }
+
+    private function enhancementPoints(array $entry): int
+    {
+        foreach ($entry['costs'] ?? [] as $cost) {
+            if (($cost['name'] ?? null) === 'pts') {
+                return (int) ($cost['value'] ?? 0);
+            }
+        }
+        return 0;
+    }
+
+    /** Text of the "Abilities" profile, without the BattleScribe markup (**bold**, ^^keyword^^). */
+    private function enhancementDescription(array $entry): ?string
+    {
+        foreach ($entry['profiles'] ?? [] as $profile) {
+            foreach ($profile['characteristics'] ?? [] as $characteristic) {
+                $text = trim(str_replace(['**', '^^', "\u{00a0}"], ['', '', ' '], (string) ($characteristic['$text'] ?? '')));
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * @param array<string, string> $detachments id => nom (rempli)
      */
     private function collectDetachments(array $node, ?array $link, array &$detachments, array $visited, int $depth): void

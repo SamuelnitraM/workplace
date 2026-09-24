@@ -1,0 +1,185 @@
+{#
+    Datasheet of a unit (App\Entity\ArmyUnit, BSData profile copied in statsData), laid out like an official datasheet:
+    statlines, ranged and melee weapons, abilities, keywords. Used by the list page (windows), the builder (fetched
+    fragment) and the printable view.
+    Parameters: unit (required), heading_level (default 2), show_header (default true).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set stats_data = unit.statsData ?? {} %}
+{% set models = stats_data.models|default([]) %}
+{% set heading_level = heading_level ?? 2 %}
+
+{# Weapons of every model, each listed once #}
+{% set weapons = [] %}
+{% set weapon_names = [] %}
+{% for model in models %}
+    {% for weapon in model.weapons|default([]) %}
+        {% if weapon.name|default('') not in weapon_names %}
+            {% set weapons = weapons|merge([weapon]) %}
+            {% set weapon_names = weapon_names|merge([weapon.name|default('')]) %}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+{% set ranged = weapons|filter(w => (w.weaponType ?? '') starts with 'Ranged') %}
+{% set melee = weapons|filter(w => not ((w.weaponType ?? '') starts with 'Ranged')) %}
+
+{% macro weapon_table(title, icon, weapons, skill_label, skill_title) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    <div class="datasheet-table-wrap">
+        <table class="datasheet-table">
+            <thead>
+                <tr>
+                    <th scope="col" class="datasheet-table-name">{{ ui.icon(icon, 'size-4') }}{{ title }}</th>
+                    <th scope="col"><abbr title="Portée">Portée</abbr></th>
+                    <th scope="col"><abbr title="Attaques">A</abbr></th>
+                    <th scope="col"><abbr title="{{ skill_title }}">{{ skill_label }}</abbr></th>
+                    <th scope="col"><abbr title="Force">F</abbr></th>
+                    <th scope="col"><abbr title="Pénétration d'armure">PA</abbr></th>
+                    <th scope="col"><abbr title="Dégâts">D</abbr></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for weapon in weapons %}
+                    <tr>
+                        <th scope="row" class="datasheet-table-name">
+                            {{ weapon.name|default('') }}
+                            {% if weapon.Keywords|default('') not in ['', '-'] %}
+                                <span class="datasheet-weapon-keywords">{{ weapon.Keywords }}</span>
+                            {% endif %}
+                        </th>
+                        <td>{{ weapon.Range|default('-') }}</td>
+                        <td>{{ weapon.A|default('-') }}</td>
+                        <td>{{ weapon.BS ?? weapon.WS ?? '-' }}</td>
+                        <td>{{ weapon.S|default('-') }}</td>
+                        <td>{{ weapon.AP|default('-') }}</td>
+                        <td>{{ weapon.D|default('-') }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endmacro %}
+
+<article class="datasheet" aria-label="Fiche de {{ unit.name }}">
+    {% if show_header ?? true %}
+        <header class="datasheet-head">
+            <div class="min-w-0">
+                <h{{ heading_level }} class="datasheet-name">{{ unit.name }}</h{{ heading_level }}>
+                <p class="datasheet-sub">
+                    {% if unit.modelCount %}{{ unit.modelCount }} figurine{{ unit.modelCount > 1 ? 's' }} · {% endif %}{{ unit.points }} pts
+                    {% if unit.enhancementName %} + {{ unit.enhancementPoints }} pts d'amélioration{% endif %}
+                </p>
+            </div>
+            <div class="datasheet-badges">
+                {% if unit.warlord %}<span class="chip chip-accent">{{ ui.icon('crown') }}Seigneur de guerre</span>{% endif %}
+                {% if unit.enhancementName %}<span class="chip chip-primary">{{ ui.icon('sparkles') }}{{ unit.enhancementName }}</span>{% endif %}
+                {% if stats_data.legends|default(false) %}<span class="chip chip-warning">Legends</span>{% endif %}
+            </div>
+        </header>
+    {% endif %}
+
+    {% if models is empty %}
+        <p class="datasheet-empty">Aucun profil détaillé n'est disponible pour cette unité.</p>
+    {% else %}
+        {# Profiles: one statline per model type #}
+        <div class="datasheet-profiles">
+            {% for model in models %}
+                {% set stats = model.stats|default({}) %}
+                <div class="datasheet-profile">
+                    {% if models|length > 1 %}<p class="datasheet-profile-name">{{ model.name|default('') }}</p>{% endif %}
+                    <dl class="datasheet-stats">
+                        <div><dt><abbr title="Mouvement">M</abbr></dt><dd>{{ stats.M|default('-') }}</dd></div>
+                        <div><dt><abbr title="Endurance">E</abbr></dt><dd>{{ stats.T|default('-') }}</dd></div>
+                        <div><dt><abbr title="Sauvegarde">Sv</abbr></dt><dd>{{ stats.Sv|default('-') }}</dd></div>
+                        <div><dt><abbr title="Points de vie">PV</abbr></dt><dd>{{ stats.W|default('-') }}</dd></div>
+                        <div><dt><abbr title="Commandement">Cd</abbr></dt><dd>{{ stats.LD|default('-') }}</dd></div>
+                        <div><dt><abbr title="Contrôle d'objectif">CO</abbr></dt><dd>{{ stats.OC|default('-') }}</dd></div>
+                        {% if stats_data.invulnerableSave|default(null) %}
+                            <div class="datasheet-invuln"><dt><abbr title="Sauvegarde invulnérable">Inv</abbr></dt><dd>{{ stats_data.invulnerableSave }}</dd></div>
+                        {% endif %}
+                    </dl>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="datasheet-body">
+            <div class="datasheet-weapons">
+                {% if ranged is not empty %}{{ _self.weapon_table('Armes de tir', 'crosshair', ranged, 'CT', 'Capacité de tir') }}{% endif %}
+                {% if melee is not empty %}{{ _self.weapon_table('Armes de mêlée', 'swords', melee, 'CC', 'Capacité de combat') }}{% endif %}
+                {% for role in stats_data.roles|default([]) %}
+                    {% set role_weapons = role.weapons|default([]) %}
+                    {% if role_weapons is not empty %}
+                        {% set role_ranged = role_weapons|filter(w => (w.weaponType ?? '') starts with 'Ranged') %}
+                        {% set role_melee = role_weapons|filter(w => not ((w.weaponType ?? '') starts with 'Ranged')) %}
+                        <p class="datasheet-section-title">{{ role.name|default('Option') }}</p>
+                        {% if role_ranged is not empty %}{{ _self.weapon_table('Armes de tir', 'crosshair', role_ranged, 'CT', 'Capacité de tir') }}{% endif %}
+                        {% if role_melee is not empty %}{{ _self.weapon_table('Armes de mêlée', 'swords', role_melee, 'CC', 'Capacité de combat') }}{% endif %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <aside class="datasheet-abilities" aria-label="Aptitudes">
+                {% set named_rules = (stats_data.coreAbilities|default([]))|merge(stats_data.factionAbilities|default([])) %}
+                {% if named_rules is not empty %}
+                    <div>
+                        <p class="datasheet-section-title">Aptitudes de base et de faction</p>
+                        <p class="flex flex-wrap gap-1.5">{% for rule in named_rules %}<span class="chip">{{ rule }}</span>{% endfor %}</p>
+                    </div>
+                {% endif %}
+                {% set abilities = (stats_data.abilities|default([]))|filter(a => (a.name ?? '') != 'Leader') %}
+                {% if abilities is not empty %}
+                    <div>
+                        <p class="datasheet-section-title">Aptitudes</p>
+                        <dl class="datasheet-ability-list">
+                            {% for ability in abilities %}
+                                <div><dt>{{ ability.name|default('') }}</dt><dd>{{ ability.description|default('') }}</dd></div>
+                            {% endfor %}
+                        </dl>
+                    </div>
+                {% endif %}
+                {% for role in stats_data.roles|default([]) %}
+                    {% if role.abilities|default([]) is not empty %}
+                        <div>
+                            <p class="datasheet-section-title">{{ role.name|default('Option') }}</p>
+                            <dl class="datasheet-ability-list">
+                                {% for ability in role.abilities %}
+                                    <div><dt>{{ ability.name|default('') }}</dt><dd>{{ ability.description|default('') }}</dd></div>
+                                {% endfor %}
+                            </dl>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {% if stats_data.leader|default(null) %}
+                    <div>
+                        <p class="datasheet-section-title">Meneur</p>
+                        <p class="datasheet-text">{{ stats_data.leader }}</p>
+                    </div>
+                {% endif %}
+                {% if stats_data.transport|default(null) %}
+                    <div>
+                        <p class="datasheet-section-title">Transport</p>
+                        <p class="datasheet-text">{{ stats_data.transport }}</p>
+                    </div>
+                {% endif %}
+                {% set damaged = stats_data.damaged|default(null) %}
+                {% if damaged is iterable and damaged.description|default('') %}
+                    <div>
+                        <p class="datasheet-section-title">{{ damaged.name|default('Endommagé')|replace({'Damaged:': 'Endommagé :'}) }}</p>
+                        <p class="datasheet-text">{{ damaged.description }}</p>
+                    </div>
+                {% endif %}
+            </aside>
+        </div>
+    {% endif %}
+
+    {% if stats_data.keywords|default([]) is not empty or stats_data.factionKeywords|default([]) is not empty %}
+        <footer class="datasheet-keywords">
+            {% if stats_data.keywords|default([]) is not empty %}
+                <p><span class="datasheet-section-title">Mots-clés</span> {{ stats_data.keywords|join(', ') }}</p>
+            {% endif %}
+            {% if stats_data.factionKeywords|default([]) is not empty %}
+                <p><span class="datasheet-section-title">Faction</span> {{ stats_data.factionKeywords|join(', ') }}</p>
+            {% endif %}
+        </footer>
+    {% endif %}
+</article>

@@ -11,11 +11,13 @@
             <h1 class="page-header-title">Mes listes d'armée</h1>
             <p class="page-header-subtitle">Composez vos listes, suivez vos points et partagez les publiques sur votre profil.</p>
         </div>
-        {% if lists is not empty %}
-            <div class="page-header-actions">
+        <div class="page-header-actions">
+            <a href="{{ path('app_army_explorer') }}" class="btn btn-ghost">{{ ui.icon('compass') }}Explorer</a>
+            <a href="{{ path('app_army_import') }}" class="btn btn-secondary">{{ ui.icon('upload') }}Importer</a>
+            {% if lists is not empty %}
                 <a href="{{ path('app_army_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Nouvelle liste</a>
-            </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </header>
 
     {% if lists is empty %}

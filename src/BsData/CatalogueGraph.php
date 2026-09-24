@@ -138,6 +138,22 @@ final class CatalogueGraph
         return [];
     }
 
+    /**
+     * Every shared selection entry group of the graph (main catalogue first).
+     *
+     * @return list<array{node: array, file: string}>
+     */
+    public function sharedGroups(): array
+    {
+        $groups = [];
+        foreach ($this->catalogues as ['file' => $file, 'data' => $data]) {
+            foreach ($data['sharedSelectionEntryGroups'] ?? [] as $group) {
+                $groups[] = ['node' => $group, 'file' => $file];
+            }
+        }
+        return $groups;
+    }
+
     /** @return list<string> tous les fichiers impliqués (principal, liés, système de jeu) */
     public function files(): array
     {

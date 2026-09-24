@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Importer une liste d'armée — SprueHub{% endblock %}
+
+{% block body %}
+<div class="max-w-reading mx-auto">
+
+    <header class="page-header">
+        <div>
+            <p class="page-header-eyebrow"><a href="{{ path('app_army_index') }}" class="link">Mes listes d'armée</a>{{ ui.icon('chevron-right', 'size-4') }}Importer</p>
+            <h1 class="page-header-title">Importer une liste</h1>
+            <p class="page-header-subtitle">Colle une liste au format texte de l'application officielle (bouton « Copier » ou « Partager ») ou un export SprueHub.</p>
+        </div>
+    </header>
+
+    {% if importedList %}
+        <div class="alert alert-warning mb-6" role="status">
+            {{ ui.icon('alert-triangle') }}
+            <div>
+                <p class="alert-title">Lignes non reconnues</p>
+                <ul class="mt-1 list-disc pl-4 font-mono text-caption">{% for line in unmatched %}<li>{{ line }}</li>{% endfor %}</ul>
+                <p class="mt-2">La liste a été créée sans elles : <a href="{{ path('app_army_edit', {id: importedList.id}) }}" class="link font-semibold">complète-la dans l'éditeur</a>.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="post" class="card">
+        <input type="hidden" name="_token" value="{{ csrf_token('army_import') }}">
+        <div class="card-body space-y-5">
+            <div class="field">
+                <label for="import-faction" class="label">Faction</label>
+                <select id="import-faction" name="faction" class="select">
+                    <option value="">Détecter dans le texte</option>
+                    {% for group in factionGroups %}
+                        <optgroup label="{{ group.label }}">
+                            {% for option in group.factions %}
+                                <option value="{{ option.value }}" {{ option.value == faction ? 'selected' }}>{{ option.value }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="import-text" class="label">Texte de la liste</label>
+                <textarea id="import-text" name="text" rows="16" required class="textarea font-mono text-small" placeholder="Ma liste (1995 Points)&#10;&#10;Space Marines&#10;Strike Force (2000 Points)&#10;Gladius Task Force&#10;&#10;CHARACTERS&#10;&#10;Captain (100 Points)&#10;  • Warlord&#10;  • Enhancements: Artificer Armour">{{ text }}</textarea>
+                <p class="help">Les unités sont reconnues par leur nom, la taille d'unité par ses points. La liste importée est privée.</p>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{{ path('app_army_index') }}" class="btn btn-ghost">Annuler</a>
+            <button type="submit" class="btn btn-primary">{{ ui.icon('upload') }}Importer</button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}
