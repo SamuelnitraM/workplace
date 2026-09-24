@@ -33,7 +33,7 @@
 | Production | alwaysdata (offre gratuite), base MariaDB `hforge_prod` |
 | Développement | XAMPP sous Windows (PHP 8.2+, MariaDB) |
 
-**Les 8 grands blocs fonctionnels :**
+**Les 9 grands blocs fonctionnels :**
 1. Comptes et profils (avec galerie photo) ;
 2. Forum à catégories hiérarchiques ;
 3. Amis et messagerie privée en temps réel ;
@@ -41,7 +41,8 @@
 5. Listes d'armée Warhammer 40k (données BSData) ;
 6. Gamification (XP, niveaux, badges, titres, classement) ;
 7. Notifications en temps réel ;
-8. Présentation guidée à l'inscription (onboarding).
+8. Présentation guidée à l'inscription (onboarding) ;
+9. Modération (signalements, blocage entre membres, sanctions).
 
 ---
 
@@ -52,7 +53,10 @@
 /                                   Accueil (catégories racines du forum, vitrine de photos, preuve sociale)
 /login                              Connexion
 /register                           Inscription
-/verify/email                       Vérification de l'e-mail (prévue, envoi d'e-mails non activé)
+/mot-de-passe-oublie                Mot de passe oublié (e-mail ou pseudo)
+├── /mot-de-passe-oublie/verifier   Confirmation d'envoi (identique que le compte existe ou non)
+└── /mot-de-passe-oublie/reinitialiser/{token}   Nouveau mot de passe (lien à usage unique, 1 heure)
+/verify/email?id=…                  Confirmation de l'adresse e-mail (lien signé reçu par e-mail)
 /mentions-legales                   Mentions légales
 /conditions-utilisation             Conditions d'utilisation
 /forum/                             Forum : catégories racines
@@ -81,6 +85,7 @@
 /groups/{slug}/edit                 Paramètres du groupe (admin ou propriétaire)
 /groups/{slug}/todo/                Tâches du groupe
 /todo/                              Mes tâches personnelles
+/signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil)
 /army/                              Mes listes d'armée
 ├── /army/new                       Créer une liste
 ├── /army/{id}                      Voir une liste (par catégorie d'unités)
@@ -90,6 +95,9 @@
 ### Administration
 ```
 /admin                              Tableau de bord (statistiques)
+├── /admin/report                   File de modération (signalements)
+├── /admin/moderation/report/{id}   Décision sur un signalement
+├── /admin/moderation/member/{id}   Sanctions d'un membre
 ├── /admin/user                     Utilisateurs
 ├── /admin/friendship               Amitiés
 ├── /admin/badge                    Badges (lecture seule, catalogue géré dans le code)
@@ -103,6 +111,8 @@
 | Route | Rôle |
 |---|---|
 | `POST /heartbeat` | Signal de présence (utilisateurs en ligne) |
+| `POST /verify/email/resend` | Renvoyer le lien de confirmation de l'e-mail (bandeau) |
+| `POST /friendship/block/{username}`, `POST /friendship/unblock/{username}` | Bloquer ou débloquer un membre |
 | `POST /pusher/auth` | Autorisation d'accès aux canaux privés Pusher |
 | `GET /search/api` | Recherche globale (barre de recherche de l'en-tête) |
 | `GET /fil?fil=…&apres=…` | Pages suivantes du fil d'actualité (« Voir plus », Turbo Frame) |
@@ -143,7 +153,15 @@
   - la connexion quotidienne rapporte de l'XP (voir 3.8).
 - **Déconnexion :** marque l'utilisateur hors ligne immédiatement (`PresenceLogoutSubscriber`).
 - **Changement de mot de passe :** dans les paramètres du profil.
-- **Pas encore disponible :** mot de passe oublié et vérification de l'e-mail, car aucun envoi d'e-mails n'est configuré (voir la roadmap).
+- **Mot de passe oublié :** demande par e-mail ou pseudo, lien à usage unique valable 1 heure (`symfonycasts/reset-password-bundle`, jetons hachés en base). La réponse est la même que le compte existe ou non ; une seule demande par compte toutes les 10 minutes. Suivre le lien confirme aussi l'adresse e-mail.
+- **Vérification de l'e-mail :** un lien signé (valable 1 heure) est envoyé à l'inscription. Tant que l'adresse n'est pas confirmée, un bandeau s'affiche en haut de chaque page avec un bouton « Renvoyer le lien ». Le lien fonctionne même déconnecté. Le compte reste utilisable sans confirmation.
+- **Limite de connexion :** 5 échecs par minute pour un même identifiant et une même adresse IP (`login_throttling`).
+- **Suspension :** un membre suspendu ne peut plus se connecter (message avec la date de fin et le motif) et sa session en cours est fermée dès la page suivante (voir 3.14).
+
+### E-mails
+- **Envoi :** Mailjet (offre gratuite, 200 e-mails par jour) via `symfony/mailjet-mailer`. Tous les envois passent par `App\Mailer\TransactionalMailer` ; un échec est journalisé sans bloquer l'action.
+- **Envoi synchrone :** les e-mails partent pendant la requête (pas de file Messenger), car l'hébergement gratuit n'a pas de worker permanent.
+- **Modèles :** `templates/email/` (gabarit commun `layout.html.twig`, bouton `_button.html.twig`) : confirmation d'adresse, mot de passe oublié, message de la modération, suspension.
 
 ### 3.2 Présentation guidée (onboarding)
 L'onboarding se lance après l'inscription (`/bienvenue`). Il compte **4 étapes**, avec un indicateur de progression :
@@ -219,6 +237,11 @@ Fonctionnement :
   - accepter, refuser, retirer un ami, bloquer ou débloquer ;
   - notifications pour une demande reçue et une demande acceptée ;
   - page `/friendship/list` avec les onglets amis, demandes et bloqués.
+- **Blocage** (`UserBlock`, `App\Service\MemberBlocker`) :
+  - depuis le menu « … » du profil ; refuser une demande d'ami bloque aussi le demandeur ;
+  - bloquer supprime l'amitié ou la demande en cours, donc la messagerie privée entre les deux membres ;
+  - dans les deux sens : ni demande d'ami, ni message privé, ni invitation de groupe ;
+  - seul le membre qui a bloqué peut débloquer (profil ou onglet « Bloqués »).
 - **Messages privés :**
   - **réservés aux amis** ;
   - pages `/messages` et `/messages/{username}`, plus une **messagerie flottante** ouvrable partout ;
@@ -306,12 +329,13 @@ Fonctionnement :
 - **Notifications :** badge obtenu, niveau atteint.
 
 ### 3.11 Notifications
-- **12 types :**
+- **13 types :**
   - amis : demande d'ami, ami accepté ;
   - groupes : invitation de groupe, invitation acceptée, message de groupe ;
   - forum : réponse sur le forum, mention `@pseudo`, réponse choisie comme solution ;
   - galerie : like de photo, commentaire de photo ;
-  - gamification : badge obtenu, niveau atteint.
+  - gamification : badge obtenu, niveau atteint ;
+  - modération : message de la modération (contenu masqué ou supprimé, avertissement).
 - **Diffusion en temps réel** sur le canal privé de l'utilisateur :
   - le compteur se met à jour ;
   - un toast s'affiche ;
@@ -331,12 +355,40 @@ Fonctionnement :
 ### 3.13 Recherche
 - **Barre de recherche** dans l'en-tête, résultats instantanés (`/search/api`).
 
+### 3.14 Modération
+- **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus et profils (menu « … »). Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
+- **Signalement** (`Report`) : l'extrait du contenu, son auteur et son lien sont enregistrés au moment du signalement, pour garder un historique lisible même après modification ou suppression.
+- **Décisions** (`App\Moderation\ModerationService`, point d'entrée unique) :
+  - **Masquer** (réponse, sujet, photo) : les membres voient « masqué par la modération », les administrateurs voient toujours le contenu. Un sujet masqué a son message d'ouverture masqué et est fermé. Une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher. Réversible (« Rétablir le contenu ») ;
+  - **Supprimer** (tous les contenus sauf un profil) : définitif ; supprimer le message d'ouverture supprime tout le sujet ;
+  - **Avertir** l'auteur avec un message ;
+  - **Suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif ;
+  - **Classer sans suite**.
+- Une décision clôt tous les signalements en attente du même contenu. L'auteur est prévenu par une notification et un e-mail (masquage, suppression, avertissement, suspension).
+- **Sanctions :** depuis la fiche d'un membre (`/admin/moderation/member/{id}`, action « Sanctions » de la liste des utilisateurs) : suspendre ou lever la sanction. Une suspension temporaire expirée ne compte plus, sans tâche planifiée (`User::isSuspended()`).
+
+### 3.15 Limites anti-spam
+Chaque envoi passe par `App\Security\SubmissionThrottle` (`config/packages/rate_limiter.yaml`, fenêtre glissante) :
+
+| Action | Limite | Clé |
+|---|---|---|
+| Inscription | 3 par heure | adresse IP |
+| Demande de mot de passe oublié | 5 par heure | adresse IP |
+| Renvoi du lien de confirmation | 3 par heure | membre |
+| Message privé | 20 par minute | membre |
+| Nouveau sujet | 5 par heure | membre |
+| Réponse au forum | 6 par minute | membre |
+| Commentaire de photo | 6 par minute | membre |
+| Signalement | 10 par heure | membre |
+
+Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
+
 ---
 
 ## 4. Administration (EasyAdmin)
 
 **Tableau de bord** (`/admin`, `ROLE_ADMIN`) :
-- **Compteurs :** utilisateurs, sujets, réponses, catégories, tâches, amitiés.
+- **Compteurs :** signalements en attente, utilisateurs, sujets, réponses, catégories, tâches, amitiés.
 - **Statistiques d'activité** (`AdminStatsService`, `RetentionService`), sur **24 h / 7 j / 30 j** :
   - rétention des utilisateurs ;
   - utilisateurs actifs, avec les **connectés en ce moment** ;
@@ -347,7 +399,8 @@ Fonctionnement :
 - **Accès rapides :** nouvelle catégorie, badges, voir le forum, voir les groupes, retour au site.
 
 **Menu :**
-- Site : Utilisateurs, Amitiés, Badges ;
+- Modération : Signalements (badge rouge du nombre en attente) ;
+- Site : Utilisateurs (colonne « Sanction », action « Sanctions »), Amitiés, Badges ;
 - Forum : Catégories, Sujets, Réponses ;
 - Organisation : Tâches.
 
@@ -355,6 +408,7 @@ Fonctionnement :
 - Catégories : choix du parent, affichage du chemin complet (« Warhammer › 40k › Space Marines »), option de création de sujets.
 - Sujets : on ne peut choisir qu'une catégorie qui autorise les sujets.
 - Badges : **lecture seule**. La source de vérité est `App\Gamification\BadgeCatalog`, synchronisé par `app:gamification:sync-badges`.
+- Signalements : **lecture seule**, filtres par statut, type et motif ; l'action « Traiter » ouvre la page de décision (voir 3.14).
 
 ---
 
@@ -371,6 +425,9 @@ Fonctionnement :
 | Administration | EasyAdmin 5 |
 | Pagination | KnpPaginator |
 | Images | `ImageOptimizerService` (redimensionnement et compression) |
+| E-mails | Symfony Mailer + Mailjet (`symfony/mailjet-mailer`), envoi synchrone |
+| Anti-abus | `symfony/rate-limiter` (connexion et envois), `symfonycasts/reset-password-bundle`, `symfonycasts/verify-email-bundle` |
+| Tests | PHPUnit 11, tests fonctionnels `WebTestCase` (`tests/Functional/`) |
 
 **Contrôleurs Stimulus** (`assets/controllers/`) :
 
@@ -402,30 +459,33 @@ Fonctionnement :
 
 | Domaine | Entités |
 |---|---|
-| Comptes | `User` (XP, série, onboarding, titre, dernière activité, son de notification) |
-| Forum | `Category` (arbre `parent`/`children`, `allowThreads`), `Thread` (`solutionPost`), `Post` (Markdown), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
-| Social | `Friendship` (demande, acceptée, bloquée), `PrivateConversation`, `PrivateMessage` |
-| Galerie | `GalleryPhoto` (description, visibilité), `GalleryPhotoLike`, `GalleryPhotoComment` |
+| Comptes | `User` (XP, série, onboarding, titre, dernière activité, son de notification, suspension), `ResetPasswordRequest` (liens de mot de passe oublié) |
+| Forum | `Category` (arbre `parent`/`children`, `allowThreads`), `Thread` (`solutionPost`), `Post` (Markdown, masquage par la modération), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
+| Social | `Friendship` (en attente, acceptée), `UserBlock` (blocage entre membres), `PrivateConversation`, `PrivateMessage` |
+| Galerie | `GalleryPhoto` (description, visibilité, masquage par la modération), `GalleryPhotoLike`, `GalleryPhotoComment` |
 | Groupes | `Group` (public, `todoWriteRole`, `todoViewRole`, `pinRole`), `GroupMember` (rôle), `GroupChannel` (`canRead`/`canWrite`), `GroupMessage` (épinglé), `GroupInvitation` |
 | Tâches | `TodoNode` (arbre liste, catégorie, tâche ; progression ; assignation ; personnel ou de groupe) |
 | Armées | `ArmyList`, `ArmyUnit`, `FactionUnit` (unités BSData), `FactionDetachement`, `FactionSyncState` (suivi de synchronisation par faction) |
 | Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
 | Notifications | `Notification` (type, données, auteurs regroupés, lue) |
+| Modération | `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décision) |
 
-**Tables orphelines** encore présentes en base, sans entité : `announcement`, `announcement_image`, `faction`, `game_system`. Elles attendent une décision de suppression (voir la roadmap).
+Le schéma de la base correspond exactement aux entités (plus aucune table orpheline).
 
 ---
 
 ## 7. Sécurité et droits
 
-- **Rôles globaux :** `ROLE_USER`, `ROLE_ADMIN` (accès à `/admin`).
+- **Rôles globaux :** `ROLE_USER`, `ROLE_ADMIN` (accès à `/admin`, modération comprise).
+- **Connexion :** `App\Security\UserChecker` refuse les comptes suspendus (formulaire et cookie « Se souvenir de moi ») ; `SuspendedUserSubscriber` ferme la session d'un membre suspendu pendant qu'il est connecté ; 5 échecs de connexion par minute au maximum.
+- **Anti-spam :** limites d'envoi centralisées (voir 3.15).
 - **Voters** (`src/Security/Voter/`) : ils centralisent les règles d'accès, au lieu de vérifications répétées dans les contrôleurs.
   - `GroupVoter` : `VIEW`, `MEMBER`, `MANAGE`, `OWNER`, `INVITE`, `JOIN`, `TODO_WRITE`, `TODO_VIEW_ALL` ;
   - `TodoNodeVoter` : `TODO_VIEW`, `TODO_EDIT`, `TODO_DELETE`, `TODO_PROGRESS`, `TODO_ASSIGN`, `TODO_CREATE_CHILD` ;
   - `GroupMembershipResolver` met en cache les adhésions pendant la requête.
 - **CSRF** sur **toutes** les actions POST, formulaires et AJAX.
 - **Canaux Pusher privés :** chaque abonnement est autorisé côté serveur par `/pusher/auth`, qui vérifie l'appartenance à la conversation ou au groupe.
-- **Messages privés :** réservés aux amis ; le blocage est respecté.
+- **Messages privés :** réservés aux amis ; le blocage est respecté (voir 3.6).
 - **Envois de fichiers :** type et taille vérifiés, noms de fichiers générés. `public/uploads` n'est pas versionné.
 - **Secrets :**
   - dans `.env.local`, jamais commité (le `.env` du dépôt a des secrets vides) ;
@@ -456,6 +516,8 @@ Fonctionnement :
 | `app:gamification:sync-badges` | Aligne la table `badge` sur `BadgeCatalog` |
 | `app:gamification:recompute [--resum]` | Réévalue badges et XP (rattrapage) ; `--resum` recalcule l'XP à partir du grand livre |
 | `app:notifications:purge` | Supprime les notifications lues de plus de N jours (90 par défaut) |
+
+Les liens de mot de passe oublié expirés sont supprimés automatiquement à chaque nouvelle demande (pas de commande à planifier).
 
 ---
 
@@ -488,21 +550,25 @@ HighlightForge/
 │   │   ├── Dev/            Styleguide (développement uniquement)
 │   │   └── *.php           Un contrôleur par rubrique (Forum, Thread, Group, GroupTodo, ArmyList, Profil…)
 │   ├── Entity/             Entités Doctrine (§6)
-│   ├── EventSubscriber/    Connexion quotidienne (XP), déconnexion (présence)…
+│   ├── EventSubscriber/    Connexion quotidienne (XP), déconnexion (présence), membres suspendus…
 │   ├── Form/               Types de formulaires
 │   ├── Gamification/       BadgeCatalog
+│   ├── Mailer/             TransactionalMailer (envoi de tous les e-mails)
+│   ├── Moderation/         ModerationService, ReportTargetResolver, énumérations (types, motifs, décisions, durées)
 │   ├── Repository/
-│   ├── Security/           Voters, EmailVerifier, GroupMembershipResolver
-│   └── Service/            Gamification, Leaderboard, Notification(Renderer), Presence, Pusher,
+│   ├── Security/           Voters, EmailVerifier, UserChecker, SubmissionThrottle, GroupMembershipResolver
+│   └── Service/            Gamification, Leaderboard, Notification(Renderer), Presence, Pusher, MemberBlocker,
 │                           AdminStats, Retention, Onboarding, BsDataFetcher, uploaders, ImageOptimizer
 ├── templates/
 │   ├── _macros/ui.html.twig     Macros d'interface (icon, avatar…)
 │   ├── _partials/shell/         En-tête, barre du bas, pied de page, recherche, toasts, messagerie
 │   ├── form/theme.html.twig     Thème de formulaire global
+│   ├── email/                   Modèles d'e-mails (gabarit commun layout.html.twig)
 │   ├── admin/ army/ forum/ friendship/ gallery/ gamification/ group/ group_invitation/
 │   ├── group_todo/ home/ leaderboard/ legal/ notification/ onboarding/ private_message/
-│   ├── profil/ registration/ security/ styleguide/ thread/ todo/
+│   ├── profil/ registration/ report/ reset_password/ security/ styleguide/ thread/ todo/
 │   └── base.html.twig           Gabarit principal
+├── tests/Functional/        Tests fonctionnels (comptes, blocage, modération)
 ├── translations/
 ├── var/                    Cache, journaux, tailwind/app.built.css (non versionné)
 └── vendor/                 Dépendances Composer (non versionnées)
@@ -518,6 +584,13 @@ HighlightForge/
 | Hébergement | XAMPP (Windows) | alwaysdata, offre gratuite |
 | `APP_ENV` | `dev` | `prod` |
 | Secrets | `.env.local` | `.env` du serveur (conservé à chaque mise à jour) |
+| E-mails | `MAILER_DSN=mailjet+api://CLE_API:CLE_SECRETE@default` | idem, dans le `.env` du serveur |
+
+**Variables e-mail** (à définir dans les deux environnements) :
+- `MAILER_DSN` : clés API Mailjet (compte Mailjet > Paramètres du compte > Clés API REST). `null://null` n'envoie rien ;
+- `MAILER_FROM_ADDRESS` : adresse d'expédition, **validée dans Mailjet** (Paramètres du compte > Adresses d'expédition), sinon Mailjet refuse l'envoi ;
+- `MAILER_FROM_NAME` : nom affiché (SprueHub par défaut).
+- Les liens des e-mails reprennent l'adresse du site de la requête en cours : rien à configurer.
 
 ### Procédure de mise à jour (FileZilla et SSH)
 1. **Sur le PC :**
@@ -561,11 +634,12 @@ php bin/console asset-map:compile && php bin/console cache:clear
 ## 12. Conventions de développement
 
 - **Aucun JavaScript dans les templates :** pas de `<script>` en ligne ni d'attribut `on…=` ; tout passe par des contrôleurs Stimulus.
-- **Migrations écrites à la main :** ne jamais utiliser `doctrine:migrations:diff` tant que les 4 tables orphelines existent, car elle générerait leur suppression.
+- **Migrations écrites à la main :** `doctrine:migrations:diff` peut servir de brouillon (le schéma correspond aux entités), mais chaque migration est relue et nommée à la main, avec un bloc de description en tête. L'historique des migrations ne se rejoue pas sur une base vide : pour une base neuve, utiliser `doctrine:schema:create` puis `doctrine:migrations:version --add --all`.
 - **CSRF sur chaque POST**, et vérification des droits par les **Voters** (`isGranted` / `denyAccessUnlessGranted`).
 - **Interface :** utiliser les classes du design system (`.btn`, `.card`, `.field`, `.input`…) et les macros `ui.icon` / `ui.avatar`. Voir `docs/design-system.md` et `/_styleguide` en développement.
 - **Vocabulaire de l'interface :** Salon (channel), Propriétaire (owner), Tâches (todo), Sujet (thread), Réponse (post), Liste d'armée.
 - **Commits thématiques** préfixés `AJOUT -`, `MODIF -` ou `SÉCURITÉ -`.
 - **Vérifications avant commit :**
   - `php bin/console lint:twig templates` et `php bin/console lint:container` ;
-  - `php bin/console doctrine:schema:validate` (seul écart attendu : les 4 tables orphelines).
+  - `php bin/console doctrine:schema:validate` (aucun écart attendu) ;
+  - `php bin/phpunit` : tests fonctionnels sur la base `highlightforge_test`, à créer une fois avec `php bin/console doctrine:database:create --env=test` et `php bin/console doctrine:schema:create --env=test` (connexion dans `.env.test.local`).

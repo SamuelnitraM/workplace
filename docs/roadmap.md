@@ -13,21 +13,21 @@ Document de suivi des améliorations prévues. Cocher les cases au fur et à mes
 Objectif : sécuriser le site et le rendre utilisable sans intervention manuelle de l'administrateur.
 
 ### Comptes et sécurité
-- [ ] **Mot de passe oublié** (S/M) : `symfonycasts/reset-password-bundle`, lien à usage unique et durée limitée, page de demande et page de réinitialisation.
-- [ ] **Envoi d'e-mails** (S) : configurer `MAILER_DSN` avec le SMTP alwaysdata, préparer des modèles d'e-mails Twig aux couleurs du design system.
-- [ ] **Vérification de l'adresse e-mail** (S) : brancher `App\Security\EmailVerifier` à l'inscription, avec un bandeau « Confirmez votre adresse » et un bouton pour renvoyer le lien.
-- [ ] **Limite de tentatives de connexion** (S) : `login_throttling` dans `config/packages/security.yaml` (5 essais par minute).
-- [ ] **Limite d'envoi** (S) : `symfony/rate-limiter` sur l'inscription, les messages privés, les commentaires et la création de sujets (anti-spam).
+- [x] **Mot de passe oublié** (S/M) : `symfonycasts/reset-password-bundle`, lien à usage unique valable 1 heure, page de demande (e-mail ou pseudo) et page de réinitialisation.
+- [x] **Envoi d'e-mails** (S) : Mailjet (offre gratuite) via `symfony/mailjet-mailer`, envoi synchrone, modèles Twig communs (`templates/email/`). Reste à renseigner `MAILER_DSN` et l'expéditeur validé dans `.env.local` et le `.env` du serveur.
+- [x] **Vérification de l'adresse e-mail** (S) : `App\Security\EmailVerifier` branché à l'inscription, bandeau « Confirme ton adresse » et bouton pour renvoyer le lien.
+- [x] **Limite de tentatives de connexion** (S) : `login_throttling` dans `config/packages/security.yaml` (5 essais par minute).
+- [x] **Limite d'envoi** (S) : `symfony/rate-limiter` sur l'inscription, les messages privés, les commentaires, les sujets, les réponses, les signalements et les e-mails (anti-spam).
 - [ ] **Rotation des secrets** (S) : nouvelle clé `PUSHER_SECRET`, nouveaux mots de passe SSH et base de données, `APP_SECRET` propre à la production.
 
 ### Modération
-- [ ] **Signalements** (M) : entité `Report` (auteur, cible polymorphe : post, sujet, photo, commentaire, message, profil ; motif ; statut), bouton « Signaler » sur chaque contenu.
-- [ ] **File de modération EasyAdmin** (M) : liste des signalements, actions masquer, supprimer, avertir et classer sans suite ; badge du nombre en attente sur le dashboard.
-- [ ] **Sanctions** (M) : suspension temporaire ou définitive d'un compte, avec un message affiché à la connexion.
-- [ ] **Blocage entre membres** (S) : un membre bloqué ne peut plus écrire en privé ni envoyer de demande d'ami.
+- [x] **Signalements** (M) : entité `Report` (auteur, cible polymorphe : post, sujet, photo, commentaire, message, profil ; motif ; statut), bouton « Signaler » sur chaque contenu.
+- [x] **File de modération EasyAdmin** (M) : liste des signalements, actions masquer, supprimer, avertir et classer sans suite ; badge du nombre en attente sur le dashboard.
+- [x] **Sanctions** (M) : suspension temporaire ou définitive d'un compte, avec un message affiché à la connexion.
+- [x] **Blocage entre membres** (S) : un membre bloqué ne peut plus écrire en privé, envoyer de demande d'ami ni inviter dans un groupe.
 
 ### Base de données
-- [ ] **Supprimer les tables orphelines** (S) : `announcement`, `announcement_image`, `faction`, `game_system`, par une migration écrite à la main. ⚠️ À faire uniquement après confirmation.
+- [x] **Supprimer les tables orphelines** (S) : `announcement`, `announcement_image`, `faction`, `game_system` (migration `Version20261002100000`). Le projet de vente d'occasion qu'elles préparaient est repris en phase 6.
 
 ---
 
@@ -117,10 +117,32 @@ Objectif : se différencier des réseaux sociaux génériques.
 
 ---
 
+## Phase 6 — Vente d'occasion 🟢
+
+Objectif : un espace d'annonces entre membres, type Leboncoin ou Vinted, spécialisé dans le hobby (figurines, peintures, matériel, livres de règles).
+
+### Annonces
+- [ ] **Annonce** (L) : titre, description, prix, état (neuf sous blister, monté, peint, pièces manquantes…), catégorie (figurines, peinture, outillage, décors, livres), système de jeu et faction (données BSData), jusqu'à 6 photos, mode de remise (en main propre, envoi) et ville ou département.
+- [ ] **Cycle de vie** (M) : disponible → réservé → vendu, retrait par le vendeur, expiration automatique après 60 jours sans mise à jour.
+- [ ] **Recherche et filtres** (M) : texte, catégorie, système de jeu, faction, fourchette de prix, état, distance.
+- [ ] **Profil vendeur** (S) : onglet « Ventes » sur le profil, avec les annonces en cours et vendues.
+
+### Échanges
+- [ ] **Contacter le vendeur** (M) : conversation liée à l'annonce, sans obligation d'amitié ; le blocage entre membres s'applique.
+- [ ] **Favoris et alertes** (M) : suivre une annonce (notification si le prix baisse) et enregistrer une recherche (notification des nouvelles annonces).
+- [ ] **Évaluations** (M) : note et commentaire après une vente confirmée par les deux membres, moyenne affichée sur le profil.
+
+### Confiance et modération
+- [ ] **Signalement des annonces** (S) : nouveau type de cible dans `App\Moderation\ReportTargetType`, masquage et suppression depuis la file de modération.
+- [ ] **Prévention des arnaques** (S) : conseils affichés au contact, limite d'annonces par jour pour les comptes récents ou non vérifiés.
+- [ ] **Paiement sécurisé** (L, plus tard) : aucun paiement sur le site au départ (remise en main propre, paiement hors site). À étudier ensuite : Stripe Connect, frais de service et obligations déclaratives des plateformes (DAC7).
+
+---
+
 ## Chantier continu — Qualité technique 🟠
 
 ### Tests
-- [ ] **Tests fonctionnels des parcours critiques** (L) : inscription, connexion, mot de passe oublié, messages privés, amitiés.
+- [ ] **Tests fonctionnels des parcours critiques** (L) : inscription, connexion, mot de passe oublié, messages privés, amitiés. Déjà couverts (`tests/Functional/`) : inscription et vérification d'e-mail, mot de passe oublié, limite de connexion, blocage, signalements, masquage et suspension.
 - [ ] **Tests des Voters** (M) : `GroupVoter` et `TodoNodeVoter` (tous les rôles et réglages de la todo).
 - [ ] **Tests unitaires de la gamification** (M) : XP quotidienne, série de 7 jours, protection de série de 3 jours, déblocage des badges.
 - [ ] **Tests de l'extraction BSData** (M) : jeu de fichiers figé ; vérifier le nombre d'unités, l'exclusion des Crucible et la présence des Legends.
@@ -156,4 +178,5 @@ Objectif : se différencier des réseaux sociaux génériques.
 2. **Phase 2** : fil d'actualité et abonnements au forum, le plus gros effet sur la rétention.
 3. **Phase 3** : listes d'armée (validation, export), puis pile de la honte.
 4. **Phases 4 et 5**, selon les retours des membres.
-5. **Qualité technique** : en continu, avec les tests de chaque nouvelle fonctionnalité écrits en même temps qu'elle.
+5. **Phase 6** : vente d'occasion, une fois la communauté assez active pour faire vivre les annonces.
+6. **Qualité technique** : en continu, avec les tests de chaque nouvelle fonctionnalité écrits en même temps qu'elle.
