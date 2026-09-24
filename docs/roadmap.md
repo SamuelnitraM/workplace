@@ -59,30 +59,31 @@ Objectif : donner une raison de revenir chaque jour.
 Objectif : se différencier des réseaux sociaux génériques.
 
 ### Listes d'armée
-- [ ] **Validation des règles** (L) :
+- [x] **Validation des règles** (L), facultative : liste **libre** (aucune vérification) ou **officielle** avec un format Incursion (1000), Force de frappe (2000) ou Assaut (3000). Une action interdite est refusée dans l'éditeur avec une fenêtre qui en donne la raison ; le serveur applique les mêmes règles :
   - format de points (1000, 2000, 3000) ;
   - maximum 3 exemplaires d'une même fiche (6 pour les troupes de ligne et les transports assignés) ;
-  - un seul Seigneur de guerre ;
+  - un seul Seigneur de guerre, obligatoirement un personnage ;
   - un seul exemplaire des personnages épiques ;
-  - améliorations compatibles avec le détachement.
-- [ ] **Profils d'unités** (M) : afficher M / E / Sv / PV / Cd / CO, armes et aptitudes (données déjà synchronisées depuis BSData).
-- [ ] **Export texte** (S) : format lisible et compatible avec les outils courants.
-- [ ] **Export PDF imprimable** (M).
-- [ ] **Import** d'une liste au format texte (M).
-- [ ] **Page « Explorer »** (M) : listes publiques filtrables par faction, détachement et points ; lien de partage ; bouton « Dupliquer dans mes listes ».
-- [ ] **Ajouter les 10 nouvelles factions** à la liste des factions favorites (`UserProfileFormType::FACTION_CHOICES`) (S).
+  - améliorations du détachement uniquement, une fois chacune, sur un personnage non épique (améliorations synchronisées depuis BSData).
+- [x] **Profils d'unités** (M) : fiche technique complète (caractéristiques en encadrés, armes de tir et de mêlée avec leurs mots-clés, aptitudes, mots-clés), dans une fenêtre, sur la page de la liste comme dans l'éditeur.
+- [x] **Export texte** (S) : format de l'application officielle (copie, téléchargement `.txt`).
+- [x] **Export PDF imprimable** (M) : page d'impression (composition et fiches techniques), « Enregistrer au format PDF » du navigateur.
+- [x] **Import** d'une liste au format texte (M) : faction, format, détachement, unités, taille, Seigneur de guerre et améliorations reconnus.
+- [x] **Page « Explorer »** (M) : listes publiques filtrables par faction, détachement, format et recherche ; lien de partage ; bouton « Dupliquer dans mes listes ».
+- [x] **Ajouter les 10 nouvelles factions** à la liste des factions favorites (S) : la liste reprend désormais celle de l'éditeur (`BsDataFetcher::FACTION_GROUPS`).
 
-### Pile de la honte (inventaire de figurines)
+### Pile de la honte (inventaire de figurines) — reportée
 - [ ] **Inventaire** (L) : figurines possédées, par faction et par unité (liées à `FactionUnit`), avec quantité et statut (non monté → monté → sous-couché → peint → socle terminé).
 - [ ] **Statistiques** (M) : pourcentage peint, progression mensuelle, graphiques sur le profil.
 - [ ] **Lien avec les listes d'armée** (M) : indiquer les unités de la liste qui sont possédées ou peintes.
 
 ### Galerie
-- [ ] **Albums** (M) : par armée ou par projet.
-- [ ] **Suivi d'un projet de peinture** (M) : plusieurs étapes photographiées d'une même figurine, affichées en frise.
-- [ ] **Tendances** (S) : photos les plus aimées de la semaine, mises en avant sur l'accueil.
+- [x] **Albums** (M) : fonctionnent comme des dossiers (une photo dans un album au plus). Photos cochées : « Créer un album », ou « + » sur un album existant ; retrait, déplacement, renommage et suppression.
+- [x] **Page photo** : album affiché, agrandissement plein écran quand la photo est réduite, photo précédente / suivante (boutons et flèches du clavier).
+- [ ] **Suivi d'un projet de peinture** (M) : plusieurs étapes photographiées d'une même figurine, affichées en frise. Reporté.
+- [x] **Tendances** (S) : photos les plus aimées de la semaine, mises en avant sur l'accueil.
 
-### Parties et résultats
+### Parties et résultats — reporté
 - [ ] **Enregistrer une partie** (M) : adversaire (membre ou invité), listes jouées, mission, scores, vainqueur, confirmation par l'adversaire.
 - [ ] **Statistiques de jeu** (M) : victoires, défaites et nuls par faction ; adversaires fréquents.
 - [ ] **Classement ELO** entre membres (M).
@@ -142,7 +143,7 @@ Objectif : un espace d'annonces entre membres, type Leboncoin ou Vinted, spécia
 ## Chantier continu — Qualité technique 🟠
 
 ### Tests
-- [ ] **Tests fonctionnels des parcours critiques** (L) : inscription, connexion, mot de passe oublié, messages privés, amitiés. Déjà couverts (`tests/Functional/`) : inscription et vérification d'e-mail, mot de passe oublié, limite de connexion, blocage, signalements, masquage et suspension.
+- [ ] **Tests fonctionnels des parcours critiques** (L) : inscription, connexion, mot de passe oublié, messages privés, amitiés. Déjà couverts (`tests/Functional/`) : inscription et vérification d'e-mail, mot de passe oublié, limite de connexion, blocage, signalements, masquage, suspension, règles des listes officielles, export / import, Explorer, albums de la galerie, tendances.
 - [ ] **Tests des Voters** (M) : `GroupVoter` et `TodoNodeVoter` (tous les rôles et réglages de la todo).
 - [ ] **Tests unitaires de la gamification** (M) : XP quotidienne, série de 7 jours, protection de série de 3 jours, déblocage des badges.
 - [ ] **Tests de l'extraction BSData** (M) : jeu de fichiers figé ; vérifier le nombre d'unités, l'exclusion des Crucible et la présence des Legends.
@@ -150,7 +151,7 @@ Objectif : un espace d'annonces entre membres, type Leboncoin ou Vinted, spécia
 
 ### Architecture
 - [ ] **Découper `GroupController`** (745 lignes) (M) : paramètres, messages et épingles, membres.
-- [ ] **Alléger `ArmyListController`** (442 lignes) (M) : déplacer la logique de construction des listes dans un service.
+- [x] **Alléger `ArmyListController`** (M) : construction des listes dans `App\Army\ArmyListComposer`, règles dans `ArmyListRules`, format texte dans `ArmyListTextFormat`.
 
 ### Performances
 - [ ] **Audit des requêtes SQL** (M) : profil, forum, groupes et galerie avec le profiler ; ajouter des jointures là où c'est nécessaire.
@@ -176,7 +177,7 @@ Objectif : un espace d'annonces entre membres, type Leboncoin ou Vinted, spécia
 
 1. **Phase 1** : fondations (comptes, e-mails, modération).
 2. **Phase 2** : fil d'actualité et abonnements au forum, le plus gros effet sur la rétention.
-3. **Phase 3** : listes d'armée (validation, export), puis pile de la honte.
+3. **Phase 3** : listes d'armée et galerie faites ; pile de la honte, suivi de peinture et parties reportés.
 4. **Phases 4 et 5**, selon les retours des membres.
 5. **Phase 6** : vente d'occasion, une fois la communauté assez active pour faire vivre les annonces.
 6. **Qualité technique** : en continu, avec les tests de chaque nouvelle fonctionnalité écrits en même temps qu'elle.

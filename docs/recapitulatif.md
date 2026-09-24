@@ -64,7 +64,12 @@
 │   └── /forum/category/{slug}/new-thread   Nouveau sujet (si la catégorie l'autorise)
 └── /forum/thread/{slug}            Sujet et réponses (Markdown, citations, solution, suivi)
 /profil/{username}                  Profil public (onglets Galerie, Armées, Badges, Activité)
-└── /profil/{username}/photo/{id}   Photo : description, likes, commentaires
+├── /profil/{username}/album/{id}   Album de la galerie
+└── /profil/{username}/photo/{id}   Photo : album, agrandissement, précédente / suivante, likes, commentaires
+/army/explorer                      Explorer : listes d'armée publiques filtrables
+/army/{id}                          Liste d'armée (publique, ou la sienne)
+├── /army/{id}/imprimer             Version imprimable (composition et fiches techniques, PDF)
+└── /army/{id}/export.txt           Export texte (format de l'application officielle)
 /classement                         Classement général (filtres)
 /groups/                            Liste des groupes
 └── /groups/{slug}                  Groupe (selon visibilité et adhésion)
@@ -88,7 +93,7 @@
 /signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil)
 /army/                              Mes listes d'armée
 ├── /army/new                       Créer une liste
-├── /army/{id}                      Voir une liste (par catégorie d'unités)
+├── /army/import                    Importer une liste au format texte
 └── /army/{id}/edit                 Modifier une liste
 ```
 
@@ -120,7 +125,10 @@
 | `POST /forum/thread/{slug}/subscription`, `POST /forum/thread/{slug}/solution/{postId}` | Suivre un sujet, choisir la solution |
 | `GET /notifications/recent`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | Menu des notifications |
 | `GET /messages/ajax/conversations`, `GET /messages/ajax/messages/{username}`, `POST /messages/ajax/send/{username}`, `POST /messages/ajax/read/{id}`, `GET /messages/ajax/notification-context` | Messagerie flottante |
-| `GET /army/units/{faction}`, `GET /army/detachments/{faction}` | Données du constructeur de listes |
+| `GET /army/units/{faction}`, `GET /army/detachments/{faction}`, `GET /army/enhancements/{faction}` | Données du constructeur de listes |
+| `GET /army/fiche?unit=`, `GET /army/fiche-de-liste?unit=` | Fiche technique (fragment HTML) d'une unité du catalogue ou d'une liste |
+| `POST /army/{id}/dupliquer` | Copier une liste dans ses propres listes |
+| `POST /profil/{username}/album/nouveau`, `…/album/{id}/ajouter`, `…/retirer`, `…/renommer`, `…/supprimer` | Albums de la galerie (propriétaire) |
 | `POST /gamification/activity/{key}` | Enregistrement d'une activité (badges d'exploration) |
 | `GET /profil/{username}/xp-history` | Historique d'XP (bandeau déroulant) |
 | `/_styleguide` | Catalogue des composants d'interface (**développement uniquement**) |
@@ -196,12 +204,20 @@ Fonctionnement :
 - **Envoi :** depuis son profil, 10 photos maximum. Les images sont converties et optimisées (`GalleryPhotoUploader`).
 - **Description :** facultative, 500 caractères maximum, modifiable par le propriétaire.
 - **Visibilité :** chaque photo peut être masquée ou affichée sans être supprimée.
+- **Albums** (`GalleryAlbum`, `App\Service\GalleryAlbumManager`) : ils fonctionnent comme des dossiers, une photo appartient à un album au plus.
+  - l'onglet Galerie affiche les albums (couverture = photo la plus récente, nombre de photos), puis les photos hors album ;
+  - photos cochées (case en haut à gauche) : « Créer un album » dans la barre de sélection, ou « + » affiché sur chaque album existant pour les y ranger ;
+  - page d'un album : retirer de l'album, déplacer vers un autre album, renommer, supprimer (les photos reviennent dans la galerie) ;
+  - 20 albums au plus par membre ; un visiteur ne voit pas les albums sans photo visible.
 - **Page photo** (`/profil/{username}/photo/{id}`) :
-  - grande image et description ;
+  - grande image et description, album indiqué dans le fil d'Ariane ;
+  - **agrandissement** plein écran au clic, proposé seulement quand la photo est affichée réduite ;
+  - **photo précédente / suivante** (boutons et flèches ← → du clavier) : dans l'album de la photo, sinon dans toute la galerie de son auteur ;
   - **likes** (une fois par membre, bouton sans rechargement) ;
   - **commentaires** : ajout, et suppression par l'auteur ou le propriétaire de la photo.
 - **Notifications :** le propriétaire est notifié des likes (regroupés : « X et 3 autres ont aimé… ») et des commentaires.
 - **Vitrine :** 12 photos sont mises en avant sur la page d'accueil.
+- **Tendances de la semaine :** sur l'accueil, les 6 photos qui ont reçu le plus de « J'aime » ces 7 derniers jours (section masquée tant qu'aucune photo n'a été aimée dans la semaine).
 
 ### Fil d'actualité (accueil des membres)
 - **Contenu** (`App\Feed\FeedService`) : activité **publique** des autres membres — photos visibles, nouveaux sujets, listes d'armée publiques, badges obtenus (regroupés par membre et par jour).
@@ -282,18 +298,32 @@ Fonctionnement :
   - synchronisées depuis le dépôt GitHub **BSData/wh40k-11e** avec `army:sync-bsdata` ;
   - **36 factions et 3171 unités**, avec points, figurines, **armes** (profils), **aptitudes** et mots-clés ;
   - seules les unités jouables en règles actuelles et les unités **Legends** sont retenues. Les unités spéciales (par exemple **Crucible**) sont exclues ;
-  - les détachements sont proposés par faction.
-- **Création et modification :**
+  - les détachements sont proposés par faction, avec leurs **améliorations** (`FactionEnhancement`, coût en points et description) ;
+  - l'extraction des améliorations gère les trois organisations de BSData (groupes « <Détachement> Enhancements », condition sur le détachement, groupes partagés à la racine) ; quelques détachements restent sans amélioration connue.
+- **Création et modification** (`App\Army\ArmyListComposer`) :
   - nom, faction, détachement, description, publique ou privée ;
-  - ajout d'unités via un sélecteur **classé par catégorie** ;
-  - total des points calculé automatiquement.
+  - **type de liste** : **libre** (aucune vérification) ou **officielle** avec un format : Incursion (1000 pts), Force de frappe (2000 pts), Assaut (3000 pts) ;
+  - ajout d'unités via un sélecteur **classé par catégorie** ; le nom d'une unité ouvre sa fiche technique ;
+  - pour chaque unité : **taille** (nombre de figurines, qui fixe le coût), **Seigneur de guerre** (personnages), **amélioration** du détachement (personnages non épiques) et, en liste libre, quantité ;
+  - total des points calculé automatiquement, avec une jauge en liste officielle.
+- **Règles d'une liste officielle** (`App\Army\ArmyListRules`, appliquées par l'éditeur et par le serveur) :
+  - total dans la limite du format ;
+  - 3 exemplaires d'une même fiche au plus, 6 pour les troupes de ligne et les transports assignés, 1 pour un personnage épique ;
+  - un seul Seigneur de guerre, obligatoirement un personnage (son absence est signalée sans bloquer l'enregistrement) ;
+  - améliorations du détachement choisi uniquement, chacune une seule fois, sur un personnage non épique ;
+  - une entrée par unité (quantité 1).
+  Dans l'éditeur, toute action qui enfreindrait une règle est refusée et une fenêtre en donne la raison ; passer une liste libre en officielle n'est accepté que si elle respecte déjà les règles (les quantités sont alors séparées en unités distinctes). Changer de détachement retire les améliorations devenues incompatibles.
 - **Affichage** (`/army/{id}`) : les unités sont **rangées par catégorie**, dans le même ordre qu'à la création (`App\Army\UnitCategory`) :
   - Héros épiques, Personnages ;
   - Troupes de ligne, Infanterie, Unités montées ;
   - Bêtes, Nuées, Monstres ;
   - Véhicules, Aéronefs, Transports assignés ;
   - Fortifications, Autres.
-- **Visibilité :** une liste privée n'est visible que par son auteur. Les listes publiques apparaissent dans l'onglet Armées du profil.
+- **Fiches techniques** (`templates/army/_datasheet.html.twig`) : caractéristiques en encadrés (M, E, Sv, PV, Cd, CO, invulnérable), armes de tir et de mêlée avec leurs mots-clés, aptitudes, meneur, transport, profil endommagé, mots-clés. Ouvertes dans une fenêtre depuis la liste et l'éditeur.
+- **Page d'une liste** : conformité (liste officielle), composition, menu **Exporter** (texte de l'application officielle à copier, téléchargement `.txt`, version imprimable / PDF, lien de partage), **Dupliquer**.
+- **Import** (`/army/import`, `App\Army\ArmyListTextFormat`) : texte de l'application officielle ou export SprueHub ; faction (détectée ou choisie), format, détachement, unités (nom anglais ou français), taille déduite des points, Seigneur de guerre et améliorations. Les lignes non reconnues sont listées ; une liste officielle qui enfreint les règles est importée en liste libre. La liste importée est privée.
+- **Explorer** (`/army/explorer`, accessible sans compte) : listes publiques de tous les membres, filtres faction, détachement, format et recherche (nom ou membre), 12 par page.
+- **Visibilité :** une liste privée n'est visible que par son auteur. Les listes publiques apparaissent dans l'onglet Armées du profil et dans l'Explorer ; leur page est consultable sans compte.
 
 ### 3.10 Gamification
 - **XP et niveaux :**
@@ -452,6 +482,10 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | `flash` | Messages flash |
 | `password_visibility` | Afficher ou masquer le mot de passe |
 | `csrf_protection` | Jetons CSRF |
+| `modal` | Ouverture et fermeture des fenêtres `<dialog class="modal">` |
+| `clipboard` | Copie dans le presse-papiers (export texte, lien de partage) |
+| `print` | Fenêtre d'impression du navigateur (version imprimable) |
+| `photo_viewer` | Page photo : agrandissement, flèches du clavier |
 
 `assets/lib/realtime.js` centralise la connexion Pusher. Il lit sa configuration dans les balises `<meta name="hf-…">` de `base.html.twig`.
 
@@ -464,10 +498,10 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | Comptes | `User` (XP, série, onboarding, titre, dernière activité, son de notification, suspension), `ResetPasswordRequest` (liens de mot de passe oublié) |
 | Forum | `Category` (arbre `parent`/`children`, `allowThreads`), `Thread` (`solutionPost`), `Post` (Markdown, masquage par la modération), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
 | Social | `Friendship` (en attente, acceptée), `UserBlock` (blocage entre membres), `PrivateConversation`, `PrivateMessage` |
-| Galerie | `GalleryPhoto` (description, visibilité, masquage par la modération), `GalleryPhotoLike`, `GalleryPhotoComment` |
+| Galerie | `GalleryAlbum` (albums), `GalleryPhoto` (album, description, visibilité, masquage par la modération), `GalleryPhotoLike`, `GalleryPhotoComment` |
 | Groupes | `Group` (public, `todoWriteRole`, `todoViewRole`, `pinRole`), `GroupMember` (rôle), `GroupChannel` (`canRead`/`canWrite`), `GroupMessage` (épinglé), `GroupInvitation` |
 | Tâches | `TodoNode` (arbre liste, catégorie, tâche ; progression ; assignation ; personnel ou de groupe) |
-| Armées | `ArmyList`, `ArmyUnit`, `FactionUnit` (unités BSData), `FactionDetachement`, `FactionSyncState` (suivi de synchronisation par faction) |
+| Armées | `ArmyList` (format officiel ou liste libre), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
 | Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
 | Notifications | `Notification` (type, données, auteurs regroupés, lue) |
 | Modération | `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décision) |
@@ -515,7 +549,7 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 
 | Commande | Rôle |
 |---|---|
-| `army:sync-bsdata [--force]` | Synchronise factions, unités, armes, aptitudes et détachements depuis BSData. Un seul appel à l'API GitHub, cache par empreinte de fichier ; `--force` retraite tout. |
+| `army:sync-bsdata [--force]` | Synchronise factions, unités, armes, aptitudes, détachements et améliorations depuis BSData. Un seul appel à l'API GitHub, cache par empreinte de fichier ; `--force` retraite tout. |
 | `army:audit-bsdata` | Audit par faction : nombre d'unités, Legends, unités sans figurine, arme, aptitude ou points |
 | `army:inspect-unit` | Détail extrait pour une unité ; `--tree` affiche l'arbre brut BSData |
 | `app:forum:seed-categories [--dry-run]` | Crée les catégories de référence manquantes. Ne modifie jamais l'existant et peut être relancée sans risque. |
@@ -548,7 +582,7 @@ HighlightForge/
 │   ├── images/             Logo et visuels
 │   └── uploads/            avatars/ et gallery/ (non versionnés)
 ├── src/
-│   ├── Army/               UnitCategory (classement des unités)
+│   ├── Army/               UnitCategory (classement des unités), ArmyListComposer, ArmyListRules, ArmyListTextFormat, BattleSize
 │   ├── BsData/             CatalogueGraph, ConditionEvaluator, EvalContext, UnitExtractor
 │   ├── Command/            Commandes console (§9)
 │   ├── Controller/
@@ -559,6 +593,7 @@ HighlightForge/
 │   ├── EventSubscriber/    Connexion quotidienne (XP), déconnexion (présence), membres suspendus…
 │   ├── Form/               Types de formulaires
 │   ├── Gamification/       BadgeCatalog
+│   ├── Http/               SafeReferer (retour à la page précédente du site)
 │   ├── Mailer/             TransactionalMailer (envoi de tous les e-mails)
 │   ├── Moderation/         ModerationService, ReportTargetResolver, énumérations (types, motifs, décisions, durées)
 │   ├── Repository/
@@ -625,7 +660,7 @@ php bin/console doctrine:migrations:migrate --no-interaction
 ```bash
 php bin/console asset-map:compile && php bin/console cache:clear
 ```
-9. **Selon les changements :** `app:gamification:sync-badges`, `app:gamification:recompute --resum`, `app:forum:seed-categories`, `army:sync-bsdata --force`.
+9. **Selon les changements :** `app:gamification:sync-badges`, `app:gamification:recompute --resum`, `app:forum:seed-categories`, `army:sync-bsdata --force` (obligatoire après la migration `Version20261003100000` : remplit les améliorations des détachements).
 
 **Retour en arrière :** remettre `~/ancien` en place, relancer `composer install` et vider le cache. Si besoin, restaurer la sauvegarde SQL.
 
