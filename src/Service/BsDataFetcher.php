@@ -2,30 +2,54 @@
 
 namespace App\Service;
 
-use App\Army\UnitCategory;
+use App\BsData\CatalogueGraph;
+use App\BsData\UnitExtractor;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+/**
+ * Accès aux données BSData (dépôt GitHub BSData/wh40k-11e, catalogues JSON) :
+ *  - liste des factions jouables (SOURCE DE VÉRITÉ UNIQUE : liste blanche serveur + menu déroulant) ;
+ *  - arbre du dépôt en UN appel API (SHA de blob de tous les fichiers : détection de changements sans
+ *    dépasser la limite de 60 requêtes/h de l'API GitHub non authentifiée) ;
+ *  - téléchargement des fichiers bruts (raw.githubusercontent.com, hors quota API), avec cache disque
+ *    adressé par SHA de blob (un fichier inchangé n'est jamais retéléchargé) et cache mémoire par exécution
+ *    (les bibliothèques partagées par plusieurs factions ne sont décodées qu'une fois par fichier) ;
+ *  - construction du graphe de catalogues d'une faction (catalogue principal + catalogues liés + système de jeu).
+ */
 class BsDataFetcher
 {
     private const REPO = 'BSData/wh40k-11e';
     private const BRANCH = 'main';
+    public const GAME_SYSTEM_FILE = 'Warhammer 40,000.json';
 
     /**
-     * Factions proposées dans le <select faction> du formulaire => nom du fichier JSON
-     * dans BSData/wh40k-11e. Sert aussi de liste blanche côté serveur.
+     * Factions jouables => fichier du catalogue principal dans BSData/wh40k-11e.
+     * Clés = valeurs enregistrées dans army_list.faction / faction_unit.faction (ne pas renommer).
+     * Non proposés : les bibliothèques (« … Library », « Library - … ») et « Unaligned Forces »
+     * (fortifications communes, importées par les catalogues qui y ont droit).
      */
     public const FACTION_FILES = [
         'Space Marines' => 'Imperium - Space Marines.json',
+        'Ultramarines' => 'Imperium - Ultramarines.json',
         'Blood Angels' => 'Imperium - Blood Angels.json',
         'Dark Angels' => 'Imperium - Dark Angels.json',
         'Space Wolves' => 'Imperium - Space Wolves.json',
-        'Grey Knights' => 'Imperium - Grey Knights.json',
+        'Black Templars' => 'Imperium - Black Templars.json',
+        'Imperial Fists' => 'Imperium - Imperial Fists.json',
+        'Iron Hands' => 'Imperium - Iron Hands.json',
+        'Raven Guard' => 'Imperium - Raven Guard.json',
+        'Salamanders' => 'Imperium - Salamanders.json',
+        'White Scars' => 'Imperium - White Scars.json',
         'Deathwatch' => 'Imperium - Deathwatch.json',
+        'Grey Knights' => 'Imperium - Grey Knights.json',
         'Adeptus Custodes' => 'Imperium - Adeptus Custodes.json',
         'Sisters of Battle' => 'Imperium - Adepta Sororitas.json',
         'Astra Militarum' => 'Imperium - Astra Militarum.json',
         'Adeptus Mechanicus' => 'Imperium - Adeptus Mechanicus.json',
         'Imperial Knights' => 'Imperium - Imperial Knights.json',
+        'Agents of the Imperium' => 'Imperium - Agents of the Imperium.json',
+        'Adeptus Titanicus' => 'Imperium - Adeptus Titanicus.json',
         'Chaos Space Marines' => 'Chaos - Chaos Space Marines.json',
         'Death Guard' => 'Chaos - Death Guard.json',
         'Thousand Sons' => 'Chaos - Thousand Sons.json',
@@ -33,6 +57,7 @@ class BsDataFetcher
         "Emperor's Children" => "Chaos - Emperor's Children.json",
         'Chaos Knights' => 'Chaos - Chaos Knights.json',
         'Daemons' => 'Chaos - Chaos Daemons.json',
+        'Titanicus Traitoris' => 'Chaos - Titanicus Traitoris.json',
         'Orks' => 'Orks.json',
         'Eldar' => 'Aeldari - Craftworlds.json',
         'Drukhari' => 'Aeldari - Drukhari.json',
@@ -43,433 +68,334 @@ class BsDataFetcher
         'Leagues of Votann' => 'Leagues of Votann.json',
     ];
 
+    /**
+     * Mots-clés de faction (« Faction: X » dans BSData) des unités propres à chaque armée : les unités
+     * importées d'autres catalogues sans l'un de ces mots-clés sont des alliés, écartés (voir UnitExtractor).
+     */
+    public const FACTION_KEYWORDS = [
+        'Space Marines' => ['Adeptus Astartes'],
+        'Ultramarines' => ['Adeptus Astartes', 'Ultramarines'],
+        'Blood Angels' => ['Adeptus Astartes', 'Blood Angels'],
+        'Dark Angels' => ['Adeptus Astartes', 'Dark Angels'],
+        'Space Wolves' => ['Adeptus Astartes', 'Space Wolves'],
+        'Black Templars' => ['Adeptus Astartes', 'Black Templars'],
+        'Imperial Fists' => ['Adeptus Astartes', 'Imperial Fists'],
+        'Iron Hands' => ['Adeptus Astartes', 'Iron Hands'],
+        'Raven Guard' => ['Adeptus Astartes', 'Raven Guard'],
+        'Salamanders' => ['Adeptus Astartes', 'Salamanders'],
+        'White Scars' => ['Adeptus Astartes', 'White Scars'],
+        'Deathwatch' => ['Adeptus Astartes', 'Deathwatch'],
+        'Grey Knights' => ['Grey Knights'],
+        'Adeptus Custodes' => ['Adeptus Custodes'],
+        'Sisters of Battle' => ['Adepta Sororitas'],
+        'Astra Militarum' => ['Astra Militarum'],
+        'Adeptus Mechanicus' => ['Adeptus Mechanicus'],
+        'Imperial Knights' => ['Imperial Knights'],
+        'Agents of the Imperium' => ['Agents of the Imperium'],
+        'Adeptus Titanicus' => ['Adeptus Titanicus'],
+        'Chaos Space Marines' => ['Heretic Astartes'],
+        'Death Guard' => ['Death Guard'],
+        'Thousand Sons' => ['Thousand Sons'],
+        'World Eaters' => ['World Eaters'],
+        "Emperor's Children" => ["Emperor's Children"],
+        'Chaos Knights' => ['Chaos Knights'],
+        'Daemons' => ['Legiones Daemonica'],
+        'Titanicus Traitoris' => ['Titanicus Traitoris'],
+        'Orks' => ['Orks'],
+        'Eldar' => ['Asuryani', 'Harlequins', 'Ynnari'],
+        'Drukhari' => ['Drukhari'],
+        'Tyranids' => ['Tyranids'],
+        'Genestealer Cults' => ['Genestealer Cults'],
+        'Tau' => ["T'au Empire"],
+        'Necrons' => ['Necrons'],
+        'Leagues of Votann' => ['Leagues of Votann'],
+    ];
+
+    /** Regroupement du menu déroulant (optgroup => factions, dans l'ordre d'affichage). */
+    public const FACTION_GROUPS = [
+        'Space marines' => [
+            'Space Marines', 'Ultramarines', 'Blood Angels', 'Dark Angels', 'Space Wolves', 'Black Templars',
+            'Imperial Fists', 'Iron Hands', 'Raven Guard', 'Salamanders', 'White Scars', 'Deathwatch', 'Grey Knights',
+        ],
+        'Imperium' => [
+            'Adeptus Custodes', 'Sisters of Battle', 'Astra Militarum', 'Adeptus Mechanicus', 'Imperial Knights',
+            'Agents of the Imperium', 'Adeptus Titanicus',
+        ],
+        'Chaos' => [
+            'Chaos Space Marines', 'Death Guard', 'Thousand Sons', 'World Eaters', "Emperor's Children",
+            'Chaos Knights', 'Daemons', 'Titanicus Traitoris',
+        ],
+        'Xenos' => ['Orks', 'Eldar', 'Drukhari', 'Tyranids', 'Genestealer Cults', 'Tau', 'Necrons', 'Leagues of Votann'],
+    ];
+
+    /** Factions mises en avant dans le menu (couleur « success »). */
+    public const FEATURED_FACTIONS = [
+        'Space Marines', 'Adeptus Custodes', 'Chaos Space Marines', 'Orks', 'Tyranids', 'Tau', 'Necrons', 'Leagues of Votann',
+    ];
+
+    /** @var array<string, string>|null chemin => SHA de blob (arbre du dépôt, mis en cache pour l'exécution) */
+    private ?array $tree = null;
+    private bool $treeFetched = false;
+
+    /** @var array<string, array> fichier => JSON décodé (cache mémoire de l'exécution) */
+    private array $decoded = [];
+
+    /** @var array<string, string> id de catalogue => fichier */
+    private array $catalogueIdToFile = [];
+
     public function __construct(
         private HttpClientInterface $httpClient,
+        #[Autowire('%kernel.cache_dir%/bsdata')]
+        private string $cacheDir,
     ) {
     }
 
     /**
-     * Récupère le SHA du dernier commit ayant modifié ce fichier, via l'API GitHub.
-     * Ne télécharge pas le contenu — juste les métadonnées, pour rester léger.
-     */
-    public function getLatestCommitSha(string $sourceFile): ?string
-    {
-        $response = $this->httpClient->request('GET', sprintf(
-            'https://api.github.com/repos/%s/commits',
-            self::REPO
-        ), [
-            'query' => [
-                'path' => $sourceFile,
-                'sha' => self::BRANCH,
-                'per_page' => 1,
-            ],
-            'headers' => [
-                'User-Agent' => 'SprueHub-ArmyBuilder',
-                'Accept' => 'application/vnd.github+json',
-            ],
-        ]);
-
-        if ($response->getStatusCode() !== 200) {
-            return null;
-        }
-
-        $data = $response->toArray(false);
-
-        return $data[0]['sha'] ?? null;
-    }
-
-    /**
-     * Télécharge et décode le catalogue JSON brut d'une faction.
-     */
-    public function fetchFactionCatalogue(string $sourceFile): array
-    {
-        $response = $this->httpClient->request('GET', sprintf(
-            'https://raw.githubusercontent.com/%s/%s/%s',
-            self::REPO,
-            self::BRANCH,
-            rawurlencode($sourceFile)
-        ), [
-            'headers' => ['User-Agent' => 'SprueHub-ArmyBuilder'],
-        ]);
-
-        $status = $response->getStatusCode();
-        if ($status !== 200) {
-            throw new \RuntimeException(sprintf('Téléchargement de "%s" impossible (HTTP %d).', $sourceFile, $status));
-        }
-
-        return $response->toArray(false);
-    }
-
-    /**
-     * Extrait les unités réellement sélectionnables via les entryLinks de premier niveau
-     * (c'est la liste que BattleScribe présente au joueur), pas via sharedSelectionEntries
-     * directement — sinon on rate les persos nommés et véhicules solo (type "model").
+     * Groupes pour le menu déroulant : list<{label, factions: list<{value, featured}>}>.
      *
-     * @return array<int, array{bsdataId: string, name: string, category: ?string, points: int}>
+     * @return list<array{label: string, factions: list<array{value: string, featured: bool}>}>
      */
-    public function extractUnits(array $catalogueJson): array
+    public static function factionGroups(): array
     {
-        $cat = $catalogueJson['catalogue'] ?? [];
-        $entriesById = [];
-        foreach ($cat['sharedSelectionEntries'] ?? [] as $entry) {
-            $entriesById[$entry['id']] = $entry;
-        }
-
-        $units = [];
-        foreach ($cat['entryLinks'] ?? [] as $link) {
-            if (($link['type'] ?? null) !== 'selectionEntry' || ($link['hidden'] ?? false)) {
-                continue;
-            }
-
-            $target = $entriesById[$link['targetId'] ?? null] ?? null;
-            if (!$target || !in_array($target['type'] ?? null, ['unit', 'model'], true)) {
-                continue;
-            }
-
-            // Unités du sous-système narratif "Crucible of Battle" — hors périmètre pour l'instant
-            if (str_contains($link['name'], '[Crucible]')) {
-                continue;
-            }
-
-            $points = 0;
-            foreach ($target['costs'] ?? [] as $cost) {
-                if (($cost['name'] ?? null) === 'pts') {
-                    $points = (int) $cost['value'];
-                    break;
-                }
-            }
-
-            $category = $this->pickCategory($target['categoryLinks'] ?? []);
-
-            $units[] = [
-                'bsdataId' => $target['id'],
-                'name' => $link['name'],
-                'category' => $category,
-                'points' => $points,
-                'statsData' => $this->extractUnitDetails($target, $catalogueJson),
+        $groups = [];
+        foreach (self::FACTION_GROUPS as $label => $factions) {
+            $groups[] = [
+                'label' => $label,
+                'factions' => array_map(fn(string $f) => ['value' => $f, 'featured' => in_array($f, self::FEATURED_FACTIONS, true)], $factions),
             ];
         }
 
-        return $units;
+        return $groups;
     }
 
     /**
-     * Extrait la liste des détachements disponibles pour une faction.
+     * Arbre du dépôt : chemin => SHA de blob, en UN appel à l'API GitHub. null si l'API est indisponible
+     * (limite de requêtes atteinte, réseau…).
      *
-     * @return array<int, array{bsdataId: string, name: string}>
+     * @return array<string, string>|null
      */
-    public function extractDetachments(array $catalogueJson): array
+    public function getRepoTree(): ?array
     {
-        $cat = $catalogueJson['catalogue'] ?? [];
-        $entriesById = [];
-        foreach ($cat['sharedSelectionEntries'] ?? [] as $entry) {
-            $entriesById[$entry['id']] = $entry;
+        if ($this->treeFetched) {
+            return $this->tree;
+        }
+        $this->treeFetched = true;
+
+        try {
+            $response = $this->httpClient->request('GET', sprintf('https://api.github.com/repos/%s/git/trees/%s', self::REPO, self::BRANCH), [
+                'headers' => ['User-Agent' => 'SprueHub-ArmyBuilder', 'Accept' => 'application/vnd.github+json'],
+            ]);
+            if ($response->getStatusCode() !== 200) {
+                return null;
+            }
+            $data = $response->toArray(false);
+        } catch (\Throwable) {
+            return null;
         }
 
-        // Le lien "Detachment" pointe vers une entrée "upgrade" qui contient
-        // un unique selectionEntryGroup listant les détachements disponibles.
-        $detachmentLink = null;
-        foreach ($cat['entryLinks'] ?? [] as $link) {
-            if (($link['name'] ?? null) === 'Detachment') {
-                $detachmentLink = $link;
-                break;
+        $tree = [];
+        foreach ($data['tree'] ?? [] as $item) {
+            if (($item['type'] ?? null) === 'blob' && str_ends_with((string) $item['path'], '.json')) {
+                $tree[$item['path']] = $item['sha'];
             }
         }
 
-        if (!$detachmentLink) {
-            return [];
-        }
-
-        $target = $entriesById[$detachmentLink['targetId']] ?? null;
-        if (!$target) {
-            return [];
-        }
-
-        $detachments = [];
-        foreach ($target['selectionEntryGroups'] ?? [] as $group) {
-            foreach ($group['selectionEntries'] ?? [] as $entry) {
-                $detachments[] = [
-                    'bsdataId' => $entry['id'],
-                    'name' => $entry['name'],
-                ];
-            }
-        }
-
-        return $detachments;
+        return $this->tree = $tree;
     }
 
     /**
-     * Parcourt récursivement l'arbre d'une unité pour en extraire stats, armes et capacités.
-     * Suit aussi les entryLinks (armes référencées plutôt qu'embarquées directement)
-     * en résolvant vers sharedSelectionEntries ou sharedSelectionEntryGroups.
+     * Empreinte combinée des fichiers donnés (SHA de blob de chacun), ou null si l'arbre est indisponible
+     * ou qu'un fichier est absent du dépôt.
+     *
+     * @param list<string> $files
      */
-    private const EXCLUDED_LINK_NAMES = ['Crusade', 'Enhancements'];
+    public function combinedHash(array $files): ?string
+    {
+        $tree = $this->getRepoTree();
+        if ($tree === null) {
+            return null;
+        }
+        $files = array_values(array_unique($files));
+        sort($files);
+        $parts = [];
+        foreach ($files as $file) {
+            if (!isset($tree[$file])) {
+                return null;
+            }
+            $parts[] = $file . ':' . $tree[$file];
+        }
+
+        return sha1(implode("\n", $parts));
+    }
 
     /**
-     * Catégorie enregistrée d'une unité = mot-clé déterminant selon UnitCategory::KEYWORD_PRIORITY
-     * (liste unique, partagée avec le regroupement des listes d'armée) : le flag `primary` du JSON
-     * peut désigner un rôle tactique plutôt que le type physique de l'unité.
+     * Télécharge (ou relit depuis le cache) et décode un fichier JSON du dépôt.
      */
-    private function pickCategory(array $categoryLinks): ?string
+    public function fetchFile(string $file): array
     {
-        $names = array_values(array_filter(array_column($categoryLinks, 'name'), 'is_string'));
-
-        $primary = UnitCategory::primaryKeyword($names);
-        if ($primary !== null) {
-            return $primary;
+        if (isset($this->decoded[$file])) {
+            return $this->decoded[$file];
         }
 
-        // Repli : première catégorie non liée à la faction, si aucune priorité connue ne matche
-        foreach ($names as $name) {
-            if (!str_starts_with($name, 'Faction:')) {
-                return $name;
+        $sha = $this->getRepoTree()[$file] ?? null;
+        $cachePath = $sha !== null ? sprintf('%s/%s.json', $this->cacheDir, $sha) : null;
+        $raw = $cachePath !== null && is_file($cachePath) ? file_get_contents($cachePath) : false;
+
+        if ($raw === false) {
+            $response = $this->httpClient->request('GET', sprintf(
+                'https://raw.githubusercontent.com/%s/%s/%s',
+                self::REPO,
+                self::BRANCH,
+                rawurlencode($file)
+            ), [
+                'headers' => ['User-Agent' => 'SprueHub-ArmyBuilder'],
+            ]);
+            $status = $response->getStatusCode();
+            if ($status !== 200) {
+                throw new \RuntimeException(sprintf('Téléchargement de "%s" impossible (HTTP %d).', $file, $status));
             }
-        }
-
-        return null;
-    }
-
-    private function extractKeywords(array $categoryLinks): array
-    {
-        $keywords = [];
-        foreach ($categoryLinks as $catLink) {
-            $name = $catLink['name'] ?? '';
-            if (!str_starts_with($name, 'Faction:')) {
-                $keywords[] = $name;
-            }
-        }
-        return $keywords;
-    }
-
-    private function cleanRuleText(string $text): string
-    {
-        // Retire les marqueurs de mise en forme BattleScribe (**gras**, ^^mots-clés^^)
-        $text = str_replace(['^^', '**'], '', $text);
-        return trim($text);
-    }
-
-    private function isDefaultRoleVariant(string $entryName, string $baseModelName): bool
-    {
-        $normalizedBase = rtrim($baseModelName, 's');
-        return str_starts_with($entryName, $normalizedBase);
-    }
-
-    private function walkNode(
-        array $node,
-        ?int $currentModelIndex,
-        ?int $currentRoleIndex,
-        array &$models,
-        array &$abilities,
-        array &$roles,
-        array &$seenAbilities,
-        array &$seenRoleAbilities,
-        array $visited,
-        array $entriesById,
-        array $groupsById,
-        array $profilesById
-    ): void {
-        // Détection d'un rôle spécial : entrée "model" sans profil de stats propre,
-        // dont le nom n'est pas une simple variante d'armement du modèle de base.
-        if (($node['type'] ?? null) === 'model' && $currentModelIndex !== null) {
-            $hasOwnStats = false;
-            foreach ($node['profiles'] ?? [] as $p) {
-                if (($p['typeName'] ?? null) === 'Unit') {
-                    $hasOwnStats = true;
-                    break;
+            $raw = $response->getContent();
+            if ($cachePath !== null) {
+                if (!is_dir($this->cacheDir)) {
+                    @mkdir($this->cacheDir, 0775, true);
                 }
-            }
-            if (!$hasOwnStats) {
-                $entryName = $node['name'] ?? '';
-                $baseName = $models[$currentModelIndex]['name'];
-                if ($entryName && !$this->isDefaultRoleVariant($entryName, $baseName)) {
-                    $roles[] = ['name' => $entryName, 'weapons' => [], 'abilities' => []];
-                    $currentRoleIndex = count($roles) - 1;
-                    $seenRoleAbilities[$currentRoleIndex] = [];
-                }
+                @file_put_contents($cachePath, $raw);
             }
         }
 
-        foreach ($node['profiles'] ?? [] as $profile) {
-            $typeName = $profile['typeName'] ?? null;
-            $chars = [];
-            foreach ($profile['characteristics'] ?? [] as $c) {
-                $chars[$c['name']] = $c['$text'] ?? '';
-            }
+        try {
+            $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new \RuntimeException(sprintf('Fichier "%s" illisible : %s', $file, $e->getMessage()));
+        }
+        $data = $json['catalogue'] ?? $json['gameSystem'] ?? null;
+        if (!is_array($data) || !isset($data['id'])) {
+            throw new \RuntimeException(sprintf('Fichier "%s" invalide (clé "catalogue"/"gameSystem" absente).', $file));
+        }
 
-            if ($typeName === 'Unit') {
-                $models[] = ['name' => $profile['name'], 'stats' => $chars, 'weapons' => []];
-                $currentModelIndex = count($models) - 1;
-            } elseif ($typeName === 'Abilities') {
-                $name = $profile['name'];
-                if ($currentRoleIndex !== null) {
-                    if (!isset($seenRoleAbilities[$currentRoleIndex][$name])) {
-                        $seenRoleAbilities[$currentRoleIndex][$name] = true;
-                        $roles[$currentRoleIndex]['abilities'][] = [
-                            'name' => $name,
-                            'description' => $this->cleanRuleText($chars['Description'] ?? ''), // ← modifié
-                        ];
-                    }
-                } elseif (!isset($seenAbilities[$name])) {
-                    $seenAbilities[$name] = true;
-                    $abilities[] = [
-                        'name' => $name,
-                        'description' => $this->cleanRuleText($chars['Description'] ?? ''), // ← modifié
-                    ];
+        $this->catalogueIdToFile[$data['id']] = $file;
+
+        return $this->decoded[$file] = $data;
+    }
+
+    /** Libère le cache mémoire (les fichiers restent en cache disque). */
+    public function clearMemoryCache(): void
+    {
+        $this->decoded = [];
+    }
+
+    /**
+     * Graphe de catalogues d'une faction : catalogue principal, catalogues liés (transitivement,
+     * en largeur) et système de jeu.
+     */
+    public function loadGraph(string $mainFile): CatalogueGraph
+    {
+        $main = $this->fetchFile($mainFile);
+        $catalogues = [['file' => $mainFile, 'data' => $main]];
+        $seen = [$main['id'] => true];
+        /** @var array<string, list<array{0: string, 1: bool}>> $links fichier => [fichier lié, importRootEntries] */
+        $links = [];
+
+        $queue = [[$mainFile, $main]];
+        while ($queue) {
+            [$file, $data] = array_shift($queue);
+            foreach ($data['catalogueLinks'] ?? [] as $link) {
+                $targetId = $link['targetId'] ?? null;
+                if (!is_string($targetId)) {
+                    continue;
                 }
-            } elseif (in_array($typeName, ['Ranged Weapons', 'Melee Weapons'], true)) {
-                $weaponName = $profile['name'];
-                $weaponData = array_merge(['name' => $weaponName, 'weaponType' => $typeName], $chars);
-
-                if ($currentRoleIndex !== null) {
-                    $exists = false;
-                    foreach ($roles[$currentRoleIndex]['weapons'] as $w) {
-                        if ($w['name'] === $weaponName) { $exists = true; break; }
-                    }
-                    if (!$exists) {
-                        $roles[$currentRoleIndex]['weapons'][] = $weaponData;
-                    }
-                } elseif ($currentModelIndex !== null) {
-                    $exists = false;
-                    foreach ($models[$currentModelIndex]['weapons'] as $w) {
-                        if ($w['name'] === $weaponName) { $exists = true; break; }
-                    }
-                    if (!$exists) {
-                        $models[$currentModelIndex]['weapons'][] = $weaponData;
-                    }
+                $linkedFile = $this->resolveCatalogueFile($targetId, (string) ($link['name'] ?? ''));
+                $links[$file][] = [$linkedFile, ($link['importRootEntries'] ?? false) === true];
+                if (!isset($seen[$targetId])) {
+                    $seen[$targetId] = true;
+                    $linked = $this->fetchFile($linkedFile);
+                    $catalogues[] = ['file' => $linkedFile, 'data' => $linked];
+                    $queue[] = [$linkedFile, $linked];
                 }
             }
         }
 
-        foreach ($node['infoLinks'] ?? [] as $il) {
-            if (($il['type'] ?? null) === 'profile' && isset($profilesById[$il['targetId']])) {
-                $this->walkNode(
-                    ['profiles' => [$profilesById[$il['targetId']]]],
-                    $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited,
-                    $entriesById, $groupsById, $profilesById
-                );
+        // Entrées racines importées transitivement, tant que la chaîne de liens est en importRootEntries=true
+        $rootImport = [$mainFile => true];
+        $rootImportFiles = [];
+        $pending = [$mainFile];
+        while ($pending) {
+            $file = array_shift($pending);
+            foreach ($links[$file] ?? [] as [$linkedFile, $importRoot]) {
+                if ($importRoot && !isset($rootImport[$linkedFile])) {
+                    $rootImport[$linkedFile] = true;
+                    $rootImportFiles[] = $linkedFile;
+                    $pending[] = $linkedFile;
+                }
             }
         }
 
-        foreach ($node['selectionEntries'] ?? [] as $child) {
-            $this->walkNode($child, $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited, $entriesById, $groupsById, $profilesById);
+        $gameSystem = $this->fetchFile(self::GAME_SYSTEM_FILE);
+        if (($main['gameSystemId'] ?? null) !== $gameSystem['id']) {
+            throw new \RuntimeException(sprintf('Le catalogue "%s" ne cible pas le système de jeu "%s".', $mainFile, self::GAME_SYSTEM_FILE));
+        }
+        $catalogues[] = ['file' => self::GAME_SYSTEM_FILE, 'data' => $gameSystem];
+
+        return new CatalogueGraph($mainFile, $catalogues, self::GAME_SYSTEM_FILE, $rootImportFiles);
+    }
+
+    /**
+     * Unités jouables d'une faction (voir UnitExtractor) : ['units' => …, 'excluded' => …].
+     */
+    public function extractUnits(CatalogueGraph $graph): array
+    {
+        return $this->extractor($graph)->extract();
+    }
+
+    /** @return list<array{bsdataId: string, name: string}> */
+    public function extractDetachments(CatalogueGraph $graph): array
+    {
+        return $this->extractor($graph)->extractDetachments();
+    }
+
+    /** Extracteur configuré avec les mots-clés de faction de l'armée dont $graph est le catalogue principal. */
+    public function extractor(CatalogueGraph $graph): UnitExtractor
+    {
+        $faction = array_search($graph->mainFile(), self::FACTION_FILES, true);
+
+        return new UnitExtractor($graph, $faction !== false ? self::FACTION_KEYWORDS[$faction] ?? [] : []);
+    }
+
+    /**
+     * Fichier d'un catalogue lié : d'abord par son nom (« <nom>.json »), vérifié par l'identifiant ;
+     * sinon parcours des fichiers du dépôt jusqu'à trouver l'identifiant.
+     */
+    private function resolveCatalogueFile(string $catalogueId, string $name): string
+    {
+        if (isset($this->catalogueIdToFile[$catalogueId])) {
+            return $this->catalogueIdToFile[$catalogueId];
         }
 
-        foreach ($node['selectionEntryGroups'] ?? [] as $group) {
-            $this->walkNode($group, $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited, $entriesById, $groupsById, $profilesById);
+        $tree = $this->getRepoTree();
+        $candidates = [];
+        if ($name !== '') {
+            $candidates[] = $name . '.json';
+        }
+        foreach (array_keys($tree ?? []) as $path) {
+            if ($path !== self::GAME_SYSTEM_FILE) {
+                $candidates[] = $path;
+            }
         }
 
-        foreach ($node['entryLinks'] ?? [] as $link) {
-            if (in_array($link['name'] ?? null, self::EXCLUDED_LINK_NAMES, true)) {
+        foreach (array_unique($candidates) as $candidate) {
+            if ($tree !== null && !isset($tree[$candidate])) {
                 continue;
             }
-
-            // $visited est passé par valeur : il ne protège que contre les cycles sur le
-            // chemin courant. Une même cible partagée (ex : arme commune à plusieurs
-            // variantes d'armement) doit pouvoir être visitée depuis plusieurs branches.
-            $targetId = $link['targetId'] ?? null;
-            if ($targetId && !isset($visited[$targetId])) {
-                $pathVisited = $visited;
-                $pathVisited[$targetId] = true;
-
-                if (($link['type'] ?? null) === 'selectionEntry' && isset($entriesById[$targetId])) {
-                    $this->walkNode($entriesById[$targetId], $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $pathVisited, $entriesById, $groupsById, $profilesById);
-                } elseif (($link['type'] ?? null) === 'selectionEntryGroup' && isset($groupsById[$targetId])) {
-                    $this->walkNode($groupsById[$targetId], $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $pathVisited, $entriesById, $groupsById, $profilesById);
-                }
+            try {
+                $data = $this->fetchFile($candidate);
+            } catch (\RuntimeException) {
+                continue;
             }
-
-            $this->walkNode($link, $currentModelIndex, $currentRoleIndex, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited, $entriesById, $groupsById, $profilesById);
-        }
-    }
-
-    /**
-     * @return array{keywords: array, models: array, abilities: array, roles: array}
-     */
-    public function extractUnitDetails(array $target, array $catalogueJson): array
-    {
-        
-        $cat = $catalogueJson['catalogue'] ?? [];
-
-        $entriesById = [];
-        foreach ($cat['sharedSelectionEntries'] ?? [] as $e) {
-            $entriesById[$e['id']] = $e;
-        }
-        $groupsById = [];
-        foreach ($cat['sharedSelectionEntryGroups'] ?? [] as $g) {
-            $groupsById[$g['id']] = $g;
-        }
-        $profilesById = [];
-        foreach ($cat['sharedProfiles'] ?? [] as $p) {
-            $profilesById[$p['id']] = $p;
-        }
-
-        $models = [];
-        $abilities = [];
-        $roles = [];
-        $seenAbilities = [];
-        $seenRoleAbilities = [];
-        $visited = [];
-
-        $this->walkNode($target, null, null, $models, $abilities, $roles, $seenAbilities, $seenRoleAbilities, $visited, $entriesById, $groupsById, $profilesById);
-
-        $sortWeapons = fn(array &$weapons) => usort($weapons, fn($a, $b) =>
-            ($a['weaponType'] === 'Melee Weapons' ? 1 : 0) <=> ($b['weaponType'] === 'Melee Weapons' ? 1 : 0)
-        );
-
-        // Fusionne les "modèles" qui ont en réalité le même nom et les mêmes stats
-        // (cas où le fichier BSData redéclare un profil identique pour chaque
-        // variante d'armement au lieu de le factoriser — ex: Cthonian Beserks).
-        $normalizeStats = function (array $stats): array {
-            ksort($stats);
-            return $stats;
-        };
-
-        $mergedModels = [];
-        foreach ($models as $model) {
-            $matchIndex = null;
-            foreach ($mergedModels as $idx => $existing) {
-                if ($existing['name'] === $model['name']
-                    && $normalizeStats($existing['stats']) === $normalizeStats($model['stats'])
-                ) {
-                    $matchIndex = $idx;
-                    break;
-                }
-            }
-
-            if ($matchIndex === null) {
-                $mergedModels[] = $model;
-            } else {
-                foreach ($model['weapons'] as $weapon) {
-                    $exists = false;
-                    foreach ($mergedModels[$matchIndex]['weapons'] as $w) {
-                        if ($w['name'] === $weapon['name']) {
-                            $exists = true;
-                            break;
-                        }
-                    }
-                    if (!$exists) {
-                        $mergedModels[$matchIndex]['weapons'][] = $weapon;
-                    }
-                }
+            if ($data['id'] === $catalogueId) {
+                return $candidate;
             }
         }
-        $models = $mergedModels;
 
-        foreach ($models as &$model) {
-            $sortWeapons($model['weapons']);
-        }
-        unset($model);
-
-        foreach ($roles as &$role) {
-            $sortWeapons($role['weapons']);
-        }
-        unset($role);
-
-        return [
-            'keywords' => $this->extractKeywords($target['categoryLinks'] ?? []),
-            'models' => $models,
-            'abilities' => $abilities,
-            'roles' => $roles,
-        ];
+        throw new \RuntimeException(sprintf('Catalogue lié introuvable dans le dépôt : "%s" (%s).', $name, $catalogueId));
     }
 }

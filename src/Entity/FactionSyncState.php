@@ -28,6 +28,29 @@ class FactionSyncState
     #[ORM\Column(nullable: true)]
     private ?int $extractorVersion = null;
 
+    /**
+     * Fichiers du graphe de catalogues de la faction (principal, bibliothèques liées, système de jeu) :
+     * lastCommitSha contient l'empreinte combinée de leurs SHA de blob (BsDataFetcher::combinedHash()).
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(nullable: true)]
+    private ?array $sourceFiles = null;
+
+    /** @return list<string>|null */
+    public function getSourceFiles(): ?array
+    {
+        return $this->sourceFiles;
+    }
+
+    /** @param list<string>|null $sourceFiles */
+    public function setSourceFiles(?array $sourceFiles): static
+    {
+        $this->sourceFiles = $sourceFiles;
+
+        return $this;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

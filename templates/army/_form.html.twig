@@ -2,7 +2,8 @@
     Formulaire de liste d'armée (création et modification), rendu dans le <template> du contrôleur « army-form »
     et animé par le composant Alpine « armyForm » (assets/controllers/army_form_controller.js).
     Paramètres : army_list (App\Entity\ArmyList ou null en création), action, submit_label, cancel_url,
-    unit_groups (App\Army\UnitCategory::all() : icônes des en-têtes de groupe).
+    unit_groups (App\Army\UnitCategory::all() : icônes des en-têtes de groupe),
+    faction_groups (création : App\Service\BsDataFetcher::factionGroups(), menu des factions).
     Champs envoyés (inchangés) : _token, name, faction (création), detachment, isPublic, description, units_json.
 #}
 {% import '_macros/ui.html.twig' as ui %}
@@ -76,40 +77,14 @@
                         <label for="army-faction" class="label">Faction</label>
                         <select id="army-faction" name="faction" x-model="selectedFaction" @change="onFactionChange" required class="select">
                             <option value="">Choisir une faction…</option>
-                            <optgroup label="Space marines">
-                                <option class="text-success-text" value="Space Marines">Space Marines</option>
-                                <option value="Blood Angels">Blood Angels</option>
-                                <option value="Dark Angels">Dark Angels</option>
-                                <option value="Space Wolves">Space Wolves</option>
-                                <option value="Grey Knights">Grey Knights</option>
-                                <option value="Deathwatch">Deathwatch</option>
-                            </optgroup>
-                            <optgroup label="Imperium">
-                                <option class="text-success-text" value="Adeptus Custodes">Adeptus Custodes</option>
-                                <option value="Sisters of Battle">Sisters of Battle</option>
-                                <option value="Astra Militarum">Astra Militarum</option>
-                                <option value="Adeptus Mechanicus">Adeptus Mechanicus</option>
-                                <option value="Imperial Knights">Imperial Knights</option>
-                            </optgroup>
-                            <optgroup label="Chaos">
-                                <option class="text-success-text" value="Chaos Space Marines">Chaos Space Marines</option>
-                                <option value="Death Guard">Death Guard</option>
-                                <option value="Thousand Sons">Thousand Sons</option>
-                                <option value="World Eaters">World Eaters</option>
-                                <option value="Emperor's Children">Emperor's Children</option>
-                                <option value="Chaos Knights">Chaos Knights</option>
-                                <option value="Daemons">Daemons</option>
-                            </optgroup>
-                            <optgroup label="Xenos">
-                                <option class="text-success-text" value="Orks">Orks</option>
-                                <option value="Eldar">Eldar</option>
-                                <option value="Drukhari">Drukhari</option>
-                                <option class="text-success-text" value="Tyranids">Tyranids</option>
-                                <option value="Genestealer Cults">Genestealer Cults</option>
-                                <option class="text-success-text" value="Tau">Tau</option>
-                                <option class="text-success-text" value="Necrons">Necrons</option>
-                                <option class="text-success-text" value="Leagues of Votann">Leagues of Votann</option>
-                            </optgroup>
+                            {# Liste unique : BsDataFetcher::FACTION_GROUPS (aussi liste blanche côté serveur) #}
+                            {% for group in faction_groups|default([]) %}
+                                <optgroup label="{{ group.label }}">
+                                    {% for faction in group.factions %}
+                                        <option{% if faction.featured %} class="text-success-text"{% endif %} value="{{ faction.value }}">{{ faction.value }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endfor %}
                         </select>
                         <p class="help">Changer de faction vide la liste d'unités.</p>
                     {% endif %}
@@ -181,6 +156,7 @@
                                 <template x-for="unit in groupedUnits[group.key]" :key="unit.id">
                                     <li class="unit-option" x-show="match(unit)">
                                         <span class="min-w-0 flex-1 truncate text-fg" x-text="unit.name"></span>
+                                        <template x-if="unit.statsData && unit.statsData.legends"><span class="chip chip-warning shrink-0">Legends</span></template>
                                         <span class="shrink-0 text-small font-semibold text-accent-text tabular-nums" x-text="unit.points + ' pts'"></span>
                                         <button type="button" @click="addUnit(unit)" class="btn btn-secondary btn-sm shrink-0" :aria-label="'Ajouter ' + unit.name">
                                             {{ ui.icon('plus') }}<span class="hidden sm:inline">Ajouter</span>
@@ -252,6 +228,12 @@
                                                     <span class="block mt-1 text-fg-secondary" x-text="unit.statsData.keywords.join(', ')"></span>
                                                 </p>
                                             </template>
+                                            <template x-if="unit.statsData && (unit.statsData.legends || unit.statsData.invulnerableSave)">
+                                                <p class="flex flex-wrap items-center gap-2">
+                                                    <template x-if="unit.statsData.legends"><span class="chip chip-warning">Legends</span></template>
+                                                    <template x-if="unit.statsData.invulnerableSave"><span class="chip" x-text="'Sauvegarde invulnérable ' + unit.statsData.invulnerableSave"></span></template>
+                                                </p>
+                                            </template>
 
                                             {# --- STATS --- #}
                                             <template x-for="model in (unit.statsData?.models || [])" :key="model.name">
@@ -295,6 +277,12 @@
                                             <template x-if="(unit.statsData?.abilities?.length) || (unit.statsData?.roles?.length)">
                                                 <div>
                                                     <p class="eyebrow mb-2">Capacités</p>
+                                                    <template x-if="(unit.statsData?.coreAbilities?.length) || (unit.statsData?.factionAbilities?.length)">
+                                                        <p class="mb-1.5 text-small text-fg-secondary">
+                                                            <strong class="text-fg">Base et faction</strong> —
+                                                            <span x-text="[...(unit.statsData.coreAbilities || []), ...(unit.statsData.factionAbilities || [])].join(', ')"></span>
+                                                        </p>
+                                                    </template>
                                                     <template x-for="a in (unit.statsData?.abilities || [])" :key="a.name">
                                                         <p class="mb-1.5 text-small text-fg-secondary">
                                                             <strong class="text-fg" x-text="a.name"></strong> —

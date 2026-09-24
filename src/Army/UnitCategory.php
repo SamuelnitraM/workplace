@@ -9,7 +9,7 @@ namespace App\Army;
  *  - ArmyListController (JSON du catalogue, unités initiales de l'édition, page de la liste) ;
  *  - assets/controllers/army_form_controller.js, qui ne fait que trier/grouper selon `group` / `groupOrder`
  *    fournis par le serveur (repli « autres ») ;
- *  - BsDataFetcher::pickCategory(), pour la catégorie enregistrée lors de la synchronisation BSData.
+ *  - App\BsData\UnitExtractor::pickCategory(), pour la catégorie enregistrée lors de la synchronisation BSData.
  *
  * Résolution d'une unité (resolve()) :
  *  1. Si ses mots-clés sont connus (statsData.keywords, copiés de BSData) :

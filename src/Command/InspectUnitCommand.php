@@ -2,17 +2,19 @@
 
 namespace App\Command;
 
+use App\BsData\CatalogueGraph;
 use App\Service\BsDataFetcher;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'army:inspect-unit',
-    description: 'Affiche toutes les informations brutes disponibles pour une unité (catégories, stats, armes, capacités, chemin de provenance)'
+    description: 'Affiche ce qui est extrait de BSData pour une unité (points, figurines, armes, capacités, mots-clés) et, avec --tree, l\'arbre brut avec provenance'
 )]
 class InspectUnitCommand extends Command
 {
@@ -23,161 +25,121 @@ class InspectUnitCommand extends Command
 
     protected function configure(): void
     {
-        $this->addArgument('sourceFile', InputArgument::REQUIRED, 'ex: "Leagues of Votann.json"');
-        $this->addArgument('unitName', InputArgument::REQUIRED, 'ex: "Hearthkyn Warriors" (recherche partielle acceptée)');
+        $this
+            ->addArgument('faction', InputArgument::REQUIRED, 'Faction (ex : "Leagues of Votann") ou fichier du catalogue (ex : "Leagues of Votann.json")')
+            ->addArgument('unitName', InputArgument::REQUIRED, 'ex : "Hearthkyn Warriors" (recherche partielle acceptée, correspondance exacte prioritaire)')
+            ->addOption('tree', null, InputOption::VALUE_NONE, 'Affiche aussi l\'arbre brut (liens résolus, profils, fichier source)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $sourceFile = $input->getArgument('sourceFile');
-        $searchName = $input->getArgument('unitName');
+        @ini_set('memory_limit', '1024M');
+        $faction = (string) $input->getArgument('faction');
+        $search = (string) $input->getArgument('unitName');
 
-        $catalogue = $this->fetcher->fetchFactionCatalogue($sourceFile);
-        $cat = $catalogue['catalogue'] ?? [];
+        $file = BsDataFetcher::FACTION_FILES[$faction] ?? (in_array($faction, BsDataFetcher::FACTION_FILES, true) ? $faction : null);
+        if ($file === null) {
+            $io->error("Faction inconnue : {$faction}");
 
-        $entriesById = [];
-        foreach ($cat['sharedSelectionEntries'] ?? [] as $e) {
-            $entriesById[$e['id']] = $e;
+            return Command::FAILURE;
         }
 
-        // Trouver l'entryLink de premier niveau correspondant (recherche partielle, insensible à la casse)
-        $matchedLink = null;
-        foreach ($cat['entryLinks'] ?? [] as $link) {
-            if (($link['type'] ?? null) === 'selectionEntry' && stripos($link['name'] ?? '', $searchName) !== false) {
-                $matchedLink = $link;
+        $graph = $this->fetcher->loadGraph($file);
+        $result = $this->fetcher->extractUnits($graph);
+
+        $unit = null;
+        foreach ($result['units'] as $candidate) {
+            if (strcasecmp($candidate['name'], $search) === 0) {
+                $unit = $candidate;
                 break;
             }
-        }
-
-        if (!$matchedLink) {
-            $io->error("Aucune unité trouvée pour \"{$searchName}\" dans {$sourceFile}");
-            return Command::FAILURE;
-        }
-
-        $target = $entriesById[$matchedLink['targetId']] ?? null;
-        if (!$target) {
-            $io->error("entryLink trouvé mais cible introuvable (id: {$matchedLink['targetId']})");
-            return Command::FAILURE;
-        }
-
-        $io->title($matchedLink['name']);
-
-        // --- Catégories brutes ---
-        $io->section('Catégories (categoryLinks)');
-        $catRows = [];
-        foreach ($target['categoryLinks'] ?? [] as $catLink) {
-            $catRows[] = [
-                $catLink['name'] ?? '',
-                ($catLink['primary'] ?? false) ? 'OUI' : '',
-            ];
-        }
-        $io->table(['Nom', 'Primary'], $catRows);
-
-        // --- Parcours complet, SANS aucune exclusion, avec traçage du chemin ---
-        $io->section('Parcours complet (tout, y compris Crusade/Enhancements) avec provenance');
-
-        $groupsById = [];
-        foreach ($cat['sharedSelectionEntryGroups'] ?? [] as $g) {
-            $groupsById[$g['id']] = $g;
-        }
-        $profilesById = [];
-        foreach ($cat['sharedProfiles'] ?? [] as $p) {
-            $profilesById[$p['id']] = $p;
-        }
-
-        $found = [];
-        $visited = [];
-        $this->walkAndTrace($target, 'racine', $found, $visited, $entriesById, $groupsById, $profilesById);
-
-        $statsRows = [];
-        $weaponRows = [];
-        $abilityRows = [];
-
-        foreach ($found as $item) {
-            if ($item['typeName'] === 'Unit') {
-                $chars = $item['chars'];
-                $statsRows[] = [$item['name'], $chars['M'] ?? '', $chars['T'] ?? '', $chars['Sv'] ?? '', $chars['W'] ?? '', $chars['LD'] ?? '', $chars['OC'] ?? '', $item['path']];
-            } elseif (in_array($item['typeName'], ['Ranged Weapons', 'Melee Weapons'], true)) {
-                $chars = $item['chars'];
-                $weaponRows[] = [$item['name'], $chars['Range'] ?? '', $chars['S'] ?? '', $chars['AP'] ?? '', $chars['D'] ?? '', $item['path']];
-            } elseif ($item['typeName'] === 'Abilities') {
-                $abilityRows[] = [$item['name'], $item['path']];
+            if ($unit === null && stripos($candidate['name'], $search) !== false) {
+                $unit = $candidate;
             }
         }
 
-        $io->writeln('<comment>Profils "Unit" (stats)</comment>');
-        $io->table(['Nom', 'M', 'T', 'Sv', 'W', 'LD', 'OC', 'Provenance (chemin)'], $statsRows);
+        if ($unit === null) {
+            $io->error("Aucune unité jouable trouvée pour \"{$search}\" ({$file}).");
+            foreach ($result['excluded'] as $e) {
+                if (stripos($e['name'], $search) !== false) {
+                    $io->writeln(sprintf('  Entrée écartée : %s — %s', $e['name'], $e['reason']));
+                }
+            }
 
-        $io->writeln('<comment>Armes</comment>');
-        $io->table(['Nom', 'Range', 'S', 'AP', 'D', 'Provenance (chemin)'], $weaponRows);
+            return Command::FAILURE;
+        }
 
-        $io->writeln('<comment>Capacités</comment>');
-        $io->table(['Nom', 'Provenance (chemin)'], $abilityRows);
+        $s = $unit['statsData'];
+        $io->title($unit['name'] . ($s['legends'] ? ' [Legends]' : ''));
+        $io->definitionList(
+            ['Id BSData' => $unit['bsdataId']],
+            ['Fichier source' => $unit['sourceFile']],
+            ['Catégorie' => (string) $unit['category']],
+            ['Points' => implode(' | ', array_map(fn($o) => "{$o['models']} fig. = {$o['points']} pts", $s['pointsOptions']))],
+            ['Mots-clés' => implode(', ', $s['keywords'])],
+            ['Faction' => implode(', ', $s['factionKeywords'])],
+            ['Invulnérable' => $s['invulnerableSave'] ?? '-'],
+            ['Capacités de base' => implode(', ', $s['coreAbilities']) ?: '-'],
+            ['Capacités de faction' => implode(', ', $s['factionAbilities']) ?: '-'],
+            ['Transport' => $s['transport'] ?? '-'],
+        );
+
+        foreach ($s['models'] as $model) {
+            $io->section('Figurine : ' . $model['name']);
+            $io->table(array_keys($model['stats']), [array_values($model['stats'])]);
+            $io->table(['Arme', 'Type', 'Portée', 'A', 'CT/CC', 'F', 'PA', 'D', 'Mots-clés'], array_map(fn($w) => [
+                $w['name'], $w['weaponType'] === 'Melee Weapons' ? 'Mêlée' : 'Tir', $w['Range'] ?? '', $w['A'] ?? '',
+                $w['BS'] ?? $w['WS'] ?? '', $w['S'] ?? '', $w['AP'] ?? '', $w['D'] ?? '', $w['Keywords'] ?? '',
+            ], $model['weapons']));
+        }
+        foreach ($s['roles'] as $role) {
+            $io->section('Rôle : ' . $role['name']);
+            $io->writeln('  Armes : ' . (implode(', ', array_column($role['weapons'], 'name')) ?: '-'));
+            $io->writeln('  Capacités : ' . (implode(', ', array_column($role['abilities'], 'name')) ?: '-'));
+        }
+        $io->section('Capacités');
+        $io->listing(array_map(fn($a) => $a['name'] . ' — ' . mb_strimwidth($a['description'], 0, 110, '…'), $s['abilities']));
+
+        if ($input->getOption('tree')) {
+            $io->section('Arbre brut (avec provenance)');
+            $entry = $graph->get($unit['bsdataId']);
+            if ($entry !== null) {
+                $this->printTree($io, $graph, $entry, null, 0, [$entry['id'] => true]);
+            }
+        }
 
         return Command::SUCCESS;
     }
 
-    private function walkAndTrace(
-        array $node,
-        string $path,
-        array &$found,
-        array &$visited,
-        array $entriesById,
-        array $groupsById,
-        array $profilesById
-    ): void {
-        foreach ($node['profiles'] ?? [] as $profile) {
-            $chars = [];
-            foreach ($profile['characteristics'] ?? [] as $c) {
-                $chars[$c['name']] = $c['$text'] ?? '';
+    private function printTree(SymfonyStyle $io, CatalogueGraph $graph, array $node, ?array $link, int $depth, array $visited): void
+    {
+        if ($depth > 12) {
+            return;
+        }
+        $pad = str_repeat('  ', $depth);
+        $io->writeln(sprintf('%s- %s%s [%s] (%s)', $pad, $link ? '→ ' : '', $link['name'] ?? $node['name'] ?? '?', $node['type'] ?? 'groupe', $graph->sourceOf($node['id'] ?? '') ?? 'inline'));
+        foreach (array_filter([$link, $node]) as $part) {
+            foreach ($part['profiles'] ?? [] as $p) {
+                $io->writeln(sprintf('%s    P<%s> %s', $pad, $p['typeName'] ?? '?', $p['name'] ?? ''));
             }
-            $found[] = [
-                'name' => $profile['name'],
-                'typeName' => $profile['typeName'] ?? null,
-                'chars' => $chars,
-                'path' => $path,
-            ];
-        }
-
-        foreach ($node['infoLinks'] ?? [] as $il) {
-            if (($il['type'] ?? null) === 'profile' && isset($profilesById[$il['targetId']])) {
-                $p = $profilesById[$il['targetId']];
-                $chars = [];
-                foreach ($p['characteristics'] ?? [] as $c) {
-                    $chars[$c['name']] = $c['$text'] ?? '';
-                }
-                $found[] = [
-                    'name' => $p['name'],
-                    'typeName' => $p['typeName'] ?? null,
-                    'chars' => $chars,
-                    'path' => $path . ' > infoLink:' . ($il['name'] ?? ''),
-                ];
+            foreach ($part['infoLinks'] ?? [] as $il) {
+                $io->writeln(sprintf('%s    I<%s> %s (%s)', $pad, $il['type'] ?? '?', $il['name'] ?? '', $graph->sourceOf($il['targetId'] ?? '') ?? 'introuvable'));
             }
-        }
-
-        foreach ($node['selectionEntries'] ?? [] as $child) {
-            $this->walkAndTrace($child, $path . ' > ' . ($child['name'] ?? '?'), $found, $visited, $entriesById, $groupsById, $profilesById);
-        }
-
-        foreach ($node['selectionEntryGroups'] ?? [] as $group) {
-            $this->walkAndTrace($group, $path . ' > [groupe]' . ($group['name'] ?? '?'), $found, $visited, $entriesById, $groupsById, $profilesById);
-        }
-
-        foreach ($node['entryLinks'] ?? [] as $link) {
-            $targetId = $link['targetId'] ?? null;
-            $linkPath = $path . ' > [LIEN]' . ($link['name'] ?? '?');
-
-            if ($targetId && !isset($visited[$targetId])) {
-                $visited[$targetId] = true;
-                if (($link['type'] ?? null) === 'selectionEntry' && isset($entriesById[$targetId])) {
-                    $this->walkAndTrace($entriesById[$targetId], $linkPath, $found, $visited, $entriesById, $groupsById, $profilesById);
-                } elseif (($link['type'] ?? null) === 'selectionEntryGroup' && isset($groupsById[$targetId])) {
-                    $this->walkAndTrace($groupsById[$targetId], $linkPath, $found, $visited, $entriesById, $groupsById, $profilesById);
+            foreach ($part['selectionEntries'] ?? [] as $child) {
+                $this->printTree($io, $graph, $child, null, $depth + 1, $visited);
+            }
+            foreach ($part['selectionEntryGroups'] ?? [] as $child) {
+                $this->printTree($io, $graph, $child, null, $depth + 1, $visited);
+            }
+            foreach ($part['entryLinks'] ?? [] as $childLink) {
+                $target = $graph->get($childLink['targetId'] ?? null);
+                if ($target === null) {
+                    $io->writeln(sprintf('%s  - → %s (cible introuvable)', $pad, $childLink['name'] ?? '?'));
+                } elseif (!isset($visited[$target['id']])) {
+                    $this->printTree($io, $graph, $target, $childLink, $depth + 1, $visited + [$target['id'] => true]);
                 }
             }
-
-            $this->walkAndTrace($link, $linkPath, $found, $visited, $entriesById, $groupsById, $profilesById);
         }
     }
 }

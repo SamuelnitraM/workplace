@@ -150,6 +150,12 @@
                                                 <span class="block mt-1 text-fg-secondary">{{ unit.statsData.keywords|join(', ') }}</span>
                                             </p>
                                         {% endif %}
+                                        {% if unit.statsData.legends|default(false) or unit.statsData.invulnerableSave|default(null) %}
+                                            <p class="flex flex-wrap items-center gap-2">
+                                                {% if unit.statsData.legends|default(false) %}<span class="chip chip-warning">Legends</span>{% endif %}
+                                                {% if unit.statsData.invulnerableSave|default(null) %}<span class="chip">Sauvegarde invulnérable {{ unit.statsData.invulnerableSave }}</span>{% endif %}
+                                            </p>
+                                        {% endif %}
 
                                         {# --- STATS : un profil par modèle --- #}
                                         {% for model in unit.statsData.models|default([]) %}
@@ -196,6 +202,10 @@
                                             <div>
                                                 <p class="eyebrow mb-2">Capacités</p>
                                                 <ul class="space-y-1.5 text-small text-fg-secondary">
+                                                    {% set named_rules = (unit.statsData.coreAbilities|default([]))|merge(unit.statsData.factionAbilities|default([])) %}
+                                                    {% if named_rules is not empty %}
+                                                        <li><strong class="text-fg">Base et faction</strong> — {{ named_rules|join(', ') }}</li>
+                                                    {% endif %}
                                                     {% for a in unit.statsData.abilities|default([]) %}
                                                         <li><strong class="text-fg">{{ a.name|default('') }}</strong> — {{ a.description|default('') }}</li>
                                                     {% endfor %}

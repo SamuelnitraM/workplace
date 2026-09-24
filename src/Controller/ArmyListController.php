@@ -88,6 +88,7 @@ class ArmyListController extends AbstractController
 
         return $this->render('army/new.html.twig', [
             'unitGroups' => UnitCategory::all(),
+            'factionGroups' => BsDataFetcher::factionGroups(),
         ]);
     }
 

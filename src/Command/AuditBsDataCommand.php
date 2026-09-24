@@ -2,67 +2,123 @@
 
 namespace App\Command;
 
+use App\Entity\FactionUnit;
 use App\Service\BsDataFetcher;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'army:audit-bsdata',
-    description: 'Vérifie les unités extraites d\'une faction pour détecter des anomalies (armes manquantes, pollution de capacités)'
+    description: 'Audit des unités par faction : nombre, Legends, unités sans figurine / arme / capacité / points'
 )]
 class AuditBsDataCommand extends Command
 {
-    public function __construct(private BsDataFetcher $fetcher)
-    {
+    public function __construct(
+        private BsDataFetcher $fetcher,
+        private EntityManagerInterface $em,
+    ) {
         parent::__construct();
     }
 
     protected function configure(): void
     {
-        $this->addArgument(
-            'sourceFile',
-            InputArgument::REQUIRED,
-            'Nom exact du fichier JSON de la faction, ex : "Leagues of Votann.json"'
-        );
+        $this
+            ->addArgument('faction', InputArgument::OPTIONAL, 'Faction à auditer (ex : "Leagues of Votann"). Si omis : toutes.')
+            ->addOption('live', null, InputOption::VALUE_NONE, 'Extrait depuis BSData au lieu de lire la base (affiche aussi les entrées écartées)')
+            ->addOption('details', 'd', InputOption::VALUE_NONE, 'Liste les unités en anomalie (et les entrées écartées avec --live)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $sourceFile = $input->getArgument('sourceFile');
+        @ini_set('memory_limit', '1024M');
+        $factionArg = $input->getArgument('faction');
+        $live = (bool) $input->getOption('live');
+        $details = (bool) $input->getOption('details');
 
-        $io->writeln("Téléchargement de {$sourceFile}...");
-        $catalogue = $this->fetcher->fetchFactionCatalogue($sourceFile);
-        $units = $this->fetcher->extractUnits($catalogue);
+        if ($factionArg !== null && !isset(BsDataFetcher::FACTION_FILES[$factionArg])) {
+            $io->error("Faction inconnue : {$factionArg}");
+
+            return Command::FAILURE;
+        }
+        $factions = $factionArg !== null ? [$factionArg] : array_keys(BsDataFetcher::FACTION_FILES);
 
         $rows = [];
-        foreach ($units as $unit) {
-            // Les armes sont rangées par modèle (models[*].weapons) et par rôle (roles[*].weapons)
-            $weaponCount = 0;
-            foreach ($unit['statsData']['models'] ?? [] as $model) {
-                $weaponCount += count($model['weapons'] ?? []);
-            }
-            foreach ($unit['statsData']['roles'] ?? [] as $role) {
-                $weaponCount += count($role['weapons'] ?? []);
-            }
-            $abilityCount = count($unit['statsData']['abilities'] ?? []);
-
-            $alerts = [];
-            if ($weaponCount === 0) {
-                $alerts[] = 'AUCUNE ARME';
-            }
-            if ($abilityCount > 15) {
-                $alerts[] = 'TROP DE CAPACITÉS';
+        $offenders = [];
+        foreach ($factions as $faction) {
+            $excluded = [];
+            if ($live) {
+                $result = $this->fetcher->extractUnits($this->fetcher->loadGraph(BsDataFetcher::FACTION_FILES[$faction]));
+                $this->fetcher->clearMemoryCache();
+                $units = array_map(fn(array $u) => ['name' => $u['name'], 'points' => $u['points'], 'statsData' => $u['statsData']], $result['units']);
+                $excluded = $result['excluded'];
+            } else {
+                $units = array_map(fn(FactionUnit $u) => ['name' => $u->getName(), 'points' => $u->getPoints(), 'statsData' => $u->getStatsData() ?? []],
+                    $this->em->getRepository(FactionUnit::class)->findBy(['faction' => $faction], ['name' => 'ASC']));
             }
 
-            $rows[] = [$unit['name'], $weaponCount, $abilityCount, implode(', ', $alerts)];
+            $stats = ['legends' => 0, 'noModels' => [], 'noWeapons' => [], 'noAbilities' => [], 'noPoints' => []];
+            foreach ($units as $unit) {
+                $s = $unit['statsData'];
+                if ($s['legends'] ?? false) {
+                    $stats['legends']++;
+                }
+                $weapons = 0;
+                foreach ($s['models'] ?? [] as $model) {
+                    $weapons += count($model['weapons'] ?? []);
+                }
+                foreach ($s['roles'] ?? [] as $role) {
+                    $weapons += count($role['weapons'] ?? []);
+                }
+                if (($s['models'] ?? []) === []) {
+                    $stats['noModels'][] = $unit['name'];
+                }
+                if ($weapons === 0) {
+                    $stats['noWeapons'][] = $unit['name'];
+                }
+                if (($s['abilities'] ?? []) === [] && ($s['coreAbilities'] ?? []) === [] && ($s['factionAbilities'] ?? []) === []) {
+                    $stats['noAbilities'][] = $unit['name'];
+                }
+                if ((int) $unit['points'] <= 0) {
+                    $stats['noPoints'][] = $unit['name'];
+                }
+            }
+
+            $rows[] = [
+                $faction, count($units), $stats['legends'], count($stats['noModels']), count($stats['noWeapons']),
+                count($stats['noAbilities']), count($stats['noPoints']), $live ? count($excluded) : '-',
+            ];
+            foreach (['noModels' => 'sans figurine', 'noWeapons' => 'sans arme', 'noAbilities' => 'sans capacité', 'noPoints' => 'sans points'] as $key => $label) {
+                if ($stats[$key]) {
+                    $offenders[] = [$faction, $label, implode(', ', $stats[$key])];
+                }
+            }
+            if ($details && $excluded) {
+                $byReason = [];
+                foreach ($excluded as $e) {
+                    $byReason[$e['reason']][] = $e['name'];
+                }
+                foreach ($byReason as $reason => $names) {
+                    $offenders[] = [$faction, 'écartée : ' . $reason, implode(', ', $names)];
+                }
+            }
         }
 
-        $io->table(['Unité', 'Armes', 'Capacités', 'Alerte'], $rows);
+        $io->title('Audit BSData' . ($live ? ' (extraction en direct)' : ' (base de données)'));
+        $io->table(['Faction', 'Unités', 'Legends', 'Sans figurine', 'Sans arme', 'Sans capacité', 'Sans points', 'Écartées'], $rows);
+
+        if ($offenders) {
+            $io->section('Unités en anomalie' . ($details ? ' et entrées écartées' : ''));
+            $io->table(['Faction', 'Problème', 'Unités'], $offenders);
+        } else {
+            $io->success('Aucune anomalie.');
+        }
 
         return Command::SUCCESS;
     }
