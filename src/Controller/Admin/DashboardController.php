@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[AdminDashboard(routePath: '/admin', routeName: 'admin')]
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('ROLE_MODERATOR')]
 class DashboardController extends AbstractDashboardController
 {
     public function __construct(
@@ -27,6 +27,10 @@ class DashboardController extends AbstractDashboardController
 
     public function index(): Response
     {
+        // Moderators only reach the moderation pages: their home is the report queue
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            return $this->redirect($this->crudUrl(ReportCrudController::class, 'index'));
+        }
         return $this->render('admin/dashboard.html.twig', [
             'stats' => [
                 ['label' => 'Signalements en attente', 'value' => $this->reportRepository->countPending(), 'icon' => 'fa-flag', 'tone' => 'rose', 'url' => $this->crudUrl(ReportCrudController::class, 'index')],
@@ -77,21 +81,21 @@ class DashboardController extends AbstractDashboardController
 
     public function configureMenuItems(): iterable
     {
-        yield MenuItem::linkToDashboard('Tableau de bord', 'fa fa-home');
+        yield MenuItem::linkToDashboard('Tableau de bord', 'fa fa-home')->setPermission('ROLE_ADMIN');
         yield MenuItem::section('Modération');
         $pendingReports = $this->reportRepository->countPending();
         $reportsMenuItem = MenuItem::linkTo(ReportCrudController::class, 'Signalements', 'fa fa-flag');
         yield $pendingReports > 0 ? $reportsMenuItem->setBadge($pendingReports, 'danger') : $reportsMenuItem;
-        yield MenuItem::section('Site');
-        yield MenuItem::linkTo(UserCrudController::class, 'Utilisateurs', 'fa fa-users');
-        yield MenuItem::linkTo(FriendshipCrudController::class, 'Amitiés', 'fa fa-heart');
-        yield MenuItem::linkTo(BadgeCrudController::class, 'Badges', 'fa fa-award');
-        yield MenuItem::section('Forum');
-        yield MenuItem::linkTo(CategoryCrudController::class, 'Catégories', 'fa fa-folder');
-        yield MenuItem::linkTo(ThreadCrudController::class, 'Sujets', 'fa fa-comments');
-        yield MenuItem::linkTo(PostCrudController::class, 'Réponses', 'fa fa-message');
-        yield MenuItem::section('Organisation');
-        yield MenuItem::linkTo(TodoNodeCrudController::class, 'Tâches', 'fa fa-list-check');
+        yield MenuItem::section('Site')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(UserCrudController::class, 'Utilisateurs', 'fa fa-users')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(FriendshipCrudController::class, 'Amitiés', 'fa fa-heart')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(BadgeCrudController::class, 'Badges', 'fa fa-award')->setPermission('ROLE_ADMIN');
+        yield MenuItem::section('Forum')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(CategoryCrudController::class, 'Catégories', 'fa fa-folder')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(ThreadCrudController::class, 'Sujets', 'fa fa-comments')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(PostCrudController::class, 'Réponses', 'fa fa-message')->setPermission('ROLE_ADMIN');
+        yield MenuItem::section('Organisation')->setPermission('ROLE_ADMIN');
+        yield MenuItem::linkTo(TodoNodeCrudController::class, 'Tâches', 'fa fa-list-check')->setPermission('ROLE_ADMIN');
         yield MenuItem::section('Accès rapides');
         yield MenuItem::linkToRoute('Voir le forum', 'fa fa-arrow-up-right-from-square', 'app_forum_index');
         yield MenuItem::linkToRoute('Voir les groupes', 'fa fa-users-rectangle', 'app_group_index');

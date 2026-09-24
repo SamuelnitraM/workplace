@@ -110,11 +110,11 @@
                 </header>
 
                 <div class="post-content px-4 py-4 sm:px-5 sm:pl-[4.5rem]">
-                    {% if post.hiddenByModeration and not is_granted('ROLE_ADMIN') %}
+                    {% if post.hiddenByModeration and not is_granted('ROLE_MODERATOR') %}
                         <p class="flex items-center gap-2 text-muted italic">{{ ui.icon('shield', 'size-4') }}Ce message a été masqué par la modération.</p>
                     {% else %}
                         {% if post.hiddenByModeration %}
-                            <p class="mb-3 chip chip-warning">{{ ui.icon('shield', 'size-4') }}Masqué par la modération (visible des administrateurs)</p>
+                            <p class="mb-3 chip chip-warning">{{ ui.icon('shield', 'size-4') }}Masqué par la modération (visible de l'équipe de modération)</p>
                         {% endif %}
                         {{ post.content|forum_markdown }}
                     {% endif %}

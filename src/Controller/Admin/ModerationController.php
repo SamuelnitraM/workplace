@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Moderation\ModerationService;
 use App\Moderation\SuspensionDuration;
 use App\Repository\ReportRepository;
+use App\Security\Voter\MemberSanctionVoter;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -18,7 +19,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * Moderation pages of the back office: decision on a report and sanctions of a member.
  */
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('ROLE_MODERATOR')]
 #[AdminRoute('/moderation', name: 'moderation')]
 class ModerationController extends AbstractController
 {
@@ -49,6 +50,7 @@ class ModerationController extends AbstractController
             'targetAvailable' => $targetAvailable,
             'targetHidden' => $targetAvailable && $this->moderation->isTargetHidden($report),
             'relatedReports' => $this->reportRepository->findAllForTarget($report->getTargetType(), $report->getTargetId()),
+            'canSuspendAuthor' => $report->getTargetAuthor() !== null && $this->isGranted(MemberSanctionVoter::SANCTION, $report->getTargetAuthor()),
             'durations' => SuspensionDuration::cases(),
             'csrfTokenId' => self::DECISION_CSRF_PREFIX . $report->getId(),
             'queueUrl' => $this->queueUrl(),
@@ -76,6 +78,7 @@ class ModerationController extends AbstractController
             in_array($decision, ['warn', 'suspend'], true) && $report->getTargetAuthor() === null => 'L\'auteur n\'existe plus.',
             in_array($decision, ['warn', 'suspend'], true) && $note === '' => 'Indique le message ou le motif transmis au membre.',
             $decision === 'suspend' && SuspensionDuration::tryFrom((string) $request->request->get('duration')) === null => 'Choisis une durée de suspension.',
+            $decision === 'suspend' && !$this->isGranted(MemberSanctionVoter::SANCTION, $report->getTargetAuthor()) => 'Tu ne peux pas suspendre ce membre de l\'équipe.',
             default => null,
         };
         if ($error !== null) {
@@ -102,6 +105,7 @@ class ModerationController extends AbstractController
         return $this->render('admin/moderation/member.html.twig', [
             'member' => $member,
             'reports' => $this->reportRepository->findBy(['targetAuthor' => $member], ['createdAt' => 'DESC'], 20),
+            'canSanction' => $this->isGranted(MemberSanctionVoter::SANCTION, $member),
             'durations' => SuspensionDuration::cases(),
             'csrfTokenId' => self::SANCTION_CSRF_PREFIX . $member->getId(),
         ]);
@@ -113,8 +117,8 @@ class ModerationController extends AbstractController
         if (!$this->isCsrfTokenValid(self::SANCTION_CSRF_PREFIX . $member->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
-        if ($member === $this->getUser()) {
-            $this->addFlash('danger', 'Impossible de te sanctionner toi-même.');
+        if (!$this->isGranted(MemberSanctionVoter::SANCTION, $member)) {
+            $this->addFlash('danger', 'Tu ne peux pas sanctionner ce membre (toi-même ou un membre de l\'équipe).');
         } elseif ($request->request->get('decision') === 'lift') {
             $this->moderation->liftSuspension($member);
             $this->addFlash('success', 'Sanction levée : ' . $member->getUsername() . ' peut à nouveau se connecter.');

@@ -359,7 +359,7 @@ Fonctionnement :
 - **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus et profils (menu « … »). Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
 - **Signalement** (`Report`) : l'extrait du contenu, son auteur et son lien sont enregistrés au moment du signalement, pour garder un historique lisible même après modification ou suppression.
 - **Décisions** (`App\Moderation\ModerationService`, point d'entrée unique) :
-  - **Masquer** (réponse, sujet, photo) : les membres voient « masqué par la modération », les administrateurs voient toujours le contenu. Un sujet masqué a son message d'ouverture masqué et est fermé. Une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher. Réversible (« Rétablir le contenu ») ;
+  - **Masquer** (réponse, sujet, photo) : les membres voient « masqué par la modération », l'équipe de modération (modérateurs et administrateurs) voit toujours le contenu. Un sujet masqué a son message d'ouverture masqué et est fermé. Une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher. Réversible (« Rétablir le contenu ») ;
   - **Supprimer** (tous les contenus sauf un profil) : définitif ; supprimer le message d'ouverture supprime tout le sujet ;
   - **Avertir** l'auteur avec un message ;
   - **Suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif ;
@@ -386,6 +386,8 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 ---
 
 ## 4. Administration (EasyAdmin)
+
+**Accès :** `ROLE_ADMIN` pour tout le back-office ; `ROLE_MODERATOR` voit uniquement la section Modération (voir 7).
 
 **Tableau de bord** (`/admin`, `ROLE_ADMIN`) :
 - **Compteurs :** signalements en attente, utilisateurs, sujets, réponses, catégories, tâches, amitiés.
@@ -476,7 +478,11 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 
 ## 7. Sécurité et droits
 
-- **Rôles globaux :** `ROLE_USER`, `ROLE_ADMIN` (accès à `/admin`, modération comprise).
+- **Rôles globaux :**
+  - `ROLE_USER` : tout membre ;
+  - `ROLE_MODERATOR` : accès à la modération seulement (file des signalements, décisions, sanctions des membres). `/admin` le redirige vers la file ; les autres CRUD lui répondent 403 ;
+  - `ROLE_ADMIN` : tout le back-office, et hérite de `ROLE_MODERATOR` (`role_hierarchy`).
+- **Sanctions** (`MemberSanctionVoter`) : un modérateur sanctionne les membres ordinaires, un administrateur sanctionne aussi les modérateurs ; personne ne sanctionne un administrateur ni soi-même.
 - **Connexion :** `App\Security\UserChecker` refuse les comptes suspendus (formulaire et cookie « Se souvenir de moi ») ; `SuspendedUserSubscriber` ferme la session d'un membre suspendu pendant qu'il est connecté ; 5 échecs de connexion par minute au maximum.
 - **Anti-spam :** limites d'envoi centralisées (voir 3.15).
 - **Voters** (`src/Security/Voter/`) : ils centralisent les règles d'accès, au lieu de vérifications répétées dans les contrôleurs.
@@ -568,7 +574,8 @@ HighlightForge/
 │   ├── group_todo/ home/ leaderboard/ legal/ notification/ onboarding/ private_message/
 │   ├── profil/ registration/ report/ reset_password/ security/ styleguide/ thread/ todo/
 │   └── base.html.twig           Gabarit principal
-├── tests/Functional/        Tests fonctionnels (comptes, blocage, modération)
+├── tests/Functional/        Tests fonctionnels (comptes, blocage, modération, rôle modérateur)
+├── tests/Unit/              Tests unitaires (droits de sanction)
 ├── translations/
 ├── var/                    Cache, journaux, tailwind/app.built.css (non versionné)
 └── vendor/                 Dépendances Composer (non versionnées)

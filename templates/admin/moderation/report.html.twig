@@ -88,6 +88,7 @@
                     </div>
                 </section>
 
+                {% if canSuspendAuthor %}
                 <section class="card">
                     <div class="card-body">
                         <h2 class="h6 mb-3">Suspendre {{ author.username }}</h2>
@@ -100,6 +101,7 @@
                         </form>
                     </div>
                 </section>
+                {% endif %}
             {% endif %}
         {% else %}
             <section class="card">

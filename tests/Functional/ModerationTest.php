@@ -142,4 +142,51 @@ class ModerationTest extends FunctionalTestCase
         self::assertNull($report->getTargetUrl());
         self::assertStringContainsString('figurines volées', $report->getExcerpt());
     }
+
+    public function testModeratorOnlyReachesModerationPages(): void
+    {
+        $alice = $this->createMember('alice');
+        $bob = $this->createMember('bob');
+        $moderator = $this->createMember('modo', ['ROLE_MODERATOR']);
+        $reply = $this->createThreadWithReply($alice, $bob);
+        $this->client->loginUser($alice);
+        $crawler = $this->client->request('GET', '/signaler/reponse/' . $reply->getId());
+        $this->client->submit($crawler->selectButton('Envoyer le signalement')->form(['report_form[reason]' => 'spam']));
+        $this->client->loginUser($this->reload($moderator));
+        $this->client->request('GET', '/admin');
+        self::assertResponseRedirects();
+        $this->client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', 'File de modération');
+        self::assertSelectorTextNotContains('.main-sidebar, body', 'Utilisateurs');
+        foreach (['/admin/user', '/admin/thread', '/admin/category'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(403, $url);
+        }
+        $report = $this->entityManager()->getRepository(Report::class)->findOneBy([]);
+        $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
+        $this->client->submit($crawler->selectButton('Masquer')->form());
+        self::assertResponseRedirects();
+        $this->entityManager()->clear();
+        self::assertTrue($this->entityManager()->find(Post::class, $reply->getId())->isHiddenByModeration());
+        $this->client->request('GET', '/forum/thread/' . $reply->getThread()->getSlug());
+        self::assertSelectorTextContains('#post-' . $reply->getId(), 'Contenu insultant');
+    }
+
+    public function testModeratorCannotSanctionTheTeam(): void
+    {
+        $moderator = $this->createMember('modo', ['ROLE_MODERATOR']);
+        $otherModerator = $this->createMember('modo2', ['ROLE_MODERATOR']);
+        $admin = $this->createMember('admin', ['ROLE_ADMIN']);
+        $this->client->loginUser($moderator);
+        foreach ([$otherModerator, $admin] as $staffMember) {
+            $this->client->request('GET', '/admin/moderation/member/' . $staffMember->getId());
+            self::assertResponseIsSuccessful();
+            self::assertSelectorNotExists('button[value=suspend]');
+        }
+        $this->client->loginUser($this->reload($admin));
+        $crawler = $this->client->request('GET', '/admin/moderation/member/' . $otherModerator->getId());
+        $this->client->submit($crawler->selectButton('Suspendre')->form(['duration' => 'P1D', 'reason' => 'Abus de pouvoir']));
+        self::assertTrue($this->reload($otherModerator)->isSuspended());
+    }
 }

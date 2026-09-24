@@ -17,11 +17,13 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\ChoiceFilter;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Moderation queue: read-only list of reports. Decisions are taken on the report page
  * (ModerationController), which acts on every pending report of the same content.
  */
+#[IsGranted('ROLE_MODERATOR')]
 class ReportCrudController extends AbstractCrudController
 {
     public static function getEntityFqcn(): string

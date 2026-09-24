@@ -11,6 +11,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Badges : LECTURE SEULE.
@@ -19,6 +20,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
  * recopiés dans la table par `php bin/console app:gamification:sync-badges`, qui écraserait toute
  * modification faite ici : création, édition et suppression sont donc désactivées.
  */
+#[IsGranted('ROLE_ADMIN')]
 class BadgeCrudController extends AbstractCrudController
 {
 	public static function getEntityFqcn(): string { return Badge::class; }

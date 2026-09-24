@@ -9,7 +9,9 @@
             <div class="card-body">
                 <p class="mb-1"><a href="{{ path('app_profil_show', {username: member.username}) }}" target="_blank" rel="noopener">{{ member.username }}</a> · {{ member.email }}</p>
                 <p class="small text-muted">Inscrit le {{ member.createdAt|date('d/m/Y') }}</p>
-                {% if member.suspended %}
+                {% if not canSanction %}
+                    <div class="alert alert-secondary mb-0">Ce compte ne peut pas être sanctionné depuis ton rôle (toi-même ou un membre de l'équipe).</div>
+                {% elseif member.suspended %}
                     <div class="alert alert-danger">
                         {% if member.permanentlySuspended %}Suspendu définitivement{% else %}Suspendu jusqu'au {{ member.suspendedUntil|date('d/m/Y à H:i', 'Europe/Paris') }}{% endif %}
                         {% if member.suspensionReason %}<br>Motif : {{ member.suspensionReason }}{% endif %}

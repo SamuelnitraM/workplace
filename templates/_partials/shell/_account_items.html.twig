@@ -36,8 +36,8 @@
 </a>
 <a href="{{ path('app_leaderboard') }}" class="menu-item"{% if shell_section == 'leaderboard' %} aria-current="page"{% endif %}>{{ ui.icon('trophy') }}Classement</a>
 <a href="{{ path('app_profil_edit') }}" class="menu-item"{% if app.current_route in ['app_profil_edit', 'app_profil_change_password', 'app_profil_title'] %} aria-current="page"{% endif %}>{{ ui.icon('settings') }}Paramètres</a>
-{% if is_granted('ROLE_ADMIN') %}
-    <a href="{{ path('admin') }}" class="menu-item">{{ ui.icon('shield-check') }}Administration</a>
+{% if is_granted('ROLE_MODERATOR') %}
+    <a href="{{ path('admin') }}" class="menu-item">{{ ui.icon('shield-check') }}{{ is_granted('ROLE_ADMIN') ? 'Administration' : 'Modération' }}</a>
 {% endif %}
 <div class="menu-separator"></div>
 <a href="{{ logout_path() }}" data-turbo="false" class="menu-item menu-item-danger">{{ ui.icon('log-out') }}Déconnexion</a>
