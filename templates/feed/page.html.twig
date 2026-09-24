@@ -1,0 +1,25 @@
+{#
+    Page suivante du fil (/fil?fil=…&apres=…).
+    - Chargée dans le Turbo Frame « feed-page-<curseur> » : seul le frame est rendu.
+    - Ouverte directement (sans Turbo) : page complète.
+#}
+{% extends standalone ? 'base.html.twig' : 'feed/_frame_layout.html.twig' %}
+
+{% block title %}Fil d'actualité — SprueHub{% endblock %}
+
+{% block body %}
+    {% if standalone %}
+        <div class="mx-auto w-full max-w-2xl space-y-4">
+            <h1 class="page-header-title">Fil d'actualité</h1>
+            {{ include('feed/_items.html.twig', {feed: feed}, with_context = false) }}
+            <a href="{{ path('app_home', {fil: feed.filter}) }}" class="btn btn-link">Retour à l'accueil</a>
+        </div>
+    {% else %}
+        <turbo-frame id="feed-page-{{ cursor }}" class="block space-y-4" target="_top">
+            {% if feed.items is empty %}
+                <p class="py-4 text-center text-small text-muted">Vous êtes à jour : il n'y a pas d'activité plus ancienne.</p>
+            {% endif %}
+            {{ include('feed/_items.html.twig', {feed: feed}, with_context = false) }}
+        </turbo-frame>
+    {% endif %}
+{% endblock %}

@@ -1,0 +1,69 @@
+{#
+    Éditeur Markdown du forum (réponse, nouveau sujet) : barre d'outils, onglets Écrire / Aperçu,
+    envoi d'images (bouton, coller, glisser-déposer), suggestions de mention @pseudo, brouillon local.
+
+    Le contrôleur Stimulus « markdown-editor » doit être posé sur un élément PARENT (il peut englober
+    d'autres boutons, ex. « Citer » sur les messages du sujet) avec les attributs de
+    forum/_editor_attributes.html.twig.
+
+    Paramètres : field (champ de formulaire texte, requis), label (texte du libellé, facultatif : sinon sr-only « Message »).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set input_id = field.vars.id %}
+{% set tools = [
+    {style: 'bold', icon: 'bold', label: 'Gras', shortcut: 'Ctrl+B'},
+    {style: 'italic', icon: 'italic', label: 'Italique', shortcut: 'Ctrl+I'},
+    {style: 'strike', icon: 'strikethrough', label: 'Barré'},
+    {style: 'quote', icon: 'quote', label: 'Citation'},
+    {style: 'list', icon: 'list', label: 'Liste à puces'},
+    {style: 'link', icon: 'link', label: 'Lien', shortcut: 'Ctrl+K'},
+    {style: 'code', icon: 'code', label: 'Code'},
+    {style: 'mention', icon: 'at-sign', label: 'Mentionner un membre'},
+] %}
+<div class="md-editor">
+    <div class="md-editor-bar">
+        <div class="md-editor-tabs" role="tablist" aria-label="Mode de l'éditeur">
+            <button type="button" role="tab" id="{{ input_id }}-tab-write" aria-selected="true" aria-controls="{{ input_id }}-write"
+                    class="md-editor-tab" data-markdown-editor-target="writeTab" data-action="markdown-editor#write">{{ ui.icon('pencil', 'size-4') }}Écrire</button>
+            <button type="button" role="tab" id="{{ input_id }}-tab-preview" aria-selected="false" aria-controls="{{ input_id }}-preview" tabindex="-1"
+                    class="md-editor-tab" data-markdown-editor-target="previewTab" data-action="markdown-editor#preview">{{ ui.icon('eye', 'size-4') }}Aperçu</button>
+        </div>
+        <div class="md-editor-tools" role="toolbar" aria-label="Mise en forme" aria-controls="{{ input_id }}" data-markdown-editor-target="tools">
+            {% for tool in tools %}
+                <button type="button" class="md-editor-tool" data-action="markdown-editor#format" data-markdown-editor-style-param="{{ tool.style }}"
+                        aria-label="{{ tool.label }}" title="{{ tool.label }}{% if tool.shortcut is defined %} ({{ tool.shortcut }}){% endif %}">{{ ui.icon(tool.icon, 'size-4') }}</button>
+            {% endfor %}
+            <button type="button" class="md-editor-tool" data-action="markdown-editor#pickImage" aria-label="Ajouter une image" title="Ajouter une image (ou collez / glissez-la dans le texte)">{{ ui.icon('image-plus', 'size-4') }}</button>
+        </div>
+    </div>
+
+    <div class="md-editor-body">
+        <div id="{{ input_id }}-write" role="tabpanel" aria-labelledby="{{ input_id }}-tab-write" data-markdown-editor-target="writePane">
+            {% if label is defined and label %}
+                <label for="{{ input_id }}" class="sr-only">{{ label }}</label>
+            {% endif %}
+            {{ form_widget(field, {attr: field.vars.attr|merge({
+                class: 'md-editor-input',
+                'data-markdown-editor-target': 'input',
+                'data-action': 'input->markdown-editor#onInput keydown->markdown-editor#onKeydown paste->markdown-editor#onPaste drop->markdown-editor#onDrop dragover->markdown-editor#onDragover blur->markdown-editor#closeMentions',
+                role: 'combobox',
+                'aria-autocomplete': 'list',
+                'aria-expanded': 'false',
+                'aria-controls': input_id ~ '-mentions',
+                'aria-haspopup': 'listbox',
+                'aria-multiline': 'true',
+            })}) }}
+            <ul id="{{ input_id }}-mentions" role="listbox" aria-label="Membres à mentionner" class="md-mention-list hidden" data-markdown-editor-target="mentions"></ul>
+        </div>
+        <div id="{{ input_id }}-preview" role="tabpanel" aria-labelledby="{{ input_id }}-tab-preview" tabindex="0" hidden
+             class="md-editor-preview post-content" data-markdown-editor-target="previewPane"></div>
+    </div>
+
+    <div class="md-editor-footer">
+        <p class="md-editor-hint">
+            <span class="hidden sm:inline">Markdown : **gras**, _italique_, &gt; citation, - liste · </span>@pseudo pour mentionner · images : coller ou glisser
+        </p>
+        <p class="md-editor-status" role="status" aria-live="polite" data-markdown-editor-target="status"></p>
+    </div>
+    <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-markdown-editor-target="file" data-action="change->markdown-editor#onFileChosen">
+</div>

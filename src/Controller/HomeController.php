@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Feed\FeedService;
+use Symfony\Component\HttpFoundation\Request;
 use App\Gamification\BadgeCatalog;
 use App\Repository\CategoryRepository;
 use App\Repository\GalleryPhotoRepository;
@@ -30,6 +32,8 @@ final class HomeController extends AbstractController
         ThreadRepository $threadRepository,
         GalleryPhotoRepository $galleryPhotoRepository,
         OnboardingService $onboarding,
+        FeedService $feed,
+        Request $request,
     ): Response {
         $user = $this->getUser();
 
@@ -57,11 +61,18 @@ final class HomeController extends AbstractController
 
         // Espace personnalisé (si connecté)
         $userDashboard = null;
-        if ($user) {
+        if ($user instanceof User) {
+            // Fil d'actualité : « tout » par défaut, « communauté » tant que le membre n'a ni ami ni groupe
+            $hasNetwork = $feed->hasNetwork($user);
+            $filter = FeedService::normalizeFilter($request->query->getString('fil'))
+                ?? ($hasNetwork ? FeedService::DEFAULT_FILTER : 'communaute');
+
             $userDashboard = [
                 'myThreads' => $threadRepository->findBy(['author' => $user], ['createdAt' => 'DESC'], 3),
                 // « Premiers pas » (une requête) : masqué une fois tout coché
-                'checklist' => $user instanceof User ? $onboarding->checklist($user) : null,
+                'checklist' => $onboarding->checklist($user),
+                'feed' => $feed->page($user, $filter),
+                'hasNetwork' => $hasNetwork,
             ];
         }
 
@@ -73,6 +84,7 @@ final class HomeController extends AbstractController
             'categories' => $categories,
             'latestPosts' => $latestPosts,
             'userDashboard' => $userDashboard,
+            'feedFilters' => FeedService::FILTERS,
         ]);
     }
 }

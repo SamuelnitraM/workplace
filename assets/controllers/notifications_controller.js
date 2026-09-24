@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { listen, userChannelName, setCount, getCount, getActive, postJson, visit } from '../lib/realtime.js';
+import { playNotificationSound } from '../lib/sounds.js';
 
 /*
  * Cloche de notifications (barre de navigation) : badge des non-lues, menu déroulant des
@@ -141,6 +142,7 @@ export default class extends Controller {
 
         this.setUnread(data.unreadCount);
         this.badgeTarget.classList.add('notification-blink');
+        playNotificationSound();
 
         if (this.items) {
             this.items = [notification, ...this.items.filter(n => n.id !== notification.id)].slice(0, 15);

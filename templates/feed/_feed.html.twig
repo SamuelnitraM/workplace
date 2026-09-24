@@ -1,0 +1,46 @@
+{#
+    Fil d'actualité de l'accueil (membre connecté).
+    Paramètres : feed (FeedService::page), hasNetwork (bool : le membre a des amis ou des groupes), filters (FeedService::FILTERS).
+    Le Turbo Frame « feed » est rechargé seul au changement de filtre (l'URL de la page est mise à jour) ;
+    les autres liens du frame (target="_top") ouvrent une page complète.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+<section aria-labelledby="feed-title">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 id="feed-title" class="section-title mb-0">{{ ui.icon('rss') }}Fil d'actualité</h2>
+    </div>
+
+    <turbo-frame id="feed" class="block" target="_top">
+        <nav class="tabs tabs-pills mb-4" aria-label="Filtrer le fil d'actualité">
+            {% for key, label in filters %}
+                <a href="{{ path('app_home', {fil: key}) }}" class="tab" data-turbo-frame="feed" data-turbo-action="advance"
+                   {% if key == feed.filter %}aria-current="page"{% endif %}>{{ label }}</a>
+            {% endfor %}
+        </nav>
+
+        <div class="space-y-4">
+            {% if feed.items is not empty %}
+                {{ include('feed/_items.html.twig', {feed: feed}, with_context = false) }}
+            {% elseif feed.filter != 'communaute' and not hasNetwork %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'users',
+                    title: 'Votre fil est encore vide',
+                    text: 'Ajoutez des amis ou rejoignez des groupes : leurs photos, discussions, listes d\'armée et badges apparaîtront ici.',
+                    cta: {label: 'Découvrir les groupes', url: path('app_group_index'), icon: 'users'},
+                    secondary: {label: 'Voir l\'activité de la communauté', url: path('app_home', {fil: 'communaute'})},
+                }, with_context = false) }}
+            {% else %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'rss',
+                    title: 'Rien de neuf pour l\'instant',
+                    text: feed.filter == 'communaute'
+                        ? 'La communauté n\'a encore rien partagé. Soyez le premier : une photo, une discussion ou une liste d\'armée !'
+                        : 'Aucune activité récente dans ce filtre. Revenez plus tard ou regardez ce que partage la communauté.',
+                    cta: feed.filter == 'communaute'
+                        ? {label: 'Partager une photo', url: path('app_profil_show', {username: app.user.username}) ~ '#gallery', icon: 'image-plus'}
+                        : {label: 'Voir la communauté', url: path('app_home', {fil: 'communaute'})},
+                }, with_context = false) }}
+            {% endif %}
+        </div>
+    </turbo-frame>
+</section>

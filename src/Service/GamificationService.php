@@ -47,6 +47,8 @@ class GamificationService
     public const TIMEZONE = 'Europe/Paris';
     public const DAILY_LOGIN_XP = 20;
     public const STREAK_BONUS_XP = 100;
+    /** XP de l'auteur d'une réponse choisie comme solution d'un sujet. */
+    public const SOLUTION_XP = 50;
     public const STREAK_BONUS_EVERY = 7;
     /** Protection de série : nombre maximal de jours calendaires consécutifs sans connexion tolérés. */
     public const STREAK_MAX_MISSED_DAYS = 3;
@@ -232,6 +234,25 @@ class GamificationService
             $this->evaluate($threadAuthor, [BadgeCatalog::RULE_MASTER_THREADS]);
             $this->flushNotifications();
         }
+    }
+
+    /**
+     * Réponse choisie comme solution d'un sujet : XP pour son auteur (pas pour l'auteur du sujet lui-même).
+     * Une seule fois par membre et par sujet (clé « solution:<id du sujet> ») : changer de solution puis revenir
+     * ne recrédite rien, et l'XP n'est pas retirée si la solution est ensuite retirée.
+     */
+    public function onSolutionChosen(Post $post): bool
+    {
+        $author = $post->getAuthor();
+        $thread = $post->getThread();
+        if (!$author || !$thread || $author->getId() === $thread->getAuthor()?->getId()) {
+            return false;
+        }
+
+        $awarded = $this->awardExperience($author, 'solution:' . $thread->getId(), self::SOLUTION_XP);
+        $this->flushNotifications();
+
+        return $awarded;
     }
 
     /** Vote ajouté (après flush) : Populaire / Dévoué de l'auteur de la réponse. */

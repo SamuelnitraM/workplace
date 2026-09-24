@@ -89,6 +89,40 @@
             </div>
         </section>
 
+        {# ─── Notifications : son joué à la réception (synthétisé par assets/lib/sounds.js) ─── #}
+        {% set sounds = constant('App\\Notification\\NotificationSound::SOUNDS') %}
+        <section class="card" aria-labelledby="settings-notifications">
+            <div class="card-header">
+                <h2 id="settings-notifications" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('volume-2') }}</span>Notifications</h2>
+            </div>
+            <div class="card-body">
+                <fieldset class="field" data-controller="sound-preview">
+                    <legend class="label mb-1">{{ form.notificationSound.vars.label }}</legend>
+                    <p class="help mb-3">Joué à chaque nouvelle notification ou message privé, une seule fois même si le site est ouvert dans plusieurs onglets.</p>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        {% for choice in form.notificationSound %}
+                            {% set sound = sounds[choice.vars.value] %}
+                            <div class="sound-option">
+                                <label class="check min-w-0 flex-1 items-start">
+                                    {{ form_widget(choice, {attr: {'data-action': 'change->sound-preview#choose'}}) }}
+                                    <span class="min-w-0">
+                                        <span class="block font-medium text-fg">{{ sound.label }}</span>
+                                        <span class="block text-caption text-muted">{{ sound.description }}</span>
+                                    </span>
+                                </label>
+                                {% if choice.vars.value != 'none' %}
+                                    <button type="button" class="btn btn-ghost btn-icon btn-sm shrink-0" data-action="sound-preview#play" data-sound-preview-sound-param="{{ choice.vars.value }}"
+                                            aria-label="Écouter le son {{ sound.label }}" title="Écouter">{{ ui.icon('play', 'size-4') }}</button>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {{ form_errors(form.notificationSound) }}
+                </fieldset>
+                {% do form.notificationSound.setRendered() %}
+            </div>
+        </section>
+
         {# ─── Confidentialité ─── #}
         <section class="card" aria-labelledby="settings-privacy">
             <div class="card-header">

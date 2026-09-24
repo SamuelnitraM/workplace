@@ -20,7 +20,7 @@
         </p>
     {% endif %}
 
-    <div class="card">
+    <div class="card" {{ include('forum/_editor_attributes.html.twig', {draft_key: 'thread-' ~ category.id}) }}>
         {{ form_start(form) }}
             <div class="card-body space-y-5">
                 {{ form_errors(form) }}
@@ -28,9 +28,12 @@
                     attr: form.title.vars.attr|merge({maxlength: 255, autofocus: true}),
                     help: 'Entre 5 et 255 caractères. Soyez précis : « Schéma de peinture pour Ultramarines » plutôt que « Besoin d\'aide ».',
                 }) }}
-                {{ form_row(form.content, {
-                    help: '10 caractères minimum. Détaillez votre question : figurines, peintures utilisées, ce que vous avez déjà essayé…',
-                }) }}
+                <div class="field">
+                    {{ form_label(form.content) }}
+                    {{ include('forum/_editor.html.twig', {field: form.content}) }}
+                    <p class="help">10 caractères minimum. Détaillez votre question : figurines, peintures utilisées, ce que vous avez déjà essayé… Ajoutez des photos pour illustrer.</p>
+                    {{ form_errors(form.content) }}
+                </div>
             </div>
 
             <div class="card-footer flex-wrap">

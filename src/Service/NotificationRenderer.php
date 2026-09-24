@@ -54,6 +54,17 @@ class NotificationRenderer
 
             Notification::TYPE_LEVEL_UP => sprintf('Niveau %d atteint !', (int) ($data['level'] ?? 0)),
 
+            Notification::TYPE_FORUM_MENTION => $count > 1
+                ? sprintf('%d mentions de votre pseudo dans « %s »', $count, $this->str($data, 'thread'))
+                : sprintf('%s vous a mentionné dans « %s »', $actor, $this->str($data, 'thread')),
+
+            Notification::TYPE_FORUM_SOLUTION => sprintf(
+                '%s a choisi votre réponse comme solution de « %s »%s',
+                $actor,
+                $this->str($data, 'thread'),
+                (int) ($data['xp'] ?? 0) > 0 ? sprintf(' (+%d XP)', (int) $data['xp']) : ''
+            ),
+
             default => 'Nouvelle notification',
         };
     }
@@ -70,6 +81,8 @@ class NotificationRenderer
             Notification::TYPE_PHOTO_COMMENT => '📝',
             Notification::TYPE_BADGE_EARNED => '🏅',
             Notification::TYPE_LEVEL_UP => '⬆️',
+            Notification::TYPE_FORUM_MENTION => '📣',
+            Notification::TYPE_FORUM_SOLUTION => '✅',
             default => '🔔',
         };
     }

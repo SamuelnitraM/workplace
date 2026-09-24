@@ -99,8 +99,9 @@
                     <li class="list-row list-row-interactive relative items-start {{ thread.isPinned ? 'shadow-[inset_3px_0_0_var(--color-accent)]' }}">
                         {{ ui.avatar(thread.author, 'md', 'mt-0.5') }}
                         <div class="list-row-main">
-                            {% if thread.isPinned or thread.isLocked %}
+                            {% if thread.isPinned or thread.isLocked or thread.solved %}
                                 <p class="mb-1 flex flex-wrap gap-1.5">
+                                    {% if thread.solved %}<span class="chip chip-success">{{ ui.icon('check-circle') }}Résolu</span>{% endif %}
                                     {% if thread.isPinned %}<span class="chip chip-accent">{{ ui.icon('pin') }}Épinglé</span>{% endif %}
                                     {% if thread.isLocked %}<span class="chip">{{ ui.icon('lock') }}Fermé</span>{% endif %}
                                 </p>

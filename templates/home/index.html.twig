@@ -194,8 +194,9 @@
                 <h2 id="showcase-title" class="section-title mb-0">{{ ui.icon('camera') }}Dernières créations de la communauté</h2>
             </div>
             {% if showcasePhotos is not empty %}
+                {# Une seule rangée : le fil d'actualité ci-dessous prend le relais #}
                 <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-                    {% for photo in showcasePhotos %}
+                    {% for photo in showcasePhotos|slice(0, 6) %}
                         {{ home.showcase_tile(photo, showcaseStats[photo.id] ?? {likes: 0, comments: 0}) }}
                     {% endfor %}
                 </ul>
@@ -210,11 +211,14 @@
         </section>
 
         <div class="grid gap-8 lg:grid-cols-3">
-            <div class="lg:col-span-2">
-                {{ block('latest_discussions') }}
+            <div class="min-w-0 lg:col-span-2">
+                {# Fil d'actualité : amis, groupes ou communauté (templates/feed/_feed.html.twig) #}
+                {{ include('feed/_feed.html.twig', {feed: userDashboard.feed, hasNetwork: userDashboard.hasNetwork, filters: feedFilters}, with_context = false) }}
             </div>
 
             <div class="space-y-8">
+                {{ block('latest_discussions') }}
+
                 {# Mes derniers sujets #}
                 <section class="card" aria-labelledby="my-threads-title">
                     <div class="card-header">
@@ -267,7 +271,7 @@
                                class="block font-medium text-fg after:absolute after:inset-0 after:content-[''] hover:text-primary-text focus-visible:outline-offset-[-2px]">
                                 <span class="line-clamp-2 break-words">{{ post.thread.title }}</span>
                             </a>
-                            <p class="mt-0.5 line-clamp-1 break-words text-small text-fg-secondary">{{ post.content|striptags|slice(0, 150) }}</p>
+                            <p class="mt-0.5 line-clamp-1 break-words text-small text-fg-secondary">{{ post.content|forum_excerpt(150) }}</p>
                             <p class="mt-1 text-caption text-muted">
                                 <span class="font-medium text-fg-secondary">{{ post.author.username }}</span>
                                 · <time datetime="{{ post.createdAt|date('c') }}" title="{{ post.createdAt|date('d/m/Y à H:i') }}">{{ post.createdAt|time_ago }}</time>

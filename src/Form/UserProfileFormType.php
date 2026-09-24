@@ -5,6 +5,7 @@ namespace App\Form;
 use App\Entity\Badge;
 use App\Entity\User;
 use App\Gamification\UserTitleManager;
+use App\Notification\NotificationSound;
 use App\Service\AvatarUploader;
 use Doctrine\ORM\EntityRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
@@ -73,6 +74,12 @@ class UserProfileFormType extends AbstractType
                     'Oui' => true,
                     'Non' => false,
                 ],
+                'expanded' => true,
+                'multiple' => false,
+            ])
+            ->add('notificationSound', ChoiceType::class, [
+                'label' => 'Son des notifications',
+                'choices' => NotificationSound::choices(),
                 'expanded' => true,
                 'multiple' => false,
             ])

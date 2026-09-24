@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { esc, listen, userChannelName, currentUserId, store, getActive, setCount, getCount, postJson } from '../lib/realtime.js';
+import { playNotificationSound } from '../lib/sounds.js';
 
 /*
  * Messenger (onglets de discussion collés en bas de l'écran).
@@ -68,6 +69,7 @@ export default class extends Controller {
         // La page de cette conversation est ouverte : elle gère l'affichage et la lecture
         if (getActive('conversation') === data.conversationId) return;
 
+        playNotificationSound();
         const conv = this.state.openConvs.find(c => c.username === data.author);
         if (conv) {
             conv.convId = data.conversationId;

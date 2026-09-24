@@ -45,6 +45,14 @@ class Thread
     private ?User $author = null;
 
     /**
+     * Réponse désignée comme solution par l'auteur du sujet (sujet « résolu »).
+     * La suppression de la réponse remet le sujet à l'état non résolu (ON DELETE SET NULL).
+     */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Post $solutionPost = null;
+
+    /**
      * @var Collection<int, Post>
      */
     #[ORM\OneToMany(targetEntity: Post::class, mappedBy: 'thread', orphanRemoval: true, fetch: 'EXTRA_LAZY')]
@@ -151,6 +159,23 @@ class Thread
         $this->views = $views;
 
         return $this;
+    }
+
+    public function getSolutionPost(): ?Post
+    {
+        return $this->solutionPost;
+    }
+
+    public function setSolutionPost(?Post $solutionPost): static
+    {
+        $this->solutionPost = $solutionPost;
+
+        return $this;
+    }
+
+    public function isSolved(): bool
+    {
+        return $this->solutionPost !== null;
     }
 
     public function getCategory(): ?Category

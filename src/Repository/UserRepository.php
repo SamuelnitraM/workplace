@@ -56,6 +56,43 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getResult();
     }
 
+    /**
+     * Suggestions de mention (@pseudo) : pseudos COMMENÇANT par la saisie, triés par longueur puis ordre alphabétique.
+     *
+     * @return User[]
+     */
+    public function findMentionSuggestions(string $prefix, int $limit = 8): array
+    {
+        return $this->createQueryBuilder('u')
+            ->addSelect('LENGTH(u.username) AS HIDDEN usernameLength')
+            ->where('u.username LIKE :prefix')
+            ->setParameter('prefix', addcslashes($prefix, '%_\\') . '%')
+            ->orderBy('usernameLength', 'ASC')
+            ->addOrderBy('u.username', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Membres correspondant à des pseudos (comparaison insensible à la casse, selon la collation de la base).
+     *
+     * @param string[] $usernames
+     * @return User[]
+     */
+    public function findByUsernames(array $usernames): array
+    {
+        if ($usernames === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('u')
+            ->where('u.username IN (:usernames)')
+            ->setParameter('usernames', array_values(array_unique($usernames)))
+            ->getQuery()
+            ->getResult();
+    }
+
     //    /**
     //     * @return User[] Returns an array of User objects
     //     */

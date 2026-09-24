@@ -5,15 +5,19 @@
 
 {% block body %}
 {% set can_reply = app.user and not thread.isLocked and form %}
+{% set can_solve = is_granted('THREAD_SOLVE', thread) %}
+{% set solution = thread.solutionPost %}
 {% set total_posts = posts.getTotalItemCount %}
 {% set reply_count = max(total_posts - 1, 0) %}
-<div class="container-reading">
+{# L'éditeur (et donc les boutons « Citer ») n'existe que si l'on peut répondre #}
+<div class="container-reading" {% if can_reply %}{{ include('forum/_editor_attributes.html.twig', {draft_key: 'reply-' ~ thread.id}) }}{% endif %}>
 
     <header class="page-header block">
         <div class="min-w-0">
             {{ include('forum/_breadcrumb.html.twig', {category: thread.category, link_last: true}) }}
-            {% if thread.isPinned or thread.isLocked %}
+            {% if thread.isPinned or thread.isLocked or solution %}
                 <p class="mb-2 flex flex-wrap gap-1.5">
+                    {% if solution %}<span class="chip chip-success">{{ ui.icon('check-circle') }}Résolu</span>{% endif %}
                     {% if thread.isPinned %}<span class="chip chip-accent">{{ ui.icon('pin') }}Épinglé</span>{% endif %}
                     {% if thread.isLocked %}<span class="chip">{{ ui.icon('lock') }}Fermé</span>{% endif %}
                 </p>
@@ -35,6 +39,16 @@
                 </div>
                 {% if app.user %}
                     <div class="page-header-actions">
+                        {# Suivre : notification à chaque nouvelle réponse (auteur et participants sont abonnés automatiquement) #}
+                        <form method="post" action="{{ path('app_thread_subscription', {slug: thread.slug}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('thread_subscription_' ~ thread.id) }}">
+                            <input type="hidden" name="subscribe" value="{{ isSubscribed ? '0' : '1' }}">
+                            <input type="hidden" name="page" value="{{ posts.currentPageNumber }}">
+                            <button type="submit" class="btn btn-sm btn-toggle" aria-pressed="{{ isSubscribed ? 'true' : 'false' }}"
+                                    title="{{ isSubscribed ? 'Vous êtes notifié des nouvelles réponses. Cliquez pour ne plus suivre ce sujet.' : 'Être notifié de chaque nouvelle réponse' }}">
+                                {{- ui.icon(isSubscribed ? 'bell' : 'bell-off') }}{{ isSubscribed ? 'Suivi' : 'Suivre' -}}
+                            </button>
+                        </form>
                         <form method="post" action="{{ path('app_gamification_activity', {key: 'share'}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('gamification_share') }}">
                             <button type="submit" class="btn btn-ghost btn-sm">{{ ui.icon('external-link') }}Partager</button>
@@ -55,11 +69,20 @@
         </div>
     {% endif %}
 
+    {# Solution : accès direct à la réponse choisie par l'auteur #}
+    {% if solution and solutionPage %}
+        <a href="{{ path('app_thread_show', {slug: thread.slug, page: solutionPage}) }}#post-{{ solution.id }}" class="alert alert-success mb-6 hover:border-success-text" >
+            {{ ui.icon('check-circle') }}
+            <p><strong class="font-semibold">Sujet résolu</strong> — la réponse de {{ solution.author.username }} a été choisie comme solution. <span class="underline">Voir la solution</span></p>
+        </a>
+    {% endif %}
+
     {# MESSAGES #}
     <div class="space-y-4 mb-8">
         {% for post in posts.items %}
             {% set is_op = post.author.id == thread.author.id %}
-            <article id="post-{{ post.id }}" class="card forum-post {{ post.isFirst ? 'forum-post-first' }}" aria-label="Message de {{ post.author.username }}">
+            {% set is_solution = solution and solution.id == post.id %}
+            <article id="post-{{ post.id }}" class="card forum-post {{ post.isFirst ? 'forum-post-first' }} {{ is_solution ? 'forum-post-solution' }}" aria-label="Message de {{ post.author.username }}{{ is_solution ? ' (solution)' }}">
                 <header class="flex items-start gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
                     <a href="{{ path('app_profil_show', {username: post.author.username}) }}" class="shrink-0 rounded-pill" tabindex="-1" aria-hidden="true">
                         {{- ui.avatar(post.author, 'md') -}}
@@ -73,6 +96,9 @@
                             {% elseif is_op %}
                                 <span class="chip" title="Auteur du sujet">Auteur</span>
                             {% endif %}
+                            {% if is_solution %}
+                                <span class="chip chip-success">{{ ui.icon('check-circle') }}Solution</span>
+                            {% endif %}
                         </p>
                         <p class="mt-0.5 text-caption text-muted">
                             Niv. {{ post.author.level }}
@@ -84,7 +110,7 @@
                 </header>
 
                 <div class="post-content px-4 py-4 sm:px-5 sm:pl-[4.5rem]">
-                    {{ post.content|nl2br }}
+                    {{ post.content|forum_markdown }}
                 </div>
 
                 {% set positive = post.getVoteCount('positive') %}
@@ -116,6 +142,24 @@
                             <a href="{{ path('app_login') }}" class="btn btn-link btn-sm ml-auto">Connectez-vous pour voter</a>
                         {% endif %}
                     {% endif %}
+
+                    <span class="ml-auto flex flex-wrap items-center gap-2">
+                        {% if can_solve and not post.isFirst %}
+                            <form method="post" action="{{ path('app_thread_solution', {slug: thread.slug, postId: post.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('thread_solution_' ~ post.id) }}">
+                                <button type="submit" class="btn btn-sm {{ is_solution ? 'btn-ghost' : 'btn-secondary' }}"
+                                        title="{{ is_solution ? 'Le sujet ne sera plus marqué comme résolu' : 'Cette réponse résout le sujet (+' ~ constant('App\\Service\\GamificationService::SOLUTION_XP') ~ ' XP pour son auteur)' }}">
+                                    {{- ui.icon(is_solution ? 'x-circle' : 'check-circle') }}{{ is_solution ? 'Retirer la solution' : 'C\'est la solution' -}}
+                                </button>
+                            </form>
+                        {% endif %}
+                        {% if can_reply %}
+                            <button type="button" class="btn btn-ghost btn-sm" data-action="markdown-editor#quote"
+                                    data-markdown-editor-author-param="{{ post.author.username }}"
+                                    data-markdown-editor-content-param="{{ post.content }}"
+                                    aria-label="Citer le message de {{ post.author.username }}">{{ ui.icon('quote') }}Citer</button>
+                        {% endif %}
+                    </span>
                 </footer>
             </article>
         {% endfor %}
@@ -149,12 +193,11 @@
             {{ form_start(form) }}
                 <div class="card-body">
                     {{ form_errors(form) }}
-                    <label for="{{ form.content.vars.id }}" class="sr-only">Votre réponse</label>
-                    {{ form_widget(form.content) }}
+                    {{ include('forum/_editor.html.twig', {field: form.content, label: 'Votre réponse'}) }}
                     {{ form_errors(form.content) }}
-                    <p class="help mt-2">Restez courtois et constructif. Les sauts de ligne sont conservés.</p>
                 </div>
                 <div class="card-footer">
+                    <p class="mr-auto hidden text-caption text-muted sm:block">Restez courtois et constructif · <kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">Entrée</kbd> pour envoyer</p>
                     <button type="submit" class="btn btn-primary">{{ ui.icon('send') }}Envoyer la réponse</button>
                 </div>
             {{ form_end(form) }}

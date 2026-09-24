@@ -1529,6 +1529,172 @@
         box-shadow: 0 0 0 3px rgb(99 102 241 / 0.35), var(--shadow-raised);
     }
     .post-content { overflow-wrap: anywhere; color: var(--color-fg); line-height: 1.7; }
+    .forum-post-solution { border-color: rgb(74 222 128 / 0.45); box-shadow: 0 0 0 1px rgb(74 222 128 / 0.2), var(--shadow-raised); }
+
+    /* Contenu Markdown des messages (App\Forum\ForumMarkdown) — aussi dans l'aperçu de l'éditeur */
+    .post-content > * + * { margin-top: 0.75rem; }
+    .post-content :where(h1, h2, h3, h4, h5, h6) { font-weight: 650; line-height: 1.3; color: var(--color-fg); }
+    .post-content :where(h1, h2) { font-size: 1.25rem; }
+    .post-content :where(h3, h4, h5, h6) { font-size: 1.0625rem; }
+    .post-content :where(strong) { font-weight: 650; color: var(--color-fg); }
+    .post-content :where(a:not(.mention)) { color: var(--color-primary-text); text-decoration: underline; text-underline-offset: 2px; }
+    .post-content :where(ul, ol) { padding-left: 1.5rem; }
+    .post-content ul { list-style: disc; }
+    .post-content ol { list-style: decimal; }
+    .post-content :where(li + li) { margin-top: 0.25rem; }
+    .post-content blockquote {
+        padding: 0.5rem 0.875rem;
+        border-left: 3px solid var(--color-primary-text);
+        border-radius: 0 var(--radius-control) var(--radius-control) 0;
+        background: var(--color-surface-raised);
+        color: var(--color-fg-secondary);
+    }
+    .post-content blockquote > * + * { margin-top: 0.5rem; }
+    .post-content :where(code) {
+        padding: 0.1em 0.35em;
+        border-radius: 0.3rem;
+        background: var(--color-surface-raised);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.875em;
+    }
+    .post-content pre {
+        overflow-x: auto;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-control);
+        background: var(--color-canvas);
+        line-height: 1.5;
+    }
+    .post-content pre code { padding: 0; background: none; }
+    .post-content hr { border: 0; border-top: 1px solid var(--color-line); }
+    .post-content .post-image {
+        display: block;
+        max-width: 100%;
+        max-height: 32rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-control);
+        background: var(--color-surface-raised);
+    }
+    .mention {
+        padding: 0 0.2em;
+        border-radius: 0.3rem;
+        background: var(--color-primary-soft);
+        color: var(--color-primary-text);
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .mention:hover { text-decoration: underline; }
+
+    /* Éditeur Markdown du forum (templates/forum/_editor.html.twig) */
+    .md-editor {
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-control);
+        background: var(--color-canvas);
+    }
+    .md-editor:focus-within { border-color: var(--color-primary-text); box-shadow: 0 0 0 3px rgb(99 102 241 / 0.25); }
+    .md-editor-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        border-bottom: 1px solid var(--color-line);
+    }
+    .md-editor-tabs, .md-editor-tools { display: flex; flex-wrap: wrap; gap: 0.125rem; }
+    .md-editor-tab, .md-editor-tool {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        min-height: 2.25rem;
+        border-radius: var(--radius-control);
+        color: var(--color-fg-secondary);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .md-editor-tab { padding: 0 0.75rem; }
+    .md-editor-tool { min-width: 2.25rem; }
+    .md-editor-tab:hover, .md-editor-tool:hover:not(:disabled) { background: rgb(255 255 255 / 0.06); color: var(--color-fg); }
+    .md-editor-tab[aria-selected="true"] { background: var(--color-surface-raised); color: var(--color-fg); }
+    .md-editor-tool:disabled { opacity: 0.4; cursor: not-allowed; }
+    .md-editor-body { position: relative; }
+    .md-editor .md-editor-input {
+        display: block;
+        width: 100%;
+        min-height: 9rem;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        resize: vertical;
+    }
+    .md-editor .md-editor-input:focus { outline: none; box-shadow: none; }
+    .md-editor-preview { min-height: 9rem; padding: 0.75rem; }
+    .md-editor-footer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.25rem 1rem;
+        padding: 0.375rem 0.75rem;
+        border-top: 1px solid var(--color-line);
+        font-size: 0.75rem;
+        color: var(--color-muted);
+    }
+    .md-editor-status:empty { display: none; }
+    .md-editor-status { color: var(--color-fg-secondary); }
+    .md-mention-list {
+        position: absolute;
+        left: 0.5rem;
+        bottom: 0.5rem;
+        z-index: var(--z-dropdown);
+        width: min(18rem, calc(100% - 1rem));
+        max-height: 14rem;
+        overflow-y: auto;
+        padding: 0.25rem;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-card);
+        background: var(--color-surface-raised);
+        box-shadow: var(--shadow-overlay);
+    }
+    .md-mention-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.5rem;
+        border-radius: var(--radius-control);
+        color: var(--color-fg);
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+    .md-mention-option[aria-selected="true"], .md-mention-option:hover { background: var(--color-primary-soft); color: var(--color-primary-text); }
+
+    /* Choix du son de notification (paramètres du profil) */
+    .sound-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 0.75rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-control);
+        background: var(--color-surface-raised);
+    }
+    .sound-option:has(:checked) { border-color: var(--color-primary-text); background: var(--color-primary-soft); }
+
+    /* Fil d'actualité (templates/feed) */
+    .feed-item { overflow: hidden; }
+    .feed-item-type {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        flex-shrink: 0;
+        border-radius: var(--radius-pill);
+        background: var(--color-surface-raised);
+        color: var(--color-muted);
+    }
+    .feed-photo { display: block; width: 100%; max-height: 34rem; object-fit: cover; }
 
     /* Pagination (templates/forum/_pagination.html.twig) */
     .pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.25rem; }

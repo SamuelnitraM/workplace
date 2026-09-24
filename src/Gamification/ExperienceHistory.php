@@ -69,6 +69,7 @@ class ExperienceHistory
             'streak' => [sprintf('Bonus de série (%d jours)', GamificationService::STREAK_BONUS_EVERY), '🔥'],
             'badge' => ['Badge ' . (BadgeCatalog::get($detail)['name'] ?? $detail), BadgeCatalog::get($detail)['icon'] ?? '🏅'],
             'level' => ['Niveau ' . $detail, '⭐'],
+            'solution' => ['Réponse choisie comme solution', '✅'],
             default => [ucfirst(str_replace(['_', ':'], [' ', ' — '], $actionKey)), '✨'],
         };
     }

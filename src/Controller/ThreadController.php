@@ -21,6 +21,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use App\Forum\ForumActivityNotifier;
+use App\Repository\ThreadSubscriptionRepository;
+use App\Security\Voter\ThreadVoter;
 use App\Service\GamificationService;
 use App\Service\NotificationService;
 
@@ -28,8 +31,6 @@ use App\Service\NotificationService;
 class ThreadController extends AbstractController
 {
     private const POSTS_PER_PAGE = 10;
-    /** Nombre maximal de participants précédents notifiés d'une nouvelle réponse. */
-    private const MAX_NOTIFIED_PARTICIPANTS = 20;
 
     #[Route('/thread/{slug}/post/{postId}/vote/{type}', name: 'vote', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
@@ -107,8 +108,9 @@ class ThreadController extends AbstractController
         PostRepository $postRepository,
         PaginatorInterface $paginator,
         GamificationService $gamification,
-        NotificationService $notifications,
+        ForumActivityNotifier $forumNotifier,
         NotificationRepository $notificationRepository,
+        ThreadSubscriptionRepository $subscriptions,
     ): Response {
         $thread = $threadRepository->findOneBy(['slug' => $slug]);
 
@@ -116,9 +118,10 @@ class ThreadController extends AbstractController
             throw $this->createNotFoundException('Sujet introuvable');
         }
 
-        // Les réponses à ce sujet sont affichées : leurs notifications sont lues
+        // Les réponses et mentions de ce sujet sont affichées : leurs notifications sont lues
         if ($this->getUser() instanceof User) {
-            $notificationRepository->markReadByGroupKey($this->getUser(), self::threadNotificationKey($thread));
+            $notificationRepository->markReadByGroupKey($this->getUser(), ForumActivityNotifier::replyGroupKey($thread));
+            $notificationRepository->markReadByGroupKey($this->getUser(), ForumActivityNotifier::mentionGroupKey($thread));
         }
 
         // Archéologue : ouverture d'un sujet de plus d'un an
@@ -175,7 +178,12 @@ class ThreadController extends AbstractController
                 $this->addFlash('success', 'Réponse ajoutée avec succès !');
                 $lastPage = max(1, (int) ceil($postRepository->count(['thread' => $thread]) / self::POSTS_PER_PAGE));
 
-                $this->notifyReply($thread, $post, $user, $lastPage, $postRepository, $em, $notifications);
+                // Abonnement de l'auteur, mentions @pseudo, puis abonnés du sujet
+                $forumNotifier->onReply($thread, $post, $this->generateUrl('app_thread_show', [
+                    'slug' => $thread->getSlug(),
+                    'page' => $lastPage,
+                    '_fragment' => 'post-' . $post->getId(),
+                ]));
 
                 return $this->redirectToRoute('app_thread_show', [
                     'slug' => $thread->getSlug(),
@@ -189,6 +197,8 @@ class ThreadController extends AbstractController
             'thread' => $thread,
             'posts' => $posts,
             'form' => $form?->createView(),
+            'isSubscribed' => $this->getUser() instanceof User && $subscriptions->isSubscribed($this->getUser(), $thread),
+            'solutionPage' => $thread->getSolutionPost() ? $this->pageOfPost($thread->getSolutionPost(), $postRepository) : null,
         ]);
     }
 
@@ -200,7 +210,8 @@ class ThreadController extends AbstractController
         EntityManagerInterface $em,
         CategoryRepository $categoryRepository,
         SluggerInterface $slugger,
-        GamificationService $gamification
+        GamificationService $gamification,
+        ForumActivityNotifier $forumNotifier,
     ): Response {
         $category = $categoryRepository->findOneBy(['slug' => $slug]);
 
@@ -242,6 +253,8 @@ class ThreadController extends AbstractController
             $em->flush();
             // Pionnier / Maître forgeron de l'auteur
             $gamification->onThreadCreated($thread);
+            // Abonnement de l'auteur au sujet et mentions @pseudo du premier message
+            $forumNotifier->onThreadCreated($thread, $post, $this->generateUrl('app_thread_show', ['slug' => $thread->getSlug()]));
 
             $this->addFlash('success', 'Sujet créé avec succès !');
             return $this->redirectToRoute('app_thread_show', ['slug' => $thread->getSlug()]);
@@ -253,47 +266,106 @@ class ThreadController extends AbstractController
         ]);
     }
 
-    /**
-     * Notifie l'auteur du sujet et les participants précédents (dédoublonnés, limités) d'une nouvelle réponse.
-     * Agrégation par sujet : « 3 nouvelles réponses au sujet … ».
-     */
-    private function notifyReply(Thread $thread, Post $post, User $author, int $page, PostRepository $postRepository, EntityManagerInterface $em, NotificationService $notifications): void
+    /** Suivre / ne plus suivre un sujet (notifications des nouvelles réponses). */
+    #[Route('/thread/{slug}/subscription', name: 'subscription', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function subscription(string $slug, Request $request, ThreadRepository $threadRepository, ThreadSubscriptionRepository $subscriptions): Response
     {
-        $url = $this->generateUrl('app_thread_show', [
+        $thread = $threadRepository->findOneBy(['slug' => $slug]) ?? throw $this->createNotFoundException('Sujet introuvable');
+        if (!$this->isCsrfTokenValid('thread_subscription_' . $thread->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide');
+        }
+        $this->denyAccessUnlessGranted(ThreadVoter::SUBSCRIBE, $thread);
+
+        /** @var User $user */
+        $user = $this->getUser();
+        if ($request->request->getBoolean('subscribe')) {
+            $subscriptions->subscribe($user, $thread);
+            $this->addFlash('success', 'Vous suivez ce sujet : vous serez notifié de chaque nouvelle réponse.');
+        } else {
+            $subscriptions->unsubscribe($user, $thread);
+            $this->addFlash('success', 'Vous ne suivez plus ce sujet.');
+        }
+
+        return $this->redirectToRoute('app_thread_show', [
             'slug' => $thread->getSlug(),
-            'page' => $page,
-            '_fragment' => 'post-' . $post->getId(),
+            'page' => max(1, $request->request->getInt('page', 1)),
         ]);
-        $key = self::threadNotificationKey($thread);
-        $data = ['thread' => $thread->getTitle(), 'threadId' => $thread->getId()];
-        $threadAuthor = $thread->getAuthor();
-
-        if ($threadAuthor) {
-            $notifications->notify($threadAuthor, Notification::TYPE_FORUM_REPLY, $author, $data + ['own' => true], $url, $key);
-        }
-
-        // Participants précédents les plus récents (hors auteur du sujet et auteur de la réponse)
-        $excluded = array_filter([$author->getId(), $threadAuthor?->getId()]);
-        $participants = $postRepository->createQueryBuilder('p')
-            ->select('IDENTITY(p.author) AS authorId', 'MAX(p.createdAt) AS HIDDEN lastPost')
-            ->where('p.thread = :thread')
-            ->andWhere('p.author NOT IN (:excluded)')
-            ->groupBy('p.author')
-            ->orderBy('lastPost', 'DESC')
-            ->setMaxResults(self::MAX_NOTIFIED_PARTICIPANTS)
-            ->setParameter('thread', $thread)
-            ->setParameter('excluded', $excluded)
-            ->getQuery()
-            ->getSingleColumnResult();
-
-        if ($participants) {
-            $users = $em->getRepository(User::class)->findBy(['id' => $participants]);
-            $notifications->notifyMany($users, Notification::TYPE_FORUM_REPLY, $author, $data + ['own' => false], $url, $key);
-        }
     }
 
-    private static function threadNotificationKey(Thread $thread): string
+    /**
+     * Choisir une réponse comme solution du sujet (ou retirer la solution actuelle) : auteur du sujet ou administrateur.
+     * L'auteur de la réponse gagne de l'XP (une fois par sujet) et reçoit une notification.
+     */
+    #[Route('/thread/{slug}/solution/{postId}', name: 'solution', requirements: ['postId' => '\d+'], methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function solution(
+        string $slug,
+        int $postId,
+        Request $request,
+        ThreadRepository $threadRepository,
+        PostRepository $postRepository,
+        EntityManagerInterface $em,
+        GamificationService $gamification,
+        NotificationService $notifications,
+    ): Response {
+        $thread = $threadRepository->findOneBy(['slug' => $slug]) ?? throw $this->createNotFoundException('Sujet introuvable');
+        if (!$this->isCsrfTokenValid('thread_solution_' . $postId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide');
+        }
+        $this->denyAccessUnlessGranted(ThreadVoter::SOLVE, $thread);
+
+        $post = $postRepository->find($postId);
+        if (!$post || $post->getThread()?->getId() !== $thread->getId() || $post->isFirst()) {
+            throw $this->createNotFoundException('Réponse introuvable');
+        }
+
+        $page = $this->pageOfPost($post, $postRepository);
+        $redirect = $this->redirectToRoute('app_thread_show', ['slug' => $thread->getSlug(), 'page' => $page, '_fragment' => 'post-' . $post->getId()]);
+
+        if ($thread->getSolutionPost()?->getId() === $post->getId()) {
+            $thread->setSolutionPost(null);
+            $em->flush();
+            $this->addFlash('success', 'La solution a été retirée : le sujet n\'est plus marqué comme résolu.');
+
+            return $redirect;
+        }
+
+        $thread->setSolutionPost($post);
+        $em->flush();
+
+        /** @var User $user */
+        $user = $this->getUser();
+        $author = $post->getAuthor();
+        if ($author && $author->getId() !== $user->getId()) {
+            $awarded = $gamification->onSolutionChosen($post);
+            $notifications->notify(
+                $author,
+                Notification::TYPE_FORUM_SOLUTION,
+                $user,
+                ['thread' => $thread->getTitle(), 'threadId' => $thread->getId(), 'xp' => $awarded ? GamificationService::SOLUTION_XP : 0],
+                $this->generateUrl('app_thread_show', ['slug' => $thread->getSlug(), 'page' => $page, '_fragment' => 'post-' . $post->getId()]),
+            );
+        }
+
+        $this->addFlash('success', 'Sujet marqué comme résolu. Merci d\'avoir mis en avant la bonne réponse !');
+
+        return $redirect;
+    }
+
+    /** Page (1…n) sur laquelle un message est affiché dans son sujet. */
+    private function pageOfPost(Post $post, PostRepository $postRepository): int
     {
-        return 'thread:' . $thread->getId();
+        $before = (int) $postRepository->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->where('p.thread = :thread')
+            ->andWhere('p.createdAt < :createdAt OR (p.createdAt = :createdAt AND p.id < :id)')
+            ->setParameter('thread', $post->getThread())
+            ->setParameter('createdAt', $post->getCreatedAt())
+            ->setParameter('id', $post->getId())
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return intdiv($before, self::POSTS_PER_PAGE) + 1;
     }
 }

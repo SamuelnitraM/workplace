@@ -92,6 +92,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Badge $titleBadge = null;
 
+    /** Son joué à la réception d'une notification ou d'un message (clé de App\Notification\NotificationSound, « none » = muet). */
+    #[ORM\Column(length: 20, options: ['default' => 'auspex'])]
+    private string $notificationSound = 'auspex';
+
     /**
      * @var Collection<int, Thread>
      */
@@ -426,6 +430,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getTitleBadge(): ?Badge { return $this->titleBadge; }
     /** Ne vérifie pas que le badge est débloqué : passer par UserTitleManager (ou le formulaire de profil). */
     public function setTitleBadge(?Badge $titleBadge): static { $this->titleBadge = $titleBadge; return $this; }
+    public function getNotificationSound(): string { return $this->notificationSound; }
+    public function setNotificationSound(string $notificationSound): static { $this->notificationSound = $notificationSound; return $this; }
 
     public function getGalleryPhotos(): Collection
     {

@@ -17,10 +17,11 @@
             {%- set base_class = 'textarea' -%}
         {%- elseif 'choice' in block_prefixes and not expanded|default(false) -%}
             {%- set base_class = 'select' -%}
-        {%- elseif 'checkbox' in block_prefixes -%}
-            {%- set base_class = 'checkbox' -%}
+        {#- radio avant checkbox : RadioType hérite de CheckboxType (les deux préfixes sont présents) -#}
         {%- elseif 'radio' in block_prefixes -%}
             {%- set base_class = 'radio' -%}
+        {%- elseif 'checkbox' in block_prefixes -%}
+            {%- set base_class = 'checkbox' -%}
         {%- elseif 'file' in block_prefixes -%}
             {%- set base_class = 'input-file' -%}
         {%- elseif 'hidden' not in block_prefixes and 'submit' not in block_prefixes and 'button' not in block_prefixes -%}

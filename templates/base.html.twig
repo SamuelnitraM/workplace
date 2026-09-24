@@ -20,6 +20,7 @@
     <meta name="hf-pusher-auth" content="{{ path('app_pusher_auth') }}">
     <meta name="hf-csrf-private-message" content="{{ csrf_token('private_message') }}">
     <meta name="hf-csrf-notification" content="{{ csrf_token('notification') }}">
+    <meta name="hf-notification-sound" content="{{ app.user.notificationSound }}">
     {% endif %}
     {% block stylesheets %}{% endblock %}
     {% block javascripts %}

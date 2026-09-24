@@ -28,8 +28,12 @@ class Notification
     public const TYPE_PHOTO_COMMENT = 'photo_comment';
     public const TYPE_BADGE_EARNED = 'badge_earned';
     public const TYPE_LEVEL_UP = 'level_up';
+    public const TYPE_FORUM_MENTION = 'forum_mention';
+    public const TYPE_FORUM_SOLUTION = 'forum_solution';
 
     public const TYPES = [
+        self::TYPE_FORUM_MENTION,
+        self::TYPE_FORUM_SOLUTION,
         self::TYPE_FRIEND_REQUEST,
         self::TYPE_FRIEND_ACCEPTED,
         self::TYPE_GROUP_INVITATION,
