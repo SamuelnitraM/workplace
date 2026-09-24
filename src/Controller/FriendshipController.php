@@ -7,7 +7,9 @@ use App\Entity\Notification;
 use App\Entity\User;
 use App\Repository\FriendshipRepository;
 use App\Repository\NotificationRepository;
+use App\Repository\UserBlockRepository;
 use App\Repository\UserRepository;
+use App\Service\MemberBlocker;
 use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,6 +34,7 @@ class FriendshipController extends AbstractController
         EntityManagerInterface $em,
         CsrfTokenManagerInterface $csrfTokenManager,
         NotificationService $notifications,
+        MemberBlocker $memberBlocker,
     ): Response {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
@@ -48,6 +51,11 @@ class FriendshipController extends AbstractController
         // Vérifier qu'on ne s'ajoute pas soi-même
         if ($targetUser === $currentUser) {
             $this->addFlash('error', 'Vous ne pouvez pas vous ajouter vous-même.');
+            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+        }
+
+        if ($memberBlocker->isBlockedEitherWay($currentUser, $targetUser)) {
+            $this->addFlash('error', 'Impossible d\'envoyer une demande d\'ami à ce membre.');
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
 
@@ -123,9 +131,9 @@ public function refuse(
     int $id,
     Request $request,
     FriendshipRepository $friendshipRepository,
-    EntityManagerInterface $em,
     CsrfTokenManagerInterface $csrfTokenManager,
     NotificationRepository $notificationRepository,
+    MemberBlocker $memberBlocker,
 ): Response {
     if (!$csrfTokenManager->isTokenValid(new CsrfToken('friendship', $request->request->get('_token')))) {
         throw $this->createAccessDeniedException('Jeton CSRF invalide.');
@@ -139,46 +147,43 @@ public function refuse(
         throw $this->createAccessDeniedException();
     }
 
-    // Refuser une demande bloque le demandeur (il apparaît dans l'onglet « bloqués » et peut être débloqué)
-    $friendship->setStatus('blocked');
-    $em->flush();
-    $notificationRepository->markReadByGroupKey($currentUser, self::friendRequestKey($friendship->getRequester()));
+    // Refusing a request blocks the requester (listed in the "blocked" tab, where the block can be lifted)
+    $requester = $friendship->getRequester();
+    $memberBlocker->block($currentUser, $requester);
+    $notificationRepository->markReadByGroupKey($currentUser, self::friendRequestKey($requester));
 
     $this->addFlash('info', 'Utilisateur bloqué.');
     return $this->redirectToRoute('app_friendship_list');
 }
 
-        //débloquer un utilisateur refusé
-    #[Route('/unblock/{username}', name: 'unblock', methods: ['POST'])]
-    public function unblock(
-        string $username,
-        Request $request,
-        UserRepository $userRepository,
-        FriendshipRepository $friendshipRepository,
-        EntityManagerInterface $em,
-        CsrfTokenManagerInterface $csrfTokenManager
-    ): Response {
-        if (!$csrfTokenManager->isTokenValid(new CsrfToken('friendship', $request->request->get('_token')))) {
-            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
-        }
-
+    // Block a member (from the profile page)
+    #[Route('/block/{username}', name: 'block', methods: ['POST'])]
+    public function block(string $username, Request $request, UserRepository $userRepository, MemberBlocker $memberBlocker): Response
+    {
+        $targetUser = $this->findActionTarget($username, $request, $userRepository);
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
-
-        if (!$targetUser) {
-            throw $this->createNotFoundException('Utilisateur introuvable');
+        if ($targetUser !== $currentUser) {
+            $memberBlocker->block($currentUser, $targetUser);
+            $this->addFlash('success', $targetUser->getUsername() . ' est bloqué : vous ne pouvez plus échanger de messages ni de demandes d\'ami.');
         }
+        return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+    }
 
-        // Seul l'utilisateur qui a bloqué (destinataire de la demande refusée) peut débloquer
-        $friendship = $friendshipRepository->findExisting($currentUser, $targetUser);
-        if ($friendship && $friendship->getStatus() === 'blocked' && $friendship->getReceiver() === $currentUser) {
-            $em->remove($friendship);
-            $em->flush();
+    // Unblock a member: only the member who blocked can lift the block
+    #[Route('/unblock/{username}', name: 'unblock', methods: ['POST'])]
+    public function unblock(string $username, Request $request, UserRepository $userRepository, MemberBlocker $memberBlocker): Response
+    {
+        $targetUser = $this->findActionTarget($username, $request, $userRepository);
+        /** @var \App\Entity\User $currentUser */
+        $currentUser = $this->getUser();
+        if ($memberBlocker->hasBlocked($currentUser, $targetUser)) {
+            $memberBlocker->unblock($currentUser, $targetUser);
             $this->addFlash('success', $targetUser->getUsername() . ' a été débloqué.');
         }
-
-        return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+        return $this->redirect($request->request->get('_redirect') === 'list'
+            ? $this->generateUrl('app_friendship_list')
+            : $this->generateUrl('app_profil_show', ['username' => $username]));
     }
 
     // Supprimer un ami
@@ -203,7 +208,7 @@ public function refuse(
             throw $this->createNotFoundException('Utilisateur introuvable');
         }
 
-        // Un blocage ne peut pas être levé par ici (sinon l'utilisateur bloqué pourrait l'effacer)
+        // A pending request can only be withdrawn by its requester (the receiver refuses it instead)
         $friendship = $friendshipRepository->findExisting($currentUser, $targetUser);
         $canRemove = $friendship && (
             $friendship->getStatus() === 'accepted'
@@ -220,7 +225,7 @@ public function refuse(
 
     // Liste des amis et demandes reçues
     #[Route('/list', name: 'list')]
-    public function list(FriendshipRepository $friendshipRepository, NotificationRepository $notificationRepository): Response
+    public function list(FriendshipRepository $friendshipRepository, NotificationRepository $notificationRepository, UserBlockRepository $blockRepository): Response
     {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
@@ -234,7 +239,7 @@ public function refuse(
         $friends = $friendshipRepository->findAcceptedFriends($currentUser);
         $pendingReceived = $friendshipRepository->findPendingReceived($currentUser);
         $pendingSent = $friendshipRepository->findPendingSent($currentUser);
-        $blocked = $friendshipRepository->findBlocked($currentUser);
+        $blocked = $blockRepository->findBlockedBy($currentUser);
 
         return $this->render('friendship/list.html.twig', [
             'friends' => $friends,
@@ -242,6 +247,19 @@ public function refuse(
             'pendingSent' => $pendingSent,
             'blocked' => $blocked,
         ]);
+    }
+
+    /** Target member of a block action, after the CSRF check. */
+    private function findActionTarget(string $username, Request $request, UserRepository $userRepository): User
+    {
+        if (!$this->isCsrfTokenValid('friendship', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+        $targetUser = $userRepository->findOneBy(['username' => $username]);
+        if (!$targetUser) {
+            throw $this->createNotFoundException('Utilisateur introuvable');
+        }
+        return $targetUser;
     }
 
     /** Clé d'agrégation d'une demande d'ami (une seule notification par demandeur). */

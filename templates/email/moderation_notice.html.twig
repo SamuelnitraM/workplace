@@ -1,0 +1,13 @@
+{% extends 'email/layout.html.twig' %}
+
+{% block preheader %}Un message de l'équipe de modération.{% endblock %}
+
+{% block heading %}Message de la modération{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 20px 0;">Bonjour {{ recipient.username }},</p>
+    <p style="margin:0 0 20px 0;">{{ message }}</p>
+    <p style="margin:0 0 20px 0;font-size:14px;color:#5b6272;">Pour que SprueHub reste agréable pour tout le monde, merci de respecter les <a href="{{ url('app_terms') }}" style="color:#4f46e5;">conditions d'utilisation</a>.</p>
+{% endblock %}
+
+{% block footer_note %}L'équipe de modération SprueHub{% endblock %}

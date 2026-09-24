@@ -27,6 +27,9 @@ class GalleryPhoto
     #[ORM\Column]
     private bool $isVisible = true;
 
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $moderationHiddenAt = null;
+
     #[ORM\ManyToOne(inversedBy: 'galleryPhotos')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $owner = null;
@@ -49,6 +52,16 @@ class GalleryPhoto
     public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
     public function isVisible(): bool { return $this->isVisible; }
     public function setIsVisible(bool $isVisible): static { $this->isVisible = $isVisible; return $this; }
+    public function getModerationHiddenAt(): ?\DateTimeImmutable { return $this->moderationHiddenAt; }
+    public function isHiddenByModeration(): bool { return $this->moderationHiddenAt !== null; }
+
+    /** A photo hidden by moderation is invisible to everyone but its owner, who cannot show it again. */
+    public function setHiddenByModeration(bool $hidden): static
+    {
+        $this->moderationHiddenAt = $hidden ? ($this->moderationHiddenAt ?? new \DateTimeImmutable()) : null;
+        $this->isVisible = !$hidden;
+        return $this;
+    }
     public function getOwner(): ?User { return $this->owner; }
     public function setOwner(?User $owner): static { $this->owner = $owner; return $this; }
 }

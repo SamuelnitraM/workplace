@@ -13,6 +13,8 @@ use App\Repository\GalleryPhotoCommentRepository;
 use App\Repository\GalleryPhotoLikeRepository;
 use App\Repository\GalleryPhotoRepository;
 use App\Repository\NotificationRepository;
+use App\Security\SubmissionThrottle;
+use App\Security\ThrottledAction;
 use App\Security\Voter\GalleryPhotoVoter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,6 +39,7 @@ class GalleryController extends AbstractController
         private readonly GalleryPhotoCommentRepository $commentRepository,
         private readonly GalleryPhotoLikeRepository $likeRepository,
         private readonly EntityManagerInterface $em,
+        private readonly SubmissionThrottle $throttle,
     ) {
     }
 
@@ -168,6 +171,10 @@ class GalleryController extends AbstractController
 
         /** @var User $user */
         $user = $this->getUser();
+        if (!$this->throttle->tryConsumeForUser(ThrottledAction::PhotoComment, $user)) {
+            $this->addFlash('error', ThrottledAction::PhotoComment->refusalMessage());
+            return $this->redirectToPhoto($photo, anchor: 'comments');
+        }
         $comment = new GalleryPhotoComment($photo, $user, $content);
         $this->em->persist($comment);
         $this->em->flush();

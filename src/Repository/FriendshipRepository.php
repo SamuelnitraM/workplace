@@ -65,15 +65,4 @@ class FriendshipRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
-
-    public function findBlocked(User $user): array
-    {
-        return $this->createQueryBuilder('f')
-            ->where('f.receiver = :user')
-            ->andWhere('f.status = :status')
-            ->setParameter('user', $user)
-            ->setParameter('status', 'blocked')
-            ->getQuery()
-            ->getResult();
-    }
 }

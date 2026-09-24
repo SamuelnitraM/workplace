@@ -44,7 +44,10 @@
                 </div>
 
                 <div class="field" data-controller="password-visibility">
-                    <label for="password" class="label">Mot de passe</label>
+                    <div class="flex items-baseline justify-between gap-2">
+                        <label for="password" class="label">Mot de passe</label>
+                        <a href="{{ path('app_forgot_password_request') }}" class="link text-small">Mot de passe oublié ?</a>
+                    </div>
                     <div class="relative">
                         <input type="password" name="_password" id="password" class="input pr-12"
                                autocomplete="current-password" required placeholder="Ton mot de passe"

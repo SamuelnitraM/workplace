@@ -300,7 +300,8 @@ final class FeedService
                 ->getResult();
             $contents = [];
             foreach ($firstPosts as $post) {
-                $contents[$post->getThread()->getId()] = (string) $post->getContent();
+                // An opening post hidden by moderation shows no excerpt
+                $contents[$post->getThread()->getId()] = $post->isHiddenByModeration() ? '' : (string) $post->getContent();
             }
 
             foreach ($items as $item) {

@@ -65,6 +65,8 @@ class NotificationRenderer
                 (int) ($data['xp'] ?? 0) > 0 ? sprintf(' (+%d XP)', (int) $data['xp']) : ''
             ),
 
+            Notification::TYPE_MODERATION_NOTICE => $this->str($data, 'message'),
+
             default => 'Nouvelle notification',
         };
     }
@@ -83,6 +85,7 @@ class NotificationRenderer
             Notification::TYPE_LEVEL_UP => '⬆️',
             Notification::TYPE_FORUM_MENTION => '📣',
             Notification::TYPE_FORUM_SOLUTION => '✅',
+            Notification::TYPE_MODERATION_NOTICE => '🛡️',
             default => '🔔',
         };
     }

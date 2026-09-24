@@ -9,6 +9,8 @@ use App\Repository\FriendshipRepository;
 use App\Repository\PrivateConversationRepository;
 use App\Repository\PrivateMessageRepository;
 use App\Repository\UserRepository;
+use App\Security\SubmissionThrottle;
+use App\Security\ThrottledAction;
 use App\Service\PusherService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,6 +34,7 @@ class PrivateMessageController extends AbstractController
         private FriendshipRepository $friendshipRepository,
         private UserRepository $userRepository,
         private EntityManagerInterface $em,
+        private SubmissionThrottle $throttle,
     ) {}
 
     // ─── Page liste des conversations ─────────────────────────
@@ -260,6 +263,9 @@ class PrivateMessageController extends AbstractController
         }
         if (mb_strlen($content) > self::MAX_LENGTH) {
             return sprintf('Message trop long (%d caractères maximum).', self::MAX_LENGTH);
+        }
+        if (!$this->throttle->tryConsumeForUser(ThrottledAction::PrivateMessage, $author)) {
+            return ThrottledAction::PrivateMessage->refusalMessage();
         }
 
         return null;

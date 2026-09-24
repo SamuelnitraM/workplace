@@ -17,6 +17,11 @@ security:
         main:
             lazy: true
             provider: app_user_provider
+            user_checker: App\Security\UserChecker
+            # Brute-force protection: 5 failed attempts per minute for a given identifier and IP
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
             form_login:
                 login_path: app_login
                 check_path: app_login

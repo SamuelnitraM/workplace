@@ -1,0 +1,122 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Signalement #{{ report.id }}{% endblock %}
+
+{% block main %}
+{% set author = report.targetAuthor %}
+{% set type = report.targetType %}
+<div class="row g-4">
+    <div class="col-lg-7">
+        <section class="card mb-4">
+            <div class="card-body">
+                <p class="text-muted small mb-1">{{ type.label }} · reçu le {{ report.createdAt|date('d/m/Y à H:i') }}</p>
+                <h2 class="h5 mb-3">{{ report.reason.label }}</h2>
+                <blockquote class="border-start border-3 ps-3 mb-3 text-break">{{ report.excerpt }}</blockquote>
+                {% if report.details %}
+                    <p class="mb-2"><strong>Précisions :</strong> {{ report.details }}</p>
+                {% endif %}
+                <ul class="list-unstyled small mb-0">
+                    <li>Signalé par : {{ report.reporter ? report.reporter.username : 'compte supprimé' }}</li>
+                    <li>Auteur : {% if author %}<a href="{{ path('admin_moderation_member', {id: author.id}) }}">{{ author.username }}</a>{% if author.suspended %} <span class="badge bg-danger">suspendu</span>{% endif %}{% else %}compte supprimé{% endif %}</li>
+                    <li>
+                        Contenu :
+                        {% if not targetAvailable %}<span class="badge bg-secondary">supprimé</span>
+                        {% elseif targetHidden %}<span class="badge bg-warning text-dark">masqué</span>
+                        {% else %}<span class="badge bg-success">en ligne</span>{% endif %}
+                        {% if targetAvailable and report.targetUrl %}<a href="{{ report.targetUrl }}" target="_blank" rel="noopener">voir sur le site</a>{% endif %}
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-body">
+                <h2 class="h6">Signalements de ce contenu ({{ relatedReports|length }})</h2>
+                <ul class="list-group list-group-flush">
+                    {% for related in relatedReports %}
+                        <li class="list-group-item px-0 small">
+                            {{ related.createdAt|date('d/m/Y H:i') }} · {{ related.reason.label }} · {{ related.reporter ? related.reporter.username : 'compte supprimé' }}
+                            {% if related.pending %}<span class="badge bg-warning text-dark">en attente</span>
+                            {% else %}<span class="badge bg-secondary">{{ related.resolution.label }}</span>{% if related.handledBy %} par {{ related.handledBy.username }}{% endif %}{% if related.moderatorNote %} — {{ related.moderatorNote }}{% endif %}{% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-5">
+        {% if report.pending %}
+            <section class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Décision</h2>
+                    <p class="small text-muted">La décision s'applique à tous les signalements en attente de ce contenu. L'auteur est prévenu par notification et par e-mail.</p>
+                    <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}" class="mb-3">
+                        <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                        <label class="form-label" for="decision-note">Note interne (facultative)</label>
+                        <textarea class="form-control mb-2" id="decision-note" name="note" rows="2"></textarea>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if targetAvailable and type.canBeHidden %}
+                                <button type="submit" name="decision" value="hide" class="btn btn-warning"><i class="fa fa-eye-slash"></i> Masquer</button>
+                            {% endif %}
+                            <button type="submit" name="decision" value="dismiss" class="btn btn-secondary"><i class="fa fa-check"></i> Classer sans suite</button>
+                        </div>
+                    </form>
+                    {% if targetAvailable and type.canBeDeleted %}
+                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}" class="border-top pt-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="delete-confirm" required>
+                                <label class="form-check-label" for="delete-confirm">Je confirme la suppression définitive{{ type.value in ['sujet', 'reponse'] ? ' (un message d\'ouverture supprime tout le sujet)' }}</label>
+                            </div>
+                            <button type="submit" name="decision" value="delete" class="btn btn-danger"><i class="fa fa-trash"></i> Supprimer</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </section>
+
+            {% if author %}
+                <section class="card mb-4">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">Avertir {{ author.username }}</h2>
+                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                            <label class="form-label" for="warn-message">Message envoyé au membre</label>
+                            <textarea class="form-control mb-2" id="warn-message" name="note" rows="3" required></textarea>
+                            <button type="submit" name="decision" value="warn" class="btn btn-primary"><i class="fa fa-triangle-exclamation"></i> Avertir</button>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3">Suspendre {{ author.username }}</h2>
+                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                            {{ include('admin/moderation/_suspension_fields.html.twig', {field_id: 'report-duration'}) }}
+                            <label class="form-label mt-2" for="suspend-reason">Motif communiqué au membre</label>
+                            <textarea class="form-control mb-2" id="suspend-reason" name="note" rows="2" required></textarea>
+                            <button type="submit" name="decision" value="suspend" class="btn btn-danger"><i class="fa fa-user-slash"></i> Suspendre</button>
+                        </form>
+                    </div>
+                </section>
+            {% endif %}
+        {% else %}
+            <section class="card">
+                <div class="card-body">
+                    <h2 class="h6">Signalement traité</h2>
+                    <p class="mb-2">{{ report.resolution.label }}{% if report.handledBy %} par {{ report.handledBy.username }}{% endif %} le {{ report.handledAt|date('d/m/Y à H:i') }}.</p>
+                    {% if report.moderatorNote %}<p class="small text-muted">{{ report.moderatorNote }}</p>{% endif %}
+                    {% if targetHidden %}
+                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                            <button type="submit" name="decision" value="restore" class="btn btn-secondary"><i class="fa fa-eye"></i> Rétablir le contenu</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </section>
+        {% endif %}
+        <p class="mt-3"><a href="{{ queueUrl }}"><i class="fa fa-arrow-left"></i> Retour à la file de modération</a></p>
+    </div>
+</div>
+{% endblock %}

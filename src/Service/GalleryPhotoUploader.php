@@ -69,4 +69,16 @@ final class GalleryPhotoUploader
 
         return $photo;
     }
+
+    /**
+     * Removes the photo (without flush) and its file. Likes and comments are deleted by the database (ON DELETE CASCADE).
+     */
+    public function delete(GalleryPhoto $photo): void
+    {
+        $this->em->remove($photo);
+        $path = $this->galleryDirectory . '/' . basename((string) $photo->getFilename());
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
 }

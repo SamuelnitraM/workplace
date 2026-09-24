@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Mot de passe oublié — SprueHub{% endblock %}
+
+{% block body %}
+<div class="container-form">
+
+    <header class="mb-6 text-center">
+        <h1 class="text-h1 text-fg">Mot de passe oublié</h1>
+        <p class="mt-2 text-fg-secondary">Indique ton adresse e-mail ou ton pseudo : tu recevras un lien pour choisir un nouveau mot de passe.</p>
+    </header>
+
+    {{ form_start(requestForm, {attr: {class: 'card'}}) }}
+        <div class="card-body space-y-5 sm:p-8">
+            {{ form_errors(requestForm) }}
+            {{ form_row(requestForm.identifier, {attr: requestForm.identifier.vars.attr|merge({autofocus: 'autofocus'})}) }}
+            <button type="submit" class="btn btn-primary btn-lg btn-block">{{ ui.icon('mail') }}Envoyer le lien</button>
+        </div>
+        <div class="card-footer justify-center text-small text-fg-secondary">
+            Tu t'en souviens ?
+            <a href="{{ path('app_login') }}" class="link font-semibold">Se connecter</a>
+        </div>
+    {{ form_end(requestForm) }}
+
+</div>
+{% endblock %}

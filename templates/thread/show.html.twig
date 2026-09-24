@@ -110,7 +110,14 @@
                 </header>
 
                 <div class="post-content px-4 py-4 sm:px-5 sm:pl-[4.5rem]">
-                    {{ post.content|forum_markdown }}
+                    {% if post.hiddenByModeration and not is_granted('ROLE_ADMIN') %}
+                        <p class="flex items-center gap-2 text-muted italic">{{ ui.icon('shield', 'size-4') }}Ce message a été masqué par la modération.</p>
+                    {% else %}
+                        {% if post.hiddenByModeration %}
+                            <p class="mb-3 chip chip-warning">{{ ui.icon('shield', 'size-4') }}Masqué par la modération (visible des administrateurs)</p>
+                        {% endif %}
+                        {{ post.content|forum_markdown }}
+                    {% endif %}
                 </div>
 
                 {% set positive = post.getVoteCount('positive') %}
@@ -153,7 +160,12 @@
                                 </button>
                             </form>
                         {% endif %}
-                        {% if can_reply %}
+                        {% if app.user and app.user.id != post.author.id %}
+                            <a href="{{ post.isFirst ? path('app_report', {type: 'sujet', id: thread.id}) : path('app_report', {type: 'reponse', id: post.id}) }}"
+                               class="btn btn-ghost btn-sm text-muted" rel="nofollow"
+                               aria-label="Signaler le message de {{ post.author.username }}">{{ ui.icon('flag', 'size-4') }}<span class="max-sm:sr-only">Signaler</span></a>
+                        {% endif %}
+                        {% if can_reply and not post.hiddenByModeration %}
                             <button type="button" class="btn btn-ghost btn-sm" data-action="markdown-editor#quote"
                                     data-markdown-editor-author-param="{{ post.author.username }}"
                                     data-markdown-editor-content-param="{{ post.content }}"

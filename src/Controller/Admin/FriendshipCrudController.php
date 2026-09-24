@@ -29,12 +29,10 @@ class FriendshipCrudController extends AbstractCrudController
             ->setChoices([
                 'En attente' => 'pending',
                 'Accepté' => 'accepted',
-                'Bloqué' => 'blocked',
             ])
             ->renderAsBadges([
                 'pending' => 'warning',
                 'accepted' => 'success',
-                'blocked' => 'danger',
             ]);
         yield DateTimeField::new('createdAt', 'Date')
             ->hideOnForm();

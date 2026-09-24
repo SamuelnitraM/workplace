@@ -36,7 +36,14 @@
                             </div>
                             <p class="text-caption text-muted"><time datetime="{{ photo.createdAt|date('c') }}">Publiée le {{ photo.createdAt|date('d/m/Y à H:i') }}</time></p>
                         </div>
+                        {% if app.user and not isPhotoOwner %}
+                            <a href="{{ path('app_report', {type: 'photo', id: photo.id}) }}" class="btn btn-ghost btn-icon btn-sm ml-auto text-muted" rel="nofollow" aria-label="Signaler la photo" title="Signaler la photo">{{ ui.icon('flag', 'size-4') }}</a>
+                        {% endif %}
                     </div>
+
+                    {% if photo.hiddenByModeration %}
+                        <p class="mt-4 chip chip-warning">{{ ui.icon('shield', 'size-4') }}Photo masquée par la modération : elle n'est visible que par toi.</p>
+                    {% endif %}
 
                     {% if photo.description %}
                         <p class="mt-4 text-fg-secondary break-words">{{ photo.description|nl2br }}</p>
@@ -132,6 +139,9 @@
                                                 {{ include('gamification/_user_title.html.twig', {user: comment.author}) }}
                                                 <time class="block text-muted sm:ml-1 sm:inline" datetime="{{ comment.createdAt|date('c') }}">{{ comment.createdAt|date('d/m/Y à H:i') }}</time>
                                             </p>
+                                            {% if app.user and app.user.id != comment.author.id %}
+                                                <a href="{{ path('app_report', {type: 'commentaire', id: comment.id}) }}" class="btn btn-ghost btn-icon btn-sm -mr-1 -mt-1 text-muted" rel="nofollow" aria-label="Signaler le commentaire de {{ comment.author.username }}" title="Signaler">{{ ui.icon('flag', 'size-4') }}</a>
+                                            {% endif %}
                                             {% if is_granted('GALLERY_PHOTO_COMMENT_DELETE', comment) %}
                                                 <form method="post" action="{{ path('app_gallery_photo_comment_delete', {username: owner.username, id: photo.id, commentId: comment.id, page: page}) }}" class="-mr-1 -mt-1" {{ stimulus_controller('confirm', {message: 'Supprimer ce commentaire ?'})|stimulus_action('confirm', 'ask', 'submit') }}>
                                                     <input type="hidden" name="_token" value="{{ csrf_token('gallery_comment_delete_' ~ comment.id) }}">

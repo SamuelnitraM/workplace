@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Repository\ReportRepository;
 use App\Service\AdminStatsService;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
@@ -20,6 +21,7 @@ class DashboardController extends AbstractDashboardController
         private readonly ManagerRegistry $doctrine,
         private readonly AdminUrlGenerator $adminUrlGenerator,
         private readonly AdminStatsService $adminStatsService,
+        private readonly ReportRepository $reportRepository,
     ) {
     }
 
@@ -27,6 +29,7 @@ class DashboardController extends AbstractDashboardController
     {
         return $this->render('admin/dashboard.html.twig', [
             'stats' => [
+                ['label' => 'Signalements en attente', 'value' => $this->reportRepository->countPending(), 'icon' => 'fa-flag', 'tone' => 'rose', 'url' => $this->crudUrl(ReportCrudController::class, 'index')],
                 ['label' => 'Utilisateurs', 'value' => $this->count(\App\Entity\User::class), 'icon' => 'fa-users', 'tone' => 'indigo', 'url' => $this->crudUrl(UserCrudController::class, 'index')],
                 ['label' => 'Sujets', 'value' => $this->count(\App\Entity\Thread::class), 'icon' => 'fa-comments', 'tone' => 'blue', 'url' => $this->crudUrl(ThreadCrudController::class, 'index')],
                 ['label' => 'Réponses', 'value' => $this->count(\App\Entity\Post::class), 'icon' => 'fa-message', 'tone' => 'emerald', 'url' => $this->crudUrl(PostCrudController::class, 'index')],
@@ -75,6 +78,10 @@ class DashboardController extends AbstractDashboardController
     public function configureMenuItems(): iterable
     {
         yield MenuItem::linkToDashboard('Tableau de bord', 'fa fa-home');
+        yield MenuItem::section('Modération');
+        $pendingReports = $this->reportRepository->countPending();
+        $reportsMenuItem = MenuItem::linkTo(ReportCrudController::class, 'Signalements', 'fa fa-flag');
+        yield $pendingReports > 0 ? $reportsMenuItem->setBadge($pendingReports, 'danger') : $reportsMenuItem;
         yield MenuItem::section('Site');
         yield MenuItem::linkTo(UserCrudController::class, 'Utilisateurs', 'fa fa-users');
         yield MenuItem::linkTo(FriendshipCrudController::class, 'Amitiés', 'fa fa-heart');

@@ -271,7 +271,7 @@
                                class="block font-medium text-fg after:absolute after:inset-0 after:content-[''] hover:text-primary-text focus-visible:outline-offset-[-2px]">
                                 <span class="line-clamp-2 break-words">{{ post.thread.title }}</span>
                             </a>
-                            <p class="mt-0.5 line-clamp-1 break-words text-small text-fg-secondary">{{ post.content|forum_excerpt(150) }}</p>
+                            <p class="mt-0.5 line-clamp-1 break-words text-small text-fg-secondary">{{ post.hiddenByModeration ? 'Message masqué par la modération.' : post.content|forum_excerpt(150) }}</p>
                             <p class="mt-1 text-caption text-muted">
                                 <span class="font-medium text-fg-secondary">{{ post.author.username }}</span>
                                 · <time datetime="{{ post.createdAt|date('c') }}" title="{{ post.createdAt|date('d/m/Y à H:i') }}">{{ post.createdAt|time_ago }}</time>

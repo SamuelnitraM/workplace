@@ -23,6 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Service\GamificationService;
 use App\Service\AvatarUploader;
 use App\Service\GalleryPhotoUploader;
+use App\Service\MemberBlocker;
 use App\Gamification\BadgeRarity;
 use App\Gamification\ExperienceHistory;
 
@@ -42,6 +43,7 @@ public function show(
     GamificationService $gamification,
     BadgeRarity $badgeRarity,
     ExperienceHistory $experienceHistory,
+    MemberBlocker $memberBlocker,
 ): Response {
     $user = $userRepository->findOneBy(['username' => $username]);
 
@@ -85,10 +87,14 @@ public function show(
     }
 
     $friendship = null;
+    $blockedByMe = false;
+    $blockedMe = false;
     if ($this->getUser() && !$isOwner) {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
         $friendship = $friendshipRepository->findExisting($currentUser, $user);
+        $blockedByMe = $memberBlocker->hasBlocked($currentUser, $user);
+        $blockedMe = $memberBlocker->hasBlocked($user, $currentUser);
     }
 
     $myGroups = [];
@@ -127,6 +133,8 @@ public function show(
         'user' => $user,
         'isOwner' => $isOwner,
         'friendship' => $friendship,
+        'blockedByMe' => $blockedByMe,
+        'blockedMe' => $blockedMe,
         'myGroups' => $myGroups,
         'publicArmyLists' => $publicArmyLists,
         'galleryPhotos' => $galleryPhotos,
@@ -168,7 +176,7 @@ public function show(
 
     #[Route('/{username}/gallery/delete', name: 'gallery_delete', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function deleteGalleryPhotos(string $username, Request $request, UserRepository $userRepository, GalleryPhotoRepository $galleryPhotoRepository, EntityManagerInterface $em): Response
+    public function deleteGalleryPhotos(string $username, Request $request, UserRepository $userRepository, GalleryPhotoRepository $galleryPhotoRepository, EntityManagerInterface $em, GalleryPhotoUploader $galleryUploader): Response
     {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
@@ -180,12 +188,7 @@ public function show(
         foreach ($request->request->all('photo_ids') as $photoId) {
             $photo = $galleryPhotoRepository->find((int) $photoId);
             if ($photo && $photo->getOwner() === $user && $this->isGranted(GalleryPhotoVoter::DELETE, $photo)) {
-                // Likes et commentaires supprimés par la base (ON DELETE CASCADE)
-                $em->remove($photo);
-                $path = $this->getParameter('gallery_directory') . '/' . basename((string) $photo->getFilename());
-                if (is_file($path)) {
-                    unlink($path);
-                }
+                $galleryUploader->delete($photo);
             }
         }
         $em->flush();
@@ -203,6 +206,10 @@ public function show(
         $photo = $galleryPhotoRepository->find($id);
         if (!$user || $user !== $currentUser || !$photo || $photo->getOwner() !== $user || !$this->isCsrfTokenValid('gallery_visibility_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
+        }
+        if ($photo->isHiddenByModeration()) {
+            $this->addFlash('error', 'Cette photo a été masquée par la modération : elle ne peut pas être affichée à nouveau.');
+            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
         $photo->setIsVisible(!$photo->isVisible());
         $em->flush();

@@ -30,6 +30,7 @@ class Notification
     public const TYPE_LEVEL_UP = 'level_up';
     public const TYPE_FORUM_MENTION = 'forum_mention';
     public const TYPE_FORUM_SOLUTION = 'forum_solution';
+    public const TYPE_MODERATION_NOTICE = 'moderation_notice';
 
     public const TYPES = [
         self::TYPE_FORUM_MENTION,
@@ -44,6 +45,7 @@ class Notification
         self::TYPE_PHOTO_COMMENT,
         self::TYPE_BADGE_EARNED,
         self::TYPE_LEVEL_UP,
+        self::TYPE_MODERATION_NOTICE,
     ];
 
     /** Types dont le compteur représente des personnes distinctes (« X et 3 autres ont aimé… »). */

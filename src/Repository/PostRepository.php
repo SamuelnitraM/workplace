@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Post;
+use App\Entity\Thread;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -19,25 +20,23 @@ class PostRepository extends ServiceEntityRepository
     //    /**
     //     * @return Post[] Returns an array of Post objects
     //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('p.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /** Page number of a post inside its thread (posts ordered by date, then id). */
+    public function findPageOfPost(Post $post, int $postsPerPage): int
+    {
+        $before = (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->where('p.thread = :thread')
+            ->andWhere('p.createdAt < :createdAt OR (p.createdAt = :createdAt AND p.id < :id)')
+            ->setParameter('thread', $post->getThread())
+            ->setParameter('createdAt', $post->getCreatedAt())
+            ->setParameter('id', $post->getId())
+            ->getQuery()
+            ->getSingleScalarResult();
+        return intdiv($before, $postsPerPage) + 1;
+    }
 
-    //    public function findOneBySomeField($value): ?Post
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    public function findFirstPostOfThread(Thread $thread): ?Post
+    {
+        return $this->findOneBy(['thread' => $thread, 'isFirst' => true]);
+    }
 }

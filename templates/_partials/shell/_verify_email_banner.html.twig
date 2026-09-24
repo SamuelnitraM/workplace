@@ -1,0 +1,12 @@
+{# Reminder shown on every page until the member confirms the e-mail address. #}
+{% import '_macros/ui.html.twig' as ui %}
+<div class="container-app pt-4">
+    <div class="alert alert-warning flex-wrap" role="status">
+        {{ ui.icon('mail') }}
+        <p class="flex-1">Confirme ton adresse e-mail : clique sur le lien envoyé à <strong class="font-semibold">{{ app.user.email }}</strong>.</p>
+        <form method="post" action="{{ path('app_verify_email_resend') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token(constant('App\\Controller\\RegistrationController::RESEND_CSRF_TOKEN_ID')) }}">
+            <button type="submit" class="btn btn-secondary btn-sm">Renvoyer le lien</button>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,28 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Vérifie tes e-mails — SprueHub{% endblock %}
+
+{% block body %}
+<div class="container-form">
+
+    <header class="mb-6 text-center">
+        <h1 class="text-h1 text-fg">Vérifie tes e-mails</h1>
+    </header>
+
+    <div class="card">
+        <div class="card-body space-y-4 sm:p-8 text-fg-secondary">
+            <div class="alert alert-info">
+                {{ ui.icon('mail') }}
+                <p>Si un compte correspond à ta saisie, un e-mail contenant un lien de réinitialisation vient de lui être envoyé.</p>
+            </div>
+            <p>Ce lien expirera dans {{ resetToken.expirationMessageKey|trans(resetToken.expirationMessageData, 'ResetPasswordBundle') }}.</p>
+            <p>Rien reçu ? Regarde dans tes courriers indésirables, ou <a href="{{ path('app_forgot_password_request') }}" class="link">fais une nouvelle demande</a>.</p>
+        </div>
+        <div class="card-footer justify-center">
+            <a href="{{ path('app_login') }}" class="btn btn-ghost">{{ ui.icon('log-in') }}Retour à la connexion</a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

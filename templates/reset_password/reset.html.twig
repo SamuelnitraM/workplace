@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Nouveau mot de passe — SprueHub{% endblock %}
+
+{% block body %}
+<div class="container-form">
+
+    <header class="mb-6 text-center">
+        <h1 class="text-h1 text-fg">Choisis un nouveau mot de passe</h1>
+    </header>
+
+    {{ form_start(resetForm, {attr: {class: 'card'}}) }}
+        <div class="card-body space-y-5 sm:p-8">
+            {{ form_errors(resetForm) }}
+            {{ form_row(resetForm.newPassword.first, {
+                attr: resetForm.newPassword.first.vars.attr|merge({autofocus: 'autofocus'}),
+                help: 'Au moins ' ~ constant('App\\Form\\RegistrationFormType::PASSWORD_MIN_LENGTH') ~ ' caractères (une phrase facile à retenir est idéale).'
+            }) }}
+            {{ form_row(resetForm.newPassword.second) }}
+            <button type="submit" class="btn btn-primary btn-lg btn-block">{{ ui.icon('lock') }}Enregistrer le mot de passe</button>
+        </div>
+    {{ form_end(resetForm) }}
+
+</div>
+{% endblock %}

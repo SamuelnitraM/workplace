@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Signaler un contenu — SprueHub{% endblock %}
+
+{% block body %}
+<div class="container-form">
+
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Signaler un contenu</h1>
+            <p class="page-header-subtitle">Ton signalement est confidentiel : seule l'équipe de modération le voit.</p>
+        </div>
+    </header>
+
+    {{ form_start(form, {attr: {class: 'card'}}) }}
+        <div class="card-body space-y-5">
+            <div class="alert alert-info">
+                {{ ui.icon('flag') }}
+                <p class="break-words">{{ targetDescription }}</p>
+            </div>
+            {{ form_errors(form) }}
+            {{ form_row(form.reason) }}
+            {{ form_row(form.details, {help: 'Facultatif, ' ~ constant('App\\Entity\\Report::DETAILS_MAX_LENGTH') ~ ' caractères maximum.'}) }}
+        </div>
+        <div class="card-footer">
+            <a href="{{ backUrl }}" class="btn btn-ghost">Annuler</a>
+            <button type="submit" class="btn btn-primary">{{ ui.icon('flag') }}Envoyer le signalement</button>
+        </div>
+    {{ form_end(form) }}
+
+</div>
+{% endblock %}

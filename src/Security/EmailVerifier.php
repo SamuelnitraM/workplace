@@ -3,38 +3,42 @@
 namespace App\Security;
 
 use App\Entity\User;
+use App\Mailer\TransactionalMailer;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Mailer\MailerInterface;
 use SymfonyCasts\Bundle\VerifyEmail\Exception\VerifyEmailExceptionInterface;
 use SymfonyCasts\Bundle\VerifyEmail\VerifyEmailHelperInterface;
 
+/**
+ * E-mail address confirmation through a signed link.
+ *
+ * The link carries the member id, so it works from any browser, logged in or not. The signature
+ * covers the id and the address: a link becomes invalid if the address changes.
+ */
 class EmailVerifier
 {
+    public const VERIFY_ROUTE = 'app_verify_email';
+
     public function __construct(
-        private VerifyEmailHelperInterface $verifyEmailHelper,
-        private MailerInterface $mailer,
-        private EntityManagerInterface $entityManager,
+        private readonly VerifyEmailHelperInterface $verifyEmailHelper,
+        private readonly TransactionalMailer $mailer,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
-    public function sendEmailConfirmation(string $verifyEmailRouteName, User $user, TemplatedEmail $email): void
+    public function sendEmailConfirmation(User $user): bool
     {
         $signatureComponents = $this->verifyEmailHelper->generateSignature(
-            $verifyEmailRouteName,
+            self::VERIFY_ROUTE,
             (string) $user->getId(),
-            (string) $user->getEmail()
+            (string) $user->getEmail(),
+            ['id' => $user->getId()],
         );
-
-        $context = $email->getContext();
-        $context['signedUrl'] = $signatureComponents->getSignedUrl();
-        $context['expiresAtMessageKey'] = $signatureComponents->getExpirationMessageKey();
-        $context['expiresAtMessageData'] = $signatureComponents->getExpirationMessageData();
-
-        $email->context($context);
-
-        $this->mailer->send($email);
+        return $this->mailer->send($user, 'Confirme ton adresse e-mail', 'email/verify_email.html.twig', [
+            'signedUrl' => $signatureComponents->getSignedUrl(),
+            'expiresAtMessageKey' => $signatureComponents->getExpirationMessageKey(),
+            'expiresAtMessageData' => $signatureComponents->getExpirationMessageData(),
+        ]);
     }
 
     /**
@@ -43,10 +47,7 @@ class EmailVerifier
     public function handleEmailConfirmation(Request $request, User $user): void
     {
         $this->verifyEmailHelper->validateEmailConfirmationFromRequest($request, (string) $user->getId(), (string) $user->getEmail());
-
         $user->setIsVerified(true);
-
-        $this->entityManager->persist($user);
         $this->entityManager->flush();
     }
 }

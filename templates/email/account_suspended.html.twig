@@ -1,0 +1,13 @@
+{% extends 'email/layout.html.twig' %}
+
+{% block preheader %}Ton compte SprueHub est suspendu.{% endblock %}
+
+{% block heading %}Ton compte est suspendu{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 20px 0;">Bonjour {{ recipient.username }},</p>
+    <p style="margin:0 0 20px 0;">{{ notice }}</p>
+    <p style="margin:0 0 20px 0;font-size:14px;color:#5b6272;">Pendant la suspension, la connexion à ton compte est impossible. Les règles de la communauté sont rappelées dans les <a href="{{ url('app_terms') }}" style="color:#4f46e5;">conditions d'utilisation</a>.</p>
+{% endblock %}
+
+{% block footer_note %}L'équipe de modération SprueHub{% endblock %}

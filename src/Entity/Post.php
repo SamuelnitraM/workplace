@@ -36,6 +36,10 @@ class Post
     #[ORM\JoinColumn(nullable: false)]
     private ?User $author = null;
 
+    /** Set when a moderator hides the post: the content is replaced by a notice for members. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $moderationHiddenAt = null;
+
     /**
      * @var Collection<int, PostVote>
      */
@@ -52,6 +56,22 @@ class Post
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getModerationHiddenAt(): ?\DateTimeImmutable
+    {
+        return $this->moderationHiddenAt;
+    }
+
+    public function isHiddenByModeration(): bool
+    {
+        return $this->moderationHiddenAt !== null;
+    }
+
+    public function setHiddenByModeration(bool $hidden): static
+    {
+        $this->moderationHiddenAt = $hidden ? ($this->moderationHiddenAt ?? new \DateTimeImmutable()) : null;
+        return $this;
     }
 
     public function getContent(): ?string

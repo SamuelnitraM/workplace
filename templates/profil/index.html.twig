@@ -29,7 +29,12 @@
                         <a href="{{ path('app_army_index') }}" class="btn btn-ghost">{{ ui.icon('swords') }}Mes listes d'armée</a>
 
                     {% elseif app.user %}
-                        {% if friendship is null %}
+                        {% set blocked_between = blockedByMe or blockedMe %}
+                        {% if blockedByMe %}
+                            <span class="profile-status chip chip-danger">{{ ui.icon('ban') }}Membre bloqué</span>
+                        {% elseif blockedMe %}
+                            <span class="profile-status chip">{{ ui.icon('ban') }}Contact impossible</span>
+                        {% elseif friendship is null %}
                             <form method="post" action="{{ path('app_friendship_request', {username: user.username}) }}">
                                 <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
                                 <button type="submit" class="btn btn-primary">{{ ui.icon('user-plus') }}Ajouter en ami</button>
@@ -57,21 +62,16 @@
                                     </form>
                                 </div>
                             </div>
-                        {% elseif friendship.status == 'blocked' and friendship.receiver == app.user %}
-                            <form method="post" action="{{ path('app_friendship_unblock', {username: user.username}) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
-                                <button type="submit" class="btn btn-secondary">{{ ui.icon('lock') }}Débloquer</button>
-                            </form>
-                        {% elseif friendship.status == 'blocked' and friendship.requester == app.user %}
-                            <span class="profile-status chip">{{ ui.icon('x-circle') }}Demande refusée</span>
                         {% endif %}
 
-                        <a href="{{ path('app_message_show', {username: user.username}) }}"
-                           class="btn {{ friendship is not null and friendship.status == 'accepted' ? 'btn-primary' : 'btn-secondary' }}">
-                            {{ ui.icon('message-circle') }}Message
-                        </a>
+                        {% if not blocked_between %}
+                            <a href="{{ path('app_message_show', {username: user.username}) }}"
+                               class="btn {{ friendship is not null and friendship.status == 'accepted' ? 'btn-primary' : 'btn-secondary' }}">
+                                {{ ui.icon('message-circle') }}Message
+                            </a>
+                        {% endif %}
 
-                        {% if myGroups is defined and myGroups is not empty %}
+                        {% if not blocked_between and myGroups is defined and myGroups is not empty %}
                             <div x-data="{ open: false }" class="dropdown" @keydown.escape="open = false">
                                 <button type="button" class="btn btn-ghost" @click="open = !open" :aria-expanded="open.toString()" aria-expanded="false" aria-haspopup="true">
                                     {{ ui.icon('users') }}Inviter{{ ui.icon('chevron-down') }}
@@ -92,6 +92,22 @@
                                 </div>
                             </div>
                         {% endif %}
+
+                        <div x-data="{ open: false }" class="dropdown" @keydown.escape="open = false">
+                            <button type="button" class="btn btn-ghost btn-icon" @click="open = !open" :aria-expanded="open.toString()" aria-expanded="false" aria-haspopup="true" aria-label="Plus d'actions">
+                                {{ ui.icon('more-horizontal') }}
+                            </button>
+                            <div class="menu" x-show="open" x-cloak @click.outside="open = false" x-transition.opacity>
+                                <form method="post" action="{{ path(blockedByMe ? 'app_friendship_unblock' : 'app_friendship_block', {username: user.username}) }}"
+                                      {% if not blockedByMe %}{{ stimulus_controller('confirm', {message: 'Bloquer ' ~ user.username ~ ' ? Vos liens d\'amitié et demandes en cours seront supprimés.'})|stimulus_action('confirm', 'ask', 'submit') }}{% endif %}>
+                                    <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                    <button type="submit" class="menu-item w-full {{ blockedByMe ? '' : 'menu-item-danger' }}">
+                                        {{- ui.icon(blockedByMe ? 'lock' : 'ban') }}{{ blockedByMe ? 'Débloquer' : 'Bloquer' -}}
+                                    </button>
+                                </form>
+                                <a href="{{ path('app_report', {type: 'profil', id: user.id}) }}" class="menu-item" rel="nofollow">{{ ui.icon('flag') }}Signaler le profil</a>
+                            </div>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -205,17 +221,19 @@
                 <div class="gallery-photo group{% if isOwner and not photo.isVisible %} is-hidden-photo{% endif %}" data-photo-id="{{ photo.id }}"{% if isOwner %} data-action="mouseenter->profile-gallery#showSelector mouseleave->profile-gallery#hideSelector"{% endif %}>
                     {% if isOwner %}
                         <button type="button" data-action="profile-gallery#toggleSelection" class="gallery-select is-idle" aria-label="Sélectionner la photo pour la supprimer">{{ ui.icon('check', 'size-4') }}</button>
+                        {% if not photo.hiddenByModeration %}
                         <form method="post" action="{{ path('app_profil_gallery_visibility', {username: user.username, id: photo.id}) }}" class="gallery-photo-action">
                             <input type="hidden" name="_token" value="{{ csrf_token('gallery_visibility_' ~ photo.id) }}">
                             <button type="submit" class="gallery-tile-btn" aria-label="{{ photo.isVisible ? 'Masquer la photo' : 'Rendre la photo visible' }}" title="{{ photo.isVisible ? 'Masquer la photo aux visiteurs' : 'Rendre la photo visible' }}">
                                 {{ ui.icon(photo.isVisible ? 'eye' : 'eye-off', 'size-4') }}
                             </button>
                         </form>
+                        {% endif %}
                     {% endif %}
                     <a href="{{ path('app_gallery_photo_show', {username: user.username, id: photo.id}) }}" class="gallery-photo-link" data-action="profile-gallery#followLink" aria-label="Voir la photo{% if photo.description %} : {{ photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description }}{% endif %} ({{ stats.likes }} j'aime, {{ stats.comments }} commentaire{{ stats.comments > 1 ? 's' : '' }}){% if isOwner and not photo.isVisible %} — masquée{% endif %}">
                         <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}" alt="Photo de {{ user.username }}" loading="lazy" decoding="async" class="gallery-photo-img">
                         {% if isOwner and not photo.isVisible %}
-                            <span class="gallery-photo-flag" aria-hidden="true">{{ ui.icon('eye-off', 'size-3.5') }}Masquée</span>
+                            <span class="gallery-photo-flag" aria-hidden="true">{{ ui.icon(photo.hiddenByModeration ? 'shield' : 'eye-off', 'size-3.5') }}{{ photo.hiddenByModeration ? 'Masquée par la modération' : 'Masquée' }}</span>
                         {% endif %}
                         <span class="gallery-photo-stats" aria-hidden="true">
                             <span>{{ ui.icon('heart', 'size-4') }}{{ stats.likes }}</span>

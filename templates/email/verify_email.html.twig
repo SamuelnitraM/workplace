@@ -1,0 +1,11 @@
+{% extends 'email/layout.html.twig' %}
+
+{% block preheader %}Confirme ton adresse e-mail pour finaliser ton inscription.{% endblock %}
+
+{% block heading %}Bienvenue {{ recipient.username }} ! Confirme ton adresse e-mail{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 20px 0;">Pour finaliser ton inscription, confirme ton adresse e-mail en cliquant sur le bouton ci-dessous.</p>
+    {{ include('email/_button.html.twig', {url: signedUrl, label: 'Confirmer mon adresse e-mail'}) }}
+    <p style="margin:0 0 20px 0;font-size:14px;color:#5b6272;">Ce lien expirera dans {{ expiresAtMessageKey|trans(expiresAtMessageData, 'VerifyEmailBundle') }}. Si tu n'es pas à l'origine de cette inscription, ignore simplement cet e-mail.</p>
+{% endblock %}

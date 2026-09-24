@@ -12,6 +12,7 @@ use App\Repository\GroupRepository;
 use App\Repository\NotificationRepository;
 use App\Repository\UserRepository;
 use App\Security\Voter\GroupVoter;
+use App\Service\MemberBlocker;
 use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -35,6 +36,7 @@ class GroupInvitationController extends AbstractController
         GroupInvitationRepository $groupInvitationRepository,
         EntityManagerInterface $em,
         NotificationService $notifications,
+        MemberBlocker $memberBlocker,
     ): Response {
         $this->denyUnlessCsrfValid($request);
 
@@ -44,6 +46,11 @@ class GroupInvitationController extends AbstractController
 
         if (!$targetUser) {
             throw $this->createNotFoundException('Utilisateur introuvable');
+        }
+
+        if ($memberBlocker->isBlockedEitherWay($currentUser, $targetUser)) {
+            $this->addFlash('error', 'Impossible d\'inviter ce membre.');
+            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
 
         $groupId = $request->request->getInt('group_id');

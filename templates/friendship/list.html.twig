@@ -158,8 +158,8 @@
                     }) }}
                 {% else %}
                     <ul role="list">
-                        {% for friendship in blocked %}
-                            {% set blocked_user = friendship.requester %}
+                        {% for block in blocked %}
+                            {% set blocked_user = block.blocked %}
                             <li class="list-row">
                                 <a href="{{ path('app_profil_show', {username: blocked_user.username}) }}" class="flex min-w-0 flex-1 items-center gap-3 rounded-control">
                                     {{- ui.avatar(blocked_user, 'md', 'grayscale opacity-70') -}}
@@ -167,6 +167,7 @@
                                 </a>
                                 <form method="post" action="{{ path('app_friendship_unblock', {username: blocked_user.username}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                                    <input type="hidden" name="_redirect" value="list">
                                     <button type="submit" class="btn btn-secondary btn-sm" aria-label="Débloquer {{ blocked_user.username }}">
                                         {{- ui.icon('check') }}Débloquer
                                     </button>

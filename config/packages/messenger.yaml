@@ -17,8 +17,9 @@ framework:
         buses:
             messenger.bus.default: []
 
+        # E-mails are not routed: they are sent synchronously during the request,
+        # since the hosting offers no permanent worker to consume a queue.
         routing:
-            Symfony\Component\Mailer\Messenger\SendEmailMessage: async
             Symfony\Component\Notifier\Message\ChatMessage: async
             Symfony\Component\Notifier\Message\SmsMessage: async
 

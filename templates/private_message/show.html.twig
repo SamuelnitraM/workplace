@@ -75,6 +75,7 @@
                             <div class="chat-meta">
                                 {%- if _own %}<span class="sr-only">Vous, </span>{% else %}<span class="sr-only">{{ message.author.username }}, </span>{% endif -%}
                                 <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('H:i') }}</time>
+                                {%- if not _own %} <a href="{{ path('app_report', {type: 'message', id: message.id}) }}" class="link text-muted" rel="nofollow" aria-label="Signaler ce message" title="Signaler ce message">{{ ui.icon('flag', 'size-3.5') }}</a>{% endif -%}
                             </div>
                             <div class="chat-bubble">{{ message.content }}</div>
                         </div>

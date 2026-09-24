@@ -1,0 +1,55 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Sanctions — {{ member.username }}{% endblock %}
+
+{% block main %}
+<div class="row g-4">
+    <div class="col-lg-5">
+        <section class="card">
+            <div class="card-body">
+                <p class="mb-1"><a href="{{ path('app_profil_show', {username: member.username}) }}" target="_blank" rel="noopener">{{ member.username }}</a> · {{ member.email }}</p>
+                <p class="small text-muted">Inscrit le {{ member.createdAt|date('d/m/Y') }}</p>
+                {% if member.suspended %}
+                    <div class="alert alert-danger">
+                        {% if member.permanentlySuspended %}Suspendu définitivement{% else %}Suspendu jusqu'au {{ member.suspendedUntil|date('d/m/Y à H:i', 'Europe/Paris') }}{% endif %}
+                        {% if member.suspensionReason %}<br>Motif : {{ member.suspensionReason }}{% endif %}
+                    </div>
+                    <form method="post" action="{{ path('admin_moderation_member_sanction', {id: member.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                        <button type="submit" name="decision" value="lift" class="btn btn-success"><i class="fa fa-unlock"></i> Lever la sanction</button>
+                    </form>
+                {% else %}
+                    <h2 class="h6 mb-3">Suspendre le compte</h2>
+                    <form method="post" action="{{ path('admin_moderation_member_sanction', {id: member.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                        {{ include('admin/moderation/_suspension_fields.html.twig', {field_id: 'member-duration'}) }}
+                        <label class="form-label mt-2" for="member-reason">Motif communiqué au membre</label>
+                        <textarea class="form-control mb-2" id="member-reason" name="reason" rows="3" required></textarea>
+                        <button type="submit" name="decision" value="suspend" class="btn btn-danger"><i class="fa fa-user-slash"></i> Suspendre</button>
+                    </form>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+    <div class="col-lg-7">
+        <section class="card">
+            <div class="card-body">
+                <h2 class="h6">Contenus signalés ({{ reports|length }} derniers)</h2>
+                {% if reports is empty %}
+                    <p class="text-muted mb-0">Aucun signalement.</p>
+                {% else %}
+                    <ul class="list-group list-group-flush">
+                        {% for report in reports %}
+                            <li class="list-group-item px-0 small">
+                                <a href="{{ path('admin_moderation_report', {id: report.id}) }}">#{{ report.id }}</a>
+                                {{ report.createdAt|date('d/m/Y') }} · {{ report.targetType.label }} · {{ report.reason.label }}
+                                {% if report.pending %}<span class="badge bg-warning text-dark">en attente</span>{% else %}<span class="badge bg-secondary">{{ report.resolution.label }}</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

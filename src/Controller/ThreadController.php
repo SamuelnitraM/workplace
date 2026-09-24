@@ -15,6 +15,8 @@ use App\Repository\PostRepository;
 use App\Repository\ThreadRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
+use App\Security\SubmissionThrottle;
+use App\Security\ThrottledAction;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,7 +32,7 @@ use App\Service\NotificationService;
 #[Route('/forum', name: 'app_thread_')]
 class ThreadController extends AbstractController
 {
-    private const POSTS_PER_PAGE = 10;
+    public const POSTS_PER_PAGE = 10;
 
     #[Route('/thread/{slug}/post/{postId}/vote/{type}', name: 'vote', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
@@ -111,6 +113,7 @@ class ThreadController extends AbstractController
         ForumActivityNotifier $forumNotifier,
         NotificationRepository $notificationRepository,
         ThreadSubscriptionRepository $subscriptions,
+        SubmissionThrottle $throttle,
     ): Response {
         $thread = $threadRepository->findOneBy(['slug' => $slug]);
 
@@ -162,9 +165,9 @@ class ThreadController extends AbstractController
             $form = $this->createForm(PostFormType::class, $post);
             $form->handleRequest($request);
 
-            if ($form->isSubmitted() && $form->isValid()) {
-                /** @var \App\Entity\User $user */
-                $user = $this->getUser();
+            /** @var \App\Entity\User $user */
+            $user = $this->getUser();
+            if ($form->isSubmitted() && $form->isValid() && $throttle->acceptsMemberForm($form, ThrottledAction::ForumReply, $user)) {
                 $post->setAuthor($user);
                 $post->setThread($thread);
                 $post->setIsFirst(false);
@@ -212,6 +215,7 @@ class ThreadController extends AbstractController
         SluggerInterface $slugger,
         GamificationService $gamification,
         ForumActivityNotifier $forumNotifier,
+        SubmissionThrottle $throttle,
     ): Response {
         $category = $categoryRepository->findOneBy(['slug' => $slug]);
 
@@ -230,10 +234,9 @@ class ThreadController extends AbstractController
         $form = $this->createForm(ThreadFormType::class, $thread);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            /** @var \App\Entity\User $user */
-            $user = $this->getUser();
-
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        if ($form->isSubmitted() && $form->isValid() && $throttle->acceptsMemberForm($form, ThrottledAction::ForumThread, $user)) {
             // Créer le slug
             // Titre slugifié tronqué pour rester sous la limite de 255 caractères de la colonne
             $baseSlug = trim($slugger->slug((string) $thread->getTitle())->lower()->truncate(200)->toString(), '-');
@@ -356,16 +359,6 @@ class ThreadController extends AbstractController
     /** Page (1…n) sur laquelle un message est affiché dans son sujet. */
     private function pageOfPost(Post $post, PostRepository $postRepository): int
     {
-        $before = (int) $postRepository->createQueryBuilder('p')
-            ->select('COUNT(p.id)')
-            ->where('p.thread = :thread')
-            ->andWhere('p.createdAt < :createdAt OR (p.createdAt = :createdAt AND p.id < :id)')
-            ->setParameter('thread', $post->getThread())
-            ->setParameter('createdAt', $post->getCreatedAt())
-            ->setParameter('id', $post->getId())
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        return intdiv($before, self::POSTS_PER_PAGE) + 1;
+        return $postRepository->findPageOfPost($post, self::POSTS_PER_PAGE);
     }
 }

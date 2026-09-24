@@ -5,6 +5,7 @@ namespace App\Controller\Admin;
 use App\Entity\User;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\BooleanField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
@@ -25,7 +26,12 @@ class UserCrudController extends AbstractCrudController
     // les utilisateurs s'inscrivent eux-mêmes.
     public function configureActions(Actions $actions): Actions
     {
-        return $actions->disable(Action::NEW);
+        $sanctions = Action::new('sanctions', 'Sanctions', 'fa fa-gavel')
+            ->linkToRoute('admin_moderation_member', static fn (User $user): array => ['id' => $user->getId()]);
+        return $actions
+            ->disable(Action::NEW)
+            ->add(Crud::PAGE_INDEX, $sanctions)
+            ->add(Crud::PAGE_DETAIL, $sanctions);
     }
 
     public function configureFields(string $pageName): iterable
@@ -49,5 +55,12 @@ class UserCrudController extends AbstractCrudController
             ->hideOnIndex();
         yield DateTimeField::new('createdAt', 'Inscrit le')
             ->hideOnForm();
+        yield DateTimeField::new('suspendedAt', 'Sanction')
+            ->hideOnForm()
+            ->formatValue(static fn ($value, User $user): string => match (true) {
+                !$user->isSuspended() => '-',
+                $user->isPermanentlySuspended() => 'Suspendu définitivement',
+                default => 'Suspendu jusqu\'au ' . $user->getSuspendedUntil()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('d/m/Y H:i'),
+            });
     }
 }

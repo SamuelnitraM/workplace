@@ -96,6 +96,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 20, options: ['default' => 'auspex'])]
     private string $notificationSound = 'auspex';
 
+    /** Start of the current moderation suspension (NULL: account in good standing). */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $suspendedAt = null;
+
+    /** End of the suspension; NULL while suspendedAt is set means a permanent ban. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $suspendedUntil = null;
+
+    /** Reason shown to the member at login. */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $suspensionReason = null;
+
     /**
      * @var Collection<int, Thread>
      */
@@ -432,6 +444,41 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setTitleBadge(?Badge $titleBadge): static { $this->titleBadge = $titleBadge; return $this; }
     public function getNotificationSound(): string { return $this->notificationSound; }
     public function setNotificationSound(string $notificationSound): static { $this->notificationSound = $notificationSound; return $this; }
+
+    public function getSuspendedAt(): ?\DateTimeImmutable { return $this->suspendedAt; }
+    public function getSuspendedUntil(): ?\DateTimeImmutable { return $this->suspendedUntil; }
+    public function getSuspensionReason(): ?string { return $this->suspensionReason; }
+
+    /** Suspends the account until the given date, or permanently when $until is NULL. */
+    public function suspend(?\DateTimeImmutable $until, string $reason): static
+    {
+        $this->suspendedAt = new \DateTimeImmutable();
+        $this->suspendedUntil = $until;
+        $this->suspensionReason = $reason;
+        return $this;
+    }
+
+    public function liftSuspension(): static
+    {
+        $this->suspendedAt = null;
+        $this->suspendedUntil = null;
+        $this->suspensionReason = null;
+        return $this;
+    }
+
+    /** An expired temporary suspension no longer counts: no cleanup job is needed. */
+    public function isSuspended(?\DateTimeImmutable $now = null): bool
+    {
+        if ($this->suspendedAt === null) {
+            return false;
+        }
+        return $this->suspendedUntil === null || $this->suspendedUntil > ($now ?? new \DateTimeImmutable());
+    }
+
+    public function isPermanentlySuspended(): bool
+    {
+        return $this->suspendedAt !== null && $this->suspendedUntil === null;
+    }
 
     public function getGalleryPhotos(): Collection
     {

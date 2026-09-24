@@ -53,6 +53,10 @@
 
     {{ include('_partials/shell/_toasts.html.twig') }}
 
+    {% if app.user and not app.user.verified %}
+        {{ include('_partials/shell/_verify_email_banner.html.twig') }}
+    {% endif %}
+
     <main id="main" tabindex="-1" class="flex-1 container-app py-8 focus:outline-none">
         {% block body %}{% endblock %}
     </main>
