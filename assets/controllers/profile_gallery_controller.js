@@ -7,6 +7,8 @@ import { Controller } from '@hotwired/stimulus';
  * - zone d'envoi (propriétaire) : aperçu du fichier choisi, glisser-déposer, verrouillage à 10 photos ;
  * - mode suppression (propriétaire) : sélection de vignettes, la zone d'envoi devient un bouton « Supprimer »
  *   qui envoie le formulaire #gallery-delete-form avec les photo_ids[] sélectionnés ;
+ * - selection actions (fillSelection): delete, create an album, add to an album ("+" of an album tile),
+ *   remove from the album; each button sends its own form with the selected photo_ids[];
  * - en mode sélection, un clic sur une vignette ne navigue pas vers la page de la photo.
  *
  * Cibles : zone (formulaire d'envoi, data-upload-locked), input, label, preview, submit, description, deleteForm.
@@ -110,17 +112,32 @@ export default class extends Controller {
         if (this.selectedPhotos.size > 0) event.preventDefault();
     }
 
-    // Clic sur le bouton de la zone : en mode suppression, remplit le formulaire de suppression avant son envoi
+    // Upload zone button in selection mode: fills the delete form before it is sent
     submitClick() {
         if (this.selectedPhotos.size === 0 || !this.hasDeleteFormTarget) return;
-        const deleteForm = this.deleteFormTarget;
-        deleteForm.querySelectorAll('input[name="photo_ids[]"]').forEach(input => input.remove());
+        this.fillForm(this.deleteFormTarget);
+    }
+
+    // Any selection action (delete, create an album, add to or remove from an album): the clicked button's form
+    // receives the selected photo ids
+    fillSelection(event) {
+        const form = event.currentTarget.form;
+        if (!form) return;
+        if (this.selectedPhotos.size === 0 && form !== this.element.querySelector('#gallery-album-create form')) {
+            event.preventDefault();
+            return;
+        }
+        this.fillForm(form);
+    }
+
+    fillForm(form) {
+        form.querySelectorAll('input[name="photo_ids[]"]').forEach(input => input.remove());
         this.selectedPhotos.forEach(id => {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = 'photo_ids[]';
             input.value = id;
-            deleteForm.appendChild(input);
+            form.appendChild(input);
         });
     }
 

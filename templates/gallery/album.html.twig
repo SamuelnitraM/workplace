@@ -1,0 +1,80 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}{{ album.name }} — album de {{ user.username }}{% endblock %}
+
+{% block body %}
+{% set album_token = csrf_token(constant('App\\Controller\\GalleryAlbumController::CSRF_TOKEN_ID')) %}
+<div class="max-w-5xl mx-auto">
+
+    <header class="page-header">
+        <div class="min-w-0">
+            <p class="page-header-eyebrow"><a href="{{ path('app_profil_show', {username: user.username}) }}" class="link">Galerie de {{ user.username }}</a>{{ ui.icon('chevron-right', 'size-4') }}Album</p>
+            <h1 class="page-header-title flex items-center gap-2 break-words">{{ ui.icon('folder', 'size-7 shrink-0 text-primary-text') }}{{ album.name }}</h1>
+            <p class="page-header-subtitle">{{ photos|length }} photo{{ photos|length > 1 ? 's' }}</p>
+        </div>
+        {% if isOwner %}
+            <div class="page-header-actions" data-controller="modal">
+                <button type="button" class="btn btn-ghost" data-action="modal#open" data-modal-id-param="gallery-album-rename">{{ ui.icon('pencil') }}Renommer</button>
+                <form method="post" action="{{ path('app_gallery_album_delete', {username: user.username, id: album.id}) }}"
+                      {{ stimulus_controller('confirm', {message: 'Supprimer cet album ? Ses photos restent dans ta galerie.'})|stimulus_action('confirm', 'ask', 'submit') }}>
+                    <input type="hidden" name="_token" value="{{ album_token }}">
+                    <button type="submit" class="btn btn-ghost text-danger-text hover:text-danger-text">{{ ui.icon('trash') }}Supprimer l'album</button>
+                </form>
+                <dialog id="gallery-album-rename" class="modal" aria-labelledby="gallery-album-rename-title" data-action="click->modal#closeOnBackdrop">
+                    <form method="post" action="{{ path('app_gallery_album_rename', {username: user.username, id: album.id}) }}" class="contents">
+                        <input type="hidden" name="_token" value="{{ album_token }}">
+                        <div class="modal-header">
+                            <p class="modal-title" id="gallery-album-rename-title">Renommer l'album</p>
+                            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="modal#close" aria-label="Fermer">{{ ui.icon('x') }}</button>
+                        </div>
+                        <div class="modal-body">
+                            <label for="gallery-album-new-name" class="label">Nom de l'album</label>
+                            <input type="text" id="gallery-album-new-name" name="name" required maxlength="{{ constant('App\\Entity\\GalleryAlbum::NAME_MAX_LENGTH') }}" class="input" value="{{ album.name }}">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-ghost" data-action="modal#close">Annuler</button>
+                            <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Renommer</button>
+                        </div>
+                    </form>
+                </dialog>
+            </div>
+        {% endif %}
+    </header>
+
+    <section class="profile-gallery" data-controller="profile-gallery modal" aria-label="Photos de l'album">
+        {% if isOwner and otherAlbums is not empty %}
+            <div class="gallery-move-targets mb-4">
+                <p class="eyebrow mb-2">Déplacer la sélection vers un autre album</p>
+                <div class="gallery-grid">
+                    {% for other in otherAlbums %}
+                        {{ include('gallery/_album_tile.html.twig', {album: other, user: user, isOwner: true}) }}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        {% if photos is empty %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'folder',
+                title: 'Album vide',
+                text: isOwner ? 'Depuis ta galerie, coche des photos puis touche le « + » de cet album pour les y ranger.' : null,
+                cta: {label: 'Retour à la galerie', url: path('app_profil_show', {username: user.username}), icon: 'arrow-left'},
+                compact: true,
+            }) }}
+        {% else %}
+            {% if isOwner %}<p class="mb-3 text-small text-muted">Coche des photos pour les retirer de l'album, les déplacer ou les supprimer.</p>{% endif %}
+            <div class="gallery-grid">
+                {% for photo in photos %}
+                    {{ include('gallery/_photo_tile.html.twig', {photo: photo, user: user, isOwner: isOwner, stats: galleryStats[photo.id] ?? {likes: 0, comments: 0}}) }}
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if isOwner %}
+            {{ include('gallery/_selection_toolbar.html.twig', {user: user, album: album, cancel_url: path('app_gallery_album_show', {username: user.username, id: album.id})}) }}
+        {% endif %}
+    </section>
+
+</div>
+{% endblock %}

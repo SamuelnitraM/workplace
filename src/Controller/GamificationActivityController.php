@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Http\SafeReferer;
 use App\Service\GamificationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,15 +32,7 @@ class GamificationActivityController extends AbstractController
         $gamification->recordActivity($user, $key);
 
         if (!$request->isXmlHttpRequest()) {
-            // Ne rediriger vers le Referer que s'il pointe vers ce site (évite une redirection ouverte)
-            $referer = (string) $request->headers->get('referer', '');
-            $refererHost = parse_url($referer, PHP_URL_HOST);
-            $refererScheme = parse_url($referer, PHP_URL_SCHEME);
-            if ($referer !== '' && $refererHost === $request->getHost() && in_array($refererScheme, ['http', 'https'], true)) {
-                return $this->redirect($referer);
-            }
-
-            return $this->redirectToRoute('app_home');
+            return $this->redirect(SafeReferer::urlOr($request, $this->generateUrl('app_home')));
         }
 
         return new JsonResponse(['ok' => true]);

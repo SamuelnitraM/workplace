@@ -62,9 +62,16 @@ class GalleryController extends AbstractController
             $notificationRepository->markReadByGroupKeyPrefix($currentUser, GalleryNotificationSubscriber::photoKeyPrefix($photo));
         }
 
+        // Previous / next photo: the photo's album, or the whole gallery of its owner, in gallery order
+        $sequence = $this->photoRepository->findSequenceOf($photo, $this->isGranted(GalleryPhotoVoter::EDIT, $photo));
+        $position = array_search($photo, $sequence, true);
         return $this->render('gallery/show.html.twig', [
             'photo' => $photo,
             'owner' => $photo->getOwner(),
+            'previousPhoto' => is_int($position) ? ($sequence[$position - 1] ?? null) : null,
+            'nextPhoto' => is_int($position) ? ($sequence[$position + 1] ?? null) : null,
+            'sequencePosition' => is_int($position) ? $position + 1 : null,
+            'sequenceLength' => count($sequence),
             'likeCount' => $this->likeRepository->countForPhoto($photo),
             'likedByMe' => $currentUser instanceof User && $this->likeRepository->findOneByPhotoAndUser($photo, $currentUser) !== null,
             'comments' => $this->commentRepository->findPageForPhoto($photo, $page, self::COMMENTS_PER_PAGE),

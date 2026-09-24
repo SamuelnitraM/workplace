@@ -1,0 +1,29 @@
+{#
+    Photo tile of a gallery (profile root or album page).
+    Parameters: photo, user (owner of the gallery), isOwner, stats ({likes, comments}).
+    Owner: selection button (check, top left) and visibility toggle (eye).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+<div class="gallery-photo group{% if isOwner and not photo.isVisible %} is-hidden-photo{% endif %}" data-photo-id="{{ photo.id }}"{% if isOwner %} data-action="mouseenter->profile-gallery#showSelector mouseleave->profile-gallery#hideSelector"{% endif %}>
+    {% if isOwner %}
+        <button type="button" data-action="profile-gallery#toggleSelection" class="gallery-select is-idle" aria-label="Sélectionner la photo">{{ ui.icon('check', 'size-4') }}</button>
+        {% if not photo.hiddenByModeration %}
+            <form method="post" action="{{ path('app_profil_gallery_visibility', {username: user.username, id: photo.id}) }}" class="gallery-photo-action">
+                <input type="hidden" name="_token" value="{{ csrf_token('gallery_visibility_' ~ photo.id) }}">
+                <button type="submit" class="gallery-tile-btn" aria-label="{{ photo.isVisible ? 'Masquer la photo' : 'Rendre la photo visible' }}" title="{{ photo.isVisible ? 'Masquer la photo aux visiteurs' : 'Rendre la photo visible' }}">
+                    {{ ui.icon(photo.isVisible ? 'eye' : 'eye-off', 'size-4') }}
+                </button>
+            </form>
+        {% endif %}
+    {% endif %}
+    <a href="{{ path('app_gallery_photo_show', {username: user.username, id: photo.id}) }}" class="gallery-photo-link" data-action="profile-gallery#followLink" aria-label="Voir la photo{% if photo.description %} : {{ photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description }}{% endif %} ({{ stats.likes }} j'aime, {{ stats.comments }} commentaire{{ stats.comments > 1 ? 's' : '' }}){% if isOwner and not photo.isVisible %} — masquée{% endif %}">
+        <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}" alt="Photo de {{ user.username }}" loading="lazy" decoding="async" class="gallery-photo-img">
+        {% if isOwner and not photo.isVisible %}
+            <span class="gallery-photo-flag" aria-hidden="true">{{ ui.icon(photo.hiddenByModeration ? 'shield' : 'eye-off', 'size-3.5') }}{{ photo.hiddenByModeration ? 'Masquée par la modération' : 'Masquée' }}</span>
+        {% endif %}
+        <span class="gallery-photo-stats" aria-hidden="true">
+            <span>{{ ui.icon('heart', 'size-4') }}{{ stats.likes }}</span>
+            <span>{{ ui.icon('message-circle', 'size-4') }}{{ stats.comments }}</span>
+        </span>
+    </a>
+</div>

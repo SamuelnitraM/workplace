@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Form\RegistrationFormType;
+use App\Http\SafeReferer;
 use App\Repository\UserRepository;
 use App\Security\EmailVerifier;
 use App\Security\SubmissionThrottle;
@@ -90,13 +91,6 @@ class RegistrationController extends AbstractController
         } else {
             $this->addFlash('error', 'L\'e-mail n\'a pas pu être envoyé. Réessaie dans quelques minutes.');
         }
-        return $this->redirect($this->safeReferer($request));
-    }
-
-    /** Same-site page the member came from, the home page otherwise. */
-    private function safeReferer(Request $request): string
-    {
-        $referer = (string) $request->headers->get('referer');
-        return str_starts_with($referer, $request->getSchemeAndHttpHost() . '/') ? $referer : $this->generateUrl('app_home');
+        return $this->redirect(SafeReferer::urlOr($request, $this->generateUrl('app_home')));
     }
 }

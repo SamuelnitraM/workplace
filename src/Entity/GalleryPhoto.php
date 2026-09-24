@@ -34,6 +34,10 @@ class GalleryPhoto
     #[ORM\JoinColumn(nullable: false)]
     private ?User $owner = null;
 
+    #[ORM\ManyToOne(inversedBy: 'photos')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?GalleryAlbum $album = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -62,6 +66,8 @@ class GalleryPhoto
         $this->isVisible = !$hidden;
         return $this;
     }
+    public function getAlbum(): ?GalleryAlbum { return $this->album; }
+    public function setAlbum(?GalleryAlbum $album): static { $this->album = $album; return $this; }
     public function getOwner(): ?User { return $this->owner; }
     public function setOwner(?User $owner): static { $this->owner = $owner; return $this; }
 }

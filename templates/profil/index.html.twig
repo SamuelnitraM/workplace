@@ -188,10 +188,10 @@
     </div>
 
     {# ================= GALERIE ================= #}
-    <section id="panel-gallery" role="tabpanel" aria-labelledby="tab-gallery" data-panel="gallery" data-tabs-target="panel" data-controller="profile-gallery" class="profile-gallery">
+    <section id="panel-gallery" role="tabpanel" aria-labelledby="tab-gallery" data-panel="gallery" data-tabs-target="panel" data-controller="profile-gallery modal" class="profile-gallery">
         {% if isOwner %}
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <p class="text-small text-muted max-w-reading">Survolez ou touchez une photo puis cochez-la pour la supprimer. L'œil masque une photo aux visiteurs.</p>
+                <p class="text-small text-muted max-w-reading">Coche des photos pour les ranger dans un album (« + » sur un album existant) ou les supprimer. L'œil masque une photo aux visiteurs.</p>
                 <div class="flex items-center gap-3 min-w-44" title="{{ photo_count }} photo{{ photo_count > 1 ? 's' }} sur 10">
                     <div class="progress progress-sm flex-1 {{ gallery_full ? 'progress-accent' : '' }}" role="progressbar" aria-valuenow="{{ photo_count }}" aria-valuemin="0" aria-valuemax="10" aria-label="Photos publiées">
                         <div class="progress-bar" style="width: {{ photo_count * 10 }}%"></div>
@@ -216,43 +216,16 @@
                 </form>
             {% endif %}
 
-            {% for photo in galleryPhotos %}
-                {% set stats = galleryStats[photo.id] ?? {likes: 0, comments: 0} %}
-                <div class="gallery-photo group{% if isOwner and not photo.isVisible %} is-hidden-photo{% endif %}" data-photo-id="{{ photo.id }}"{% if isOwner %} data-action="mouseenter->profile-gallery#showSelector mouseleave->profile-gallery#hideSelector"{% endif %}>
-                    {% if isOwner %}
-                        <button type="button" data-action="profile-gallery#toggleSelection" class="gallery-select is-idle" aria-label="Sélectionner la photo pour la supprimer">{{ ui.icon('check', 'size-4') }}</button>
-                        {% if not photo.hiddenByModeration %}
-                        <form method="post" action="{{ path('app_profil_gallery_visibility', {username: user.username, id: photo.id}) }}" class="gallery-photo-action">
-                            <input type="hidden" name="_token" value="{{ csrf_token('gallery_visibility_' ~ photo.id) }}">
-                            <button type="submit" class="gallery-tile-btn" aria-label="{{ photo.isVisible ? 'Masquer la photo' : 'Rendre la photo visible' }}" title="{{ photo.isVisible ? 'Masquer la photo aux visiteurs' : 'Rendre la photo visible' }}">
-                                {{ ui.icon(photo.isVisible ? 'eye' : 'eye-off', 'size-4') }}
-                            </button>
-                        </form>
-                        {% endif %}
-                    {% endif %}
-                    <a href="{{ path('app_gallery_photo_show', {username: user.username, id: photo.id}) }}" class="gallery-photo-link" data-action="profile-gallery#followLink" aria-label="Voir la photo{% if photo.description %} : {{ photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description }}{% endif %} ({{ stats.likes }} j'aime, {{ stats.comments }} commentaire{{ stats.comments > 1 ? 's' : '' }}){% if isOwner and not photo.isVisible %} — masquée{% endif %}">
-                        <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}" alt="Photo de {{ user.username }}" loading="lazy" decoding="async" class="gallery-photo-img">
-                        {% if isOwner and not photo.isVisible %}
-                            <span class="gallery-photo-flag" aria-hidden="true">{{ ui.icon(photo.hiddenByModeration ? 'shield' : 'eye-off', 'size-3.5') }}{{ photo.hiddenByModeration ? 'Masquée par la modération' : 'Masquée' }}</span>
-                        {% endif %}
-                        <span class="gallery-photo-stats" aria-hidden="true">
-                            <span>{{ ui.icon('heart', 'size-4') }}{{ stats.likes }}</span>
-                            <span>{{ ui.icon('message-circle', 'size-4') }}{{ stats.comments }}</span>
-                        </span>
-                    </a>
-                </div>
+            {% for album in galleryAlbums %}
+                {{ include('gallery/_album_tile.html.twig', {album: album, user: user, isOwner: isOwner}) }}
+            {% endfor %}
+            {% for photo in loosePhotos %}
+                {{ include('gallery/_photo_tile.html.twig', {photo: photo, user: user, isOwner: isOwner, stats: galleryStats[photo.id] ?? {likes: 0, comments: 0}}) }}
             {% endfor %}
         </div>
 
         {% if isOwner %}
-            {# Barre de sélection : affichée en CSS dès qu'une photo est cochée (:has(.is-selected)), compteur CSS #}
-            <div class="gallery-toolbar" role="region" aria-label="Photos sélectionnées">
-                <p class="gallery-toolbar-count">{{ ui.icon('check-circle', 'size-5') }}<span><span class="gallery-toolbar-number"></span> sélectionnée(s)</span></p>
-                <div class="flex items-center gap-2">
-                    <a href="{{ path('app_profil_show', {username: user.username}) }}" class="btn btn-ghost btn-sm">Annuler</a>
-                    <button type="submit" form="gallery-delete-form" data-action="profile-gallery#submitClick" class="btn btn-danger btn-sm">{{ ui.icon('trash') }}Supprimer</button>
-                </div>
-            </div>
+            {{ include('gallery/_selection_toolbar.html.twig', {user: user, album: null, cancel_url: path('app_profil_show', {username: user.username})}) }}
         {% endif %}
 
         {% if isOwner and not gallery_full %}
@@ -295,11 +268,6 @@
                     }) }}
                 {% endif %}
             </div>
-        {% endif %}
-        {% if isOwner %}
-            <form id="gallery-delete-form" data-profile-gallery-target="deleteForm" method="post" action="{{ path('app_profil_gallery_delete', {username: user.username}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('gallery_delete') }}">
-            </form>
         {% endif %}
     </section>
 

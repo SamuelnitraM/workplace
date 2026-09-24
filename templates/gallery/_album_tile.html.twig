@@ -1,0 +1,30 @@
+{#
+    Album tile (folder) of a gallery. Parameters: album, user (owner), isOwner.
+    Owner: while photos are selected, a "+" button (shown in CSS) moves them into this album.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set cover = album_cover(album, isOwner) %}
+{% set count = isOwner ? album.photos|length : album.photos|filter(p => p.isVisible)|length %}
+<div class="gallery-album">
+    <a href="{{ path('app_gallery_album_show', {username: user.username, id: album.id}) }}" class="gallery-album-link" aria-label="Album {{ album.name }} ({{ count }} photo{{ count > 1 ? 's' }})">
+        <span class="gallery-album-cover">
+            {% if cover %}
+                <img src="{{ asset('uploads/gallery/' ~ cover.filename) }}" alt="" loading="lazy" decoding="async">
+            {% else %}
+                {{ ui.icon('folder', 'size-8') }}
+            {% endif %}
+        </span>
+        <span class="gallery-album-caption">
+            <span class="gallery-album-name">{{ ui.icon('folder', 'size-4') }}<span class="truncate">{{ album.name }}</span></span>
+            <span class="gallery-album-count">{{ count }} photo{{ count > 1 ? 's' }}</span>
+        </span>
+    </a>
+    {% if isOwner %}
+        <form method="post" action="{{ path('app_gallery_album_add', {username: user.username, id: album.id}) }}" class="gallery-album-add">
+            <input type="hidden" name="_token" value="{{ csrf_token(constant('App\\Controller\\GalleryAlbumController::CSRF_TOKEN_ID')) }}">
+            <button type="submit" class="gallery-album-add-button" data-action="profile-gallery#fillSelection" aria-label="Ajouter les photos sélectionnées à l'album {{ album.name }}" title="Ajouter à « {{ album.name }} »">
+                {{ ui.icon('plus', 'size-8') }}
+            </button>
+        </form>
+    {% endif %}
+</div>

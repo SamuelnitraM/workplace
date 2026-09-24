@@ -24,6 +24,10 @@ final class HomeController extends AbstractController
     /** Nombre de photos affichées dans la vitrine « Dernières créations de la communauté ». */
     public const SHOWCASE_PHOTOS = 12;
 
+    /** Trends: most liked photos of the last days. */
+    public const TRENDING_PHOTOS = 6;
+    public const TRENDING_PERIOD = '-7 days';
+
     #[Route('/', name: 'app_home')]
     public function index(
         CategoryRepository $categoryRepository,
@@ -52,6 +56,7 @@ final class HomeController extends AbstractController
         // Vitrine : dernières photos visibles (propriétaire joint) + compteurs agrégés
         $showcasePhotos = $galleryPhotoRepository->findLatestVisible(self::SHOWCASE_PHOTOS);
         $showcaseStats = $galleryPhotoRepository->getStatsForPhotos($showcasePhotos);
+        $trendingPhotos = $galleryPhotoRepository->findMostLikedSince(new \DateTimeImmutable(self::TRENDING_PERIOD), self::TRENDING_PHOTOS);
 
         // Catégories racines uniquement
         $categories = $categoryRepository->findBy(['parent' => null], ['position' => 'ASC']);
@@ -81,6 +86,7 @@ final class HomeController extends AbstractController
             'earlyMemberLimit' => BadgeCatalog::EARLY_MEMBER_LIMIT,
             'showcasePhotos' => $showcasePhotos,
             'showcaseStats' => $showcaseStats,
+            'trendingPhotos' => $trendingPhotos,
             'categories' => $categories,
             'latestPosts' => $latestPosts,
             'userDashboard' => $userDashboard,

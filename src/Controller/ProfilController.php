@@ -7,6 +7,7 @@ use App\Form\UserProfileFormType;
 use App\Entity\GalleryPhoto;
 use App\Repository\FriendshipRepository;
 use App\Repository\ArmyListRepository;
+use App\Repository\GalleryAlbumRepository;
 use App\Repository\GalleryPhotoRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
@@ -23,6 +24,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Service\GamificationService;
 use App\Service\AvatarUploader;
 use App\Service\GalleryPhotoUploader;
+use App\Service\GalleryAlbumManager;
 use App\Service\MemberBlocker;
 use App\Gamification\BadgeRarity;
 use App\Gamification\ExperienceHistory;
@@ -44,6 +46,7 @@ public function show(
     BadgeRarity $badgeRarity,
     ExperienceHistory $experienceHistory,
     MemberBlocker $memberBlocker,
+    GalleryAlbumRepository $galleryAlbumRepository,
 ): Response {
     $user = $userRepository->findOneBy(['username' => $username]);
 
@@ -138,6 +141,11 @@ public function show(
         'myGroups' => $myGroups,
         'publicArmyLists' => $publicArmyLists,
         'galleryPhotos' => $galleryPhotos,
+        'galleryAlbums' => array_values(array_filter(
+            $galleryAlbumRepository->findByOwner($user),
+            static fn ($album) => $isOwner || GalleryAlbumManager::coverOf($album, false) !== null,
+        )),
+        'loosePhotos' => array_values(array_filter($galleryPhotos, static fn (GalleryPhoto $photo) => $photo->getAlbum() === null)),
         'galleryStats' => $galleryPhotoRepository->getStatsForPhotos($galleryPhotos),
         'galleryDescriptionMaxLength' => GalleryPhoto::DESCRIPTION_MAX_LENGTH,
         'friends' => $friends,

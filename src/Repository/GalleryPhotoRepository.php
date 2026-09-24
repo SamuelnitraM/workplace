@@ -44,6 +44,49 @@ class GalleryPhotoRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** @return GalleryPhoto[] photos outside any album (root of the gallery) */
+    public function findLooseByOwner(User $owner, bool $includeHidden): array
+    {
+        $criteria = ['owner' => $owner, 'album' => null] + ($includeHidden ? [] : ['isVisible' => true]);
+        return $this->findBy($criteria, ['createdAt' => 'DESC', 'id' => 'DESC']);
+    }
+
+    /**
+     * Photos browsed around a photo, in gallery order: its album, or the whole gallery of its owner.
+     *
+     * @return GalleryPhoto[]
+     */
+    public function findSequenceOf(GalleryPhoto $photo, bool $includeHidden): array
+    {
+        $criteria = $photo->getAlbum() !== null ? ['album' => $photo->getAlbum()] : ['owner' => $photo->getOwner()];
+        if (!$includeHidden) {
+            $criteria['isVisible'] = true;
+        }
+        return $this->findBy($criteria, ['createdAt' => 'DESC', 'id' => 'DESC']);
+    }
+
+    /**
+     * Most liked visible photos over a period (likes given during the period), owner loaded.
+     *
+     * @return list<array{photo: GalleryPhoto, likes: int}>
+     */
+    public function findMostLikedSince(\DateTimeImmutable $since, int $limit): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('p AS photo', 'o', 'COUNT(l.id) AS likes')
+            ->innerJoin('p.owner', 'o')
+            ->innerJoin(GalleryPhotoLike::class, 'l', 'WITH', 'l.photo = p AND l.createdAt >= :since')
+            ->where('p.isVisible = true')
+            ->setParameter('since', $since)
+            ->groupBy('p.id')
+            ->orderBy('likes', 'DESC')
+            ->addOrderBy('p.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+        return array_map(static fn (array $row): array => ['photo' => $row['photo'], 'likes' => (int) $row['likes']], $rows);
+    }
+
     /**
      * Compteurs de likes / commentaires pour une liste de photos, en deux requêtes agrégées (pas de N+1).
      *

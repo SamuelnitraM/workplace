@@ -1,0 +1,46 @@
+{#
+    Selection bar of the owner's gallery (shown in CSS as soon as a photo is checked) and the album creation window.
+    Parameters: user (owner), album (current album, null at the gallery root), cancel_url.
+    The buttons send the selected photo ids (profile-gallery#fillSelection) with their own form.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set album_token = csrf_token(constant('App\\Controller\\GalleryAlbumController::CSRF_TOKEN_ID')) %}
+<div class="gallery-toolbar" role="region" aria-label="Photos sélectionnées">
+    <p class="gallery-toolbar-count">{{ ui.icon('check-circle', 'size-5') }}<span><span class="gallery-toolbar-number"></span> sélectionnée(s)</span></p>
+    <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ cancel_url }}" class="btn btn-ghost btn-sm">Annuler</a>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="modal#open" data-modal-id-param="gallery-album-create">{{ ui.icon('folder') }}Créer un album</button>
+        {% if album %}
+            <form method="post" action="{{ path('app_gallery_album_remove', {username: user.username, id: album.id}) }}">
+                <input type="hidden" name="_token" value="{{ album_token }}">
+                <button type="submit" class="btn btn-secondary btn-sm" data-action="profile-gallery#fillSelection">{{ ui.icon('x') }}Retirer de l'album</button>
+            </form>
+        {% endif %}
+        <button type="submit" form="gallery-delete-form" data-action="profile-gallery#fillSelection" class="btn btn-danger btn-sm">{{ ui.icon('trash') }}Supprimer</button>
+    </div>
+</div>
+
+<dialog id="gallery-album-create" class="modal" aria-labelledby="gallery-album-create-title" data-action="click->modal#closeOnBackdrop">
+    <form method="post" action="{{ path('app_gallery_album_new', {username: user.username}) }}" class="contents">
+        <input type="hidden" name="_token" value="{{ album_token }}">
+        <div class="modal-header">
+            <p class="modal-title" id="gallery-album-create-title">Nouvel album</p>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="modal#close" aria-label="Fermer">{{ ui.icon('x') }}</button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="gallery-album-name" class="label">Nom de l'album</label>
+                <input type="text" id="gallery-album-name" name="name" required maxlength="{{ constant('App\\Entity\\GalleryAlbum::NAME_MAX_LENGTH') }}" class="input" placeholder="Ex. : Ultramarines, Kill Team, WIP…" autofocus>
+                <p class="help">Les photos sélectionnées y seront rangées. Une photo n'appartient qu'à un seul album.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-action="modal#close">Annuler</button>
+            <button type="submit" class="btn btn-primary" data-action="profile-gallery#fillSelection">{{ ui.icon('folder') }}Créer l'album</button>
+        </div>
+    </form>
+</dialog>
+
+<form id="gallery-delete-form" data-profile-gallery-target="deleteForm" method="post" action="{{ path('app_profil_gallery_delete', {username: user.username}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('gallery_delete') }}">
+</form>

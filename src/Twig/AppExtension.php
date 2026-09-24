@@ -5,6 +5,7 @@ namespace App\Twig;
 use App\Entity\User;
 use App\Repository\GroupInvitationRepository;
 use App\Repository\NotificationRepository;
+use App\Service\GalleryAlbumManager;
 use App\Service\NotificationRenderer;
 use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
@@ -46,6 +47,7 @@ class AppExtension extends AbstractExtension implements GlobalsInterface
             new TwigFunction('notification_unread_count', $this->unreadNotificationCount(...)),
             new TwigFunction('notification_text', $this->notificationRenderer->text(...)),
             new TwigFunction('notification_icon', $this->notificationRenderer->icon(...)),
+            new TwigFunction('album_cover', GalleryAlbumManager::coverOf(...)),
         ];
     }
 

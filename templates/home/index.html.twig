@@ -9,6 +9,23 @@
     - Membre : tableau de bord (bienvenue, présentation guidée + « Premiers pas », actions rapides, vitrine, discussions).
 #}
 
+{# Weekly trends: most liked photos of the last 7 days (hidden while nobody liked a photo this week) #}
+{% macro trending_section(trendingPhotos) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    {% import _self as home %}
+    {% if trendingPhotos is not empty %}
+        <section aria-labelledby="trending-title">
+            <h2 id="trending-title" class="section-title">{{ ui.icon('flame') }}Tendances de la semaine</h2>
+            <p class="-mt-2 mb-4 text-small text-muted">Les photos les plus aimées ces 7 derniers jours.</p>
+            <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+                {% for entry in trendingPhotos %}
+                    {{ home.showcase_tile(entry.photo, {likes: entry.likes, comments: 0}) }}
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
+{% endmacro %}
+
 {# ─── Tuile de la vitrine (photo carrée, auteur, j'aime) ─── #}
 {% macro showcase_tile(photo, photoStats) %}
     {% import '_macros/ui.html.twig' as ui %}
@@ -107,6 +124,8 @@
             </section>
         {% endif %}
 
+        {{ home.trending_section(trendingPhotos) }}
+
         {# Vitrine #}
         <section aria-labelledby="showcase-title">
             <h2 id="showcase-title" class="section-title">{{ ui.icon('camera') }}Dernières créations de la communauté</h2>
@@ -187,6 +206,8 @@
                 {% endfor %}
             </ul>
         </nav>
+
+        {{ home.trending_section(trendingPhotos) }}
 
         {# Vitrine #}
         <section aria-labelledby="showcase-title">
