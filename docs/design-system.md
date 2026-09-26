@@ -265,3 +265,11 @@ Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_i
 ## Pile d'avatars
 
 `.avatar-stack` : avatars `xs` qui se chevauchent (suggestions de groupes, assignés d'une catégorie). Trois au plus, complétés par un texte (« 4 amis sont dans ce groupe »).
+
+## Visite guidée
+
+Les bulles de driver.js prennent les couleurs du site via la classe `tour-popover` (`assets/styles/app.css`). Un élément à mettre en avant reçoit un attribut `data-tour="<nom>"` stable, référencé par `App\Tour\TourCatalog` ; ne pas viser de classes utilitaires, qui changent avec la mise en page.
+
+## Graphiques du tableau de bord
+
+`templates/admin/_bar_chart.html.twig` (`App\Statistics\BarChart`) : une série, une couleur (indigo `#4f46e5`, validée pour le contraste), barres de 24 px au plus arrondies en haut, 2 px d'écart, axe de trois graduations rondes, une date par semaine, valeur au survol ou au clavier, tableau des valeurs dans « Voir le tableau ».

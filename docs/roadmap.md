@@ -112,10 +112,10 @@ Découpé en trois lots, du moins risqué au plus risqué.
 - [x] Assignations de tâches : jusqu'à 3 membres par tâche (réglage 1, 2 ou 3), demandes à valider, mode libre.
 - [x] Discussion : émoticônes, mentions avec notification, groupe muet ; signalement du groupe et des messages.
 
-### Lot 3 — Chantiers lourds
-- [ ] Didacticiel en visite guidée (« Je suis perdu »).
-- [ ] Traitement combiné des signalements (plusieurs décisions, un seul bouton « Traiter »).
-- [ ] Statistiques : temps moyen de traitement, récapitulatif des signalements, graphiques 30 jours (rétention, actifs quotidiens, inscriptions).
+### Lot 3 — Chantiers lourds ✅
+- [x] Didacticiel en visite guidée (« Je suis perdu »).
+- [x] Traitement combiné des signalements (plusieurs décisions, un seul bouton « Traiter »).
+- [x] Statistiques : temps moyen de traitement, récapitulatif des signalements, graphiques 30 jours (rétention, actifs quotidiens, inscriptions).
 
 ---
 
@@ -207,7 +207,7 @@ Objectif : un espace d'annonces entre membres, type Leboncoin ou Vinted, spécia
 1. **Phase 1** : fondations (comptes, e-mails, modération).
 2. **Phase 2** : fil d'actualité et abonnements au forum, le plus gros effet sur la rétention.
 3. **Phase 3** : listes d'armée et galerie faites ; pile de la honte, suivi de peinture et parties reportés.
-4. **Cahier des charges spécifique** : lots 1 et 2 faits, puis lot 3 (didacticiel, modération combinée, statistiques).
+4. **Cahier des charges spécifique** : lots 1, 2 et 3 faits.
 5. **Phases 4 et 5**, selon les retours des membres.
 6. **Phase 6** : vente d'occasion, une fois la communauté assez active pour faire vivre les annonces.
 7. **Qualité technique** : en continu, avec les tests de chaque nouvelle fonctionnalité écrits en même temps qu'elle.

@@ -91,6 +91,7 @@
 /groups/{slug}/edit                 Paramètres du groupe (admin ou propriétaire)
 /groups/{slug}/todo/                Tâches du groupe
 /todo/                              Mes tâches personnelles
+/didacticiel                        Didacticiel : visites guidées de chaque fonctionnalité (?visite=<clé> sur la page visitée)
 /signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil, groupe, message-groupe)
 /army/                              Mes listes d'armée
 ├── /army/new                       Créer une liste
@@ -187,7 +188,15 @@ L'onboarding se lance après l'inscription (`/bienvenue`). Il compte **4 étapes
 Fonctionnement :
 - l'avancement est mémorisé (`onboardingStep`, `onboardingCompletedAt`) ;
 - chaque étape peut être passée ;
-- tant qu'elle n'est pas terminée, le bouton « Continuer la présentation » du pied de page la reprend à l'étape mémorisée.
+- tant qu'elle n'est pas terminée, le bouton « Continuer la présentation » du pied de page la reprend à l'étape mémorisée ;
+- la dernière étape renvoie vers le didacticiel : « Si tu es perdu, lance le didacticiel qui te guidera à travers le site ».
+
+La présentation sert à compléter le profil ; le **didacticiel** explique le fonctionnement du site.
+
+### Didacticiel (visites guidées)
+- **Accès :** lien « Je suis perdu » du pied de page (membres), page `/didacticiel` : une carte par visite, « Lancer la visite ».
+- **Visites** (`App\Tour\TourCatalog`, point d'entrée unique du contenu) : Premiers pas (navigation, recherche, Publier, messages, notifications, compte, fil d'actualité), Forum, Groupes, Profil et galerie, Listes d'armée, Messagerie.
+- **Fonctionnement :** une visite s'ouvre sur la page de sa fonctionnalité avec `?visite=<clé>` (`App\Tour\TourLauncher`, fonction Twig `requested_tour()`), le paramètre est retiré de l'adresse, puis le contrôleur `tour` (bibliothèque **driver.js**) met en avant chaque élément. Une étape vise le premier élément visible de sa liste de sélecteurs (identifiants, repères, attributs `data-tour`) ; sans élément visible (mise en page mobile, page vide), l'explication s'affiche au centre de l'écran. La dernière étape propose la visite suivante et le retour à la liste.
 
 ### 3.3 Profil
 - **En-tête :**
@@ -421,13 +430,16 @@ Fonctionnement :
 ### 3.14 Modération
 - **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus, profils (menu « … »), groupes et messages de groupe. Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
 - **Signalement** (`Report`) : l'extrait du contenu, son auteur et son lien sont enregistrés au moment du signalement, pour garder un historique lisible même après modification ou suppression.
-- **Décisions** (`App\Moderation\ModerationService`, point d'entrée unique) :
-  - **Masquer** (réponse, sujet, photo) : les membres voient « masqué par la modération », l'équipe de modération (modérateurs et administrateurs) voit toujours le contenu. Un sujet masqué a son message d'ouverture masqué et est fermé. Une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher. Réversible (« Rétablir le contenu ») ;
-  - **Supprimer** (tous les contenus sauf un profil) : définitif ; supprimer le message d'ouverture supprime tout le sujet ;
-  - **Avertir** l'auteur avec un message ;
-  - **Suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif (décision « suspendu temporairement » ou « banni définitivement ») ;
-  - **Classer sans suite**.
-- Une décision clôt tous les signalements en attente du même contenu. L'auteur est prévenu par une notification et un e-mail (masquage, suppression, avertissement, suspension).
+- **Décision combinée** (`App\Moderation\ModerationService::process()`, point d'entrée unique ; `ModerationDecision`) : sur la fiche d'un signalement, le modérateur prépare toutes les actions puis les valide ensemble avec **« Traiter »**, après une fenêtre de confirmation qui les récapitule :
+  - **sort du contenu** : laisser en ligne, **masquer** (réponse, sujet, photo : les membres voient « masqué par la modération », l'équipe de modération voit toujours le contenu ; un sujet masqué a son message d'ouverture masqué et est fermé ; une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher) ou **supprimer** (tous les contenus sauf un profil, définitif ; supprimer le message d'ouverture supprime tout le sujet) ;
+  - **avertir** l'auteur avec un message ;
+  - **suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif (« suspendu temporairement » ou « banni définitivement ») ;
+  - une **note interne** ;
+  - sans aucune action, le signalement est **classé sans suite** ;
+  - la décision est vérifiée entièrement avant d'être appliquée : rien n'est fait si une partie est invalide (motif de suspension manquant, contenu disparu, membre de l'équipe…) ;
+  - toutes les décisions sont enregistrées (`Report::resolutions`, la plus grave dans `Report::resolution`) et affichées avec leur code couleur ; l'avertissement, la suspension et la note sont gardés dans l'historique ;
+  - **Rétablir le contenu** reste possible après un masquage.
+- Une décision clôt tous les signalements en attente du même contenu. L'auteur reçoit **une seule** notification et un e-mail réunissant le sort du contenu et l'avertissement ; une suspension a son propre e-mail.
 - **Sanctions :** depuis la fiche d'un membre (`/admin/moderation/member/{id}`, action « Sanctions » de la liste des utilisateurs) : suspendre ou lever la sanction. Une suspension temporaire expirée ne compte plus, sans tâche planifiée (`User::isSuspended()`).
 
 ### 3.15 Limites anti-spam
@@ -461,6 +473,8 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
   - réponses publiées, messages envoyés ;
   - groupes (total et nouveaux) ;
   - listes d'armée créées.
+- **Graphiques en bâtons sur 30 jours** (`App\Statistics\DailyActivityHistory`, table `member_daily_activity` et date d'inscription) : membres actifs par jour, nouvelles inscriptions, **rétention d'un jour sur l'autre** (part des membres actifs la veille revenus ce jour-là). Valeur du jour au survol ou au clavier, tableau des valeurs dans « Voir le tableau » (`templates/admin/_bar_chart.html.twig`, `App\Statistics\BarChart`).
+- **Modération** (`App\Moderation\ModerationStatistics`) : temps moyen de traitement des signalements (30 derniers jours et depuis le début), motifs les plus fréquents, contenus les plus signalés, décisions prises (chaque décision d'un traitement combiné compte), avec le code couleur des sanctions.
 - **Accès rapides :** nouvelle catégorie, badges, voir le forum, voir les groupes, retour au site.
 
 **Menu :**
@@ -500,7 +514,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | Contrôleur | Rôle |
 |---|---|
 | `army_form` | Constructeur de listes d'armée |
-| `avatar` | Aperçu de l'avatar |
+| `profile_image` | Photo de profil et bannière : recadrage (Cropper.js) et aperçu |
 | `chat` | Salons de groupe |
 | `messenger` | Messagerie flottante |
 | `notifications` | Menu des notifications |
@@ -520,6 +534,15 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | `clipboard` | Copie dans le presse-papiers (export texte, lien de partage) |
 | `print` | Fenêtre d'impression du navigateur (version imprimable) |
 | `photo_viewer` | Page photo : agrandissement, flèches du clavier |
+| `markdown_editor` | Éditeur Markdown du forum |
+| `mention_suggest` | Suggestions de mention `@pseudo` |
+| `emoji_picker` | Sélecteur d'émoticônes |
+| `image_lightbox` | Agrandissement des images du forum |
+| `carousel` | Carrousels de photos de l'accueil |
+| `conversation_list` | Conversations remontées en direct |
+| `sortable` | Listes réordonnables (glisser-déposer et flèches) |
+| `sound_preview` | Écoute des sons de notification |
+| `tour` | Visites guidées du didacticiel (driver.js) |
 
 `assets/lib/realtime.js` centralise la connexion Pusher. Il lit sa configuration dans les balises `<meta name="hf-…">` de `base.html.twig`.
 
@@ -538,7 +561,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | Armées | `ArmyList` (format officiel ou liste libre, compteurs de vues, d'exports et de duplications), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
 | Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
 | Notifications | `Notification` (type, données, auteurs regroupés, lue) |
-| Modération | `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décision) |
+| Modération | `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décisions : la plus grave et la liste complète) |
 
 Le schéma de la base correspond exactement aux entités (plus aucune table orpheline).
 
@@ -632,10 +655,12 @@ HighlightForge/
 │   ├── Http/               SafeReferer (retour à la page précédente du site)
 │   ├── Image/              ImageCrop (cadre de recadrage des avatars et bannières)
 │   ├── Mailer/             TransactionalMailer (envoi de tous les e-mails)
-│   ├── Moderation/         ModerationService, ReportTargetResolver, énumérations (types, motifs, décisions, durées)
+│   ├── Moderation/         ModerationService, ModerationDecision, ModerationStatistics, ReportTargetResolver, énumérations (types, motifs, décisions, durées)
 │   ├── Repository/
+│   ├── Statistics/         DailyActivityHistory, BarChart (graphiques du tableau de bord)
 │   ├── Text/               MentionResolver (mentions @pseudo)
 │   ├── Todo/               TodoAssignmentManager (demandes et décisions d'assignation)
+│   ├── Tour/               TourCatalog, TourLauncher (visites guidées du didacticiel)
 │   ├── Security/           Voters, EmailVerifier, UserChecker, SubmissionThrottle, GroupMembershipResolver
 │   └── Service/            Gamification, Leaderboard, Notification(Renderer), Presence, Pusher, MemberBlocker,
 │                           AdminStats, Retention, Onboarding, BsDataFetcher, uploaders, ImageOptimizer
