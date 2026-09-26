@@ -90,6 +90,35 @@ Objectif : se différencier des réseaux sociaux génériques.
 
 ---
 
+## Cahier des charges spécifique (docs/CahierChargeSpecifique.md) 🔴
+
+Découpé en trois lots, du moins risqué au plus risqué.
+
+### Lot 1 — Finition ✅
+- [x] Forum : bouton « Répondre » du haut et signalement en double retirés, drapeau à la place du lien `#`, réactions en icône et compteur (bleu / rouge), images en plein écran.
+- [x] Éditeur : syntaxe en infobulles, sélecteur d'émoticônes commun, aides textuelles retirées, « Restez courtois » à côté du titre.
+- [x] Catégories : sous-catégories à gauche ou au centre selon la création de sujets, zone cliquable des lignes corrigée, icônes facultatives, catégories en lecture seule.
+- [x] Accueil : carrousels « Dernières créations » et « Tendances » côte à côte, fil à chargement automatique et défilement propre, filtre « Actualités », blocs latéraux masqués sur mobile, raccourcis en double retirés, bouton « Continuer la présentation ».
+- [x] Profil : boutons « Invitations » et « Mes listes d'armée » retirés, masquage des photos sans rechargement, bannière, liste d'amis d'un autre membre, couleur des badges honorifiques.
+- [x] Listes d'armée : compteurs de vues, d'exports et de duplications, colonne « les plus dupliquées / exportées ».
+- [x] Amis : suggestions par amis en commun.
+- [x] Messagerie : conversations remontées en direct, mentions `@pseudo` en liens, émoticônes.
+- [x] Recherche : sections et sujets du forum.
+- [x] Administration : lignes des signalements cliquables, historique de l'auteur, code couleur des sanctions.
+- [x] Table d'activité quotidienne des membres (données des futures statistiques).
+
+### Lot 2 — Groupes
+- [ ] Page des groupes en trois colonnes, tri par activité ou personnalisé, invitations (fenêtre, droits), suppression de `/group-invitation/list`.
+- [ ] Assignations de tâches : jusqu'à 3 membres par tâche (réglage 1, 2 ou 3), demandes à valider, mode libre.
+- [ ] Discussion : émoticônes, mentions avec notification, groupe muet ; signalement du groupe et des messages.
+
+### Lot 3 — Chantiers lourds
+- [ ] Didacticiel en visite guidée (« Je suis perdu »).
+- [ ] Traitement combiné des signalements (plusieurs décisions, un seul bouton « Traiter »).
+- [ ] Statistiques : temps moyen de traitement, récapitulatif des signalements, graphiques 30 jours (rétention, actifs quotidiens, inscriptions).
+
+---
+
 ## Phase 4 — Communauté et événements 🟠
 
 - [ ] **Événements de groupe** (L) : partie, tournoi ou soirée peinture, avec date, lieu, places, inscriptions, rappel la veille et export vers un calendrier (`.ics`).
@@ -178,6 +207,7 @@ Objectif : un espace d'annonces entre membres, type Leboncoin ou Vinted, spécia
 1. **Phase 1** : fondations (comptes, e-mails, modération).
 2. **Phase 2** : fil d'actualité et abonnements au forum, le plus gros effet sur la rétention.
 3. **Phase 3** : listes d'armée et galerie faites ; pile de la honte, suivi de peinture et parties reportés.
-4. **Phases 4 et 5**, selon les retours des membres.
-5. **Phase 6** : vente d'occasion, une fois la communauté assez active pour faire vivre les annonces.
-6. **Qualité technique** : en continu, avec les tests de chaque nouvelle fonctionnalité écrits en même temps qu'elle.
+4. **Cahier des charges spécifique** : lot 1 fait, puis lots 2 (groupes) et 3 (didacticiel, modération combinée, statistiques).
+5. **Phases 4 et 5**, selon les retours des membres.
+6. **Phase 6** : vente d'occasion, une fois la communauté assez active pour faire vivre les annonces.
+7. **Qualité technique** : en continu, avec les tests de chaque nouvelle fonctionnalité écrits en même temps qu'elle.

@@ -50,7 +50,7 @@
 
 ### Pages publiques
 ```
-/                                   Accueil (catégories racines du forum, vitrine de photos, preuve sociale)
+/                                   Accueil (carrousels « Dernières créations » et « Tendances de la semaine », preuve sociale)
 /login                              Connexion
 /register                           Inscription
 /mot-de-passe-oublie                Mot de passe oublié (e-mail ou pseudo)
@@ -64,6 +64,7 @@
 │   └── /forum/category/{slug}/new-thread   Nouveau sujet (si la catégorie l'autorise)
 └── /forum/thread/{slug}            Sujet et réponses (Markdown, citations, solution, suivi)
 /profil/{username}                  Profil public (onglets Galerie, Armées, Badges, Activité)
+├── /profil/{username}/amis         Amis d'un membre (indisponible entre membres bloqués)
 ├── /profil/{username}/album/{id}   Album de la galerie
 └── /profil/{username}/photo/{id}   Photo : album, agrandissement, précédente / suivante, likes, commentaires
 /army/explorer                      Explorer : listes d'armée publiques filtrables
@@ -79,9 +80,9 @@
 ```
 /bienvenue                          Présentation guidée (4 étapes)
 └── /bienvenue/etape/{1..4}
-/profil/settings/edit               Modifier mon profil (avatar, bio, faction favorite, visibilité de l'activité)
+/profil/settings/edit               Modifier mon profil (avatar, bannière, bio, faction favorite, visibilité de l'activité)
 /profil/settings/change-password    Changer mon mot de passe
-/friendship/list                    Mes amis, demandes reçues ou envoyées, bloqués
+/friendship/list                    Mes amis, demandes reçues ou envoyées, bloqués, suggestions d'amis
 /messages/                          Messagerie privée
 └── /messages/{username}            Conversation avec un ami
 /notifications                      Toutes mes notifications
@@ -143,7 +144,8 @@
 - **Barre du bas (mobile) :** les rubriques principales, toujours accessibles au pouce.
 - **Pied de page :**
   - liens légaux ;
-  - bouton **« Relancer la présentation »** qui rejoue l'onboarding.
+  - bouton **« Continuer la présentation »**, affiché seulement tant que la présentation n'est pas terminée ;
+  - à droite, une marge réservée à la messagerie flottante (pas de chevauchement).
 - **Messagerie flottante :** une fenêtre de discussion ouverte depuis n'importe quelle page.
 - **Toasts :** les messages flash et les notifications en direct.
 
@@ -181,11 +183,13 @@ L'onboarding se lance après l'inscription (`/bienvenue`). Il compte **4 étapes
 Fonctionnement :
 - l'avancement est mémorisé (`onboardingStep`, `onboardingCompletedAt`) ;
 - chaque étape peut être passée ;
-- le bouton du pied de page la relance à tout moment.
+- tant qu'elle n'est pas terminée, le bouton « Continuer la présentation » du pied de page la reprend à l'étape mémorisée.
 
 ### 3.3 Profil
 - **En-tête :**
+  - **bannière** choisie par le membre, ou le visuel par défaut ;
   - avatar, pseudo, **titre** (un badge choisi, affiché à côté du pseudo) ;
+  - compteur « Amis » cliquable : ses propres amis, ou la liste d'amis d'un autre membre (`/profil/{username}/amis`, amis en commun signalés) ;
   - niveau et barre d'XP, série de connexion ;
   - faction favorite et bio.
 - **Onglets** (contrôleur Stimulus `tabs`) :
@@ -197,13 +201,13 @@ Fonctionnement :
     - les badges non obtenus sont affichés en gris ;
     - un **historique d'XP** en bandeau déroulant, replié par défaut, séparé de l'activité du compte ;
   - **Activité** : les 10 dernières actions. Le membre peut masquer cet onglet (`showActivity`).
-- **Paramètres :** avatar (redimensionné et optimisé par `AvatarUploader` et `ImageOptimizerService`), bio, faction favorite, visibilité de l'activité.
+- **Paramètres :** avatar et **bannière** (`App\Profile\ProfileImage`, `ProfileImageUploader` : ré-encodage WebP 512 px pour l'avatar, 1920 px pour la bannière, dans `public/uploads/avatars` et `public/uploads/covers`), bio, faction favorite, visibilité de l'activité.
 - **Choix du titre :** parmi les badges obtenus (`POST /profil/settings/title`).
 
 ### 3.4 Galerie photo
 - **Envoi :** depuis son profil, 10 photos maximum. Les images sont converties et optimisées (`GalleryPhotoUploader`).
 - **Description :** facultative, 500 caractères maximum, modifiable par le propriétaire.
-- **Visibilité :** chaque photo peut être masquée ou affichée sans être supprimée.
+- **Visibilité :** chaque photo peut être masquée ou affichée sans être supprimée ; le bouton « œil » agit sans recharger la page (la vignette est rendue à nouveau par le serveur).
 - **Albums** (`GalleryAlbum`, `App\Service\GalleryAlbumManager`) : ils fonctionnent comme des dossiers, une photo appartient à un album au plus.
   - l'onglet Galerie affiche les albums (couverture = photo la plus récente, nombre de photos), puis les photos hors album ;
   - photos cochées (case en haut à gauche) : « Créer un album » dans la barre de sélection, ou « + » affiché sur chaque album existant pour les y ranger ;
@@ -216,32 +220,38 @@ Fonctionnement :
   - **likes** (une fois par membre, bouton sans rechargement) ;
   - **commentaires** : ajout, et suppression par l'auteur ou le propriétaire de la photo.
 - **Notifications :** le propriétaire est notifié des likes (regroupés : « X et 3 autres ont aimé… ») et des commentaires.
-- **Vitrine :** 12 photos sont mises en avant sur la page d'accueil.
-- **Tendances de la semaine :** sur l'accueil, les 6 photos qui ont reçu le plus de « J'aime » ces 7 derniers jours (section masquée tant qu'aucune photo n'a été aimée dans la semaine).
+- **Accueil :** deux carrousels côte à côte (10 photos chacun, 3 visibles, boutons précédent / suivant, glissement au doigt), à côté du bouton « Publier une photo » :
+  - **Dernières créations de la communauté** ;
+  - **Tendances de la semaine** : les photos les plus aimées ces 7 derniers jours, complétées par les plus aimées de tous les temps tant que la semaine n'en compte pas 10 (`GalleryPhotoRepository::findTrending`).
 
 ### Fil d'actualité (accueil des membres)
 - **Contenu** (`App\Feed\FeedService`) : activité **publique** des autres membres — photos visibles, nouveaux sujets, listes d'armée publiques, badges obtenus (regroupés par membre et par jour).
-- **Filtres** : Tout (amis + membres de mes groupes), Amis, Groupes, Communauté (tout le monde). Par défaut « Tout », ou « Communauté » tant que le membre n'a ni ami ni groupe.
-- **Réactions** : « J'aime » sur les photos directement depuis le fil, nombre de commentaires et de réponses, bouton « Répondre » sur les sujets.
-- **Pagination** : 12 éléments, puis « Voir plus d'activité » (Turbo Frame, curseur de date sans doublon ni oubli). Le changement de filtre ne recharge que le fil.
-- La vitrine de photos passe à une rangée pour les membres ; « Dernières discussions » passe dans la colonne de droite.
+- **Filtres** : Tout (amis + membres de mes groupes), Amis, Groupes, Communauté (tout le monde), **Actualités** (sujets des catégories du forum en lecture seule : nouveautés et changelog du site). Par défaut « Tout », ou « Communauté » tant que le membre n'a ni ami ni groupe.
+- **Réactions** : « J'aime » (cœur et compteur) sur les photos directement depuis le fil, commentaires et réponses (icône et compteur), alignés sur une même ligne ; bouton « Répondre » sur les sujets (« Lire » quand on ne peut pas répondre).
+- **Pagination** : 12 éléments ; la page suivante se charge automatiquement quand on arrive en bas (Turbo Frame `loading="lazy"`, curseur de date sans doublon ni oubli ; le lien « Voir plus » reste en secours). Sur grand écran, le fil défile dans sa propre zone. Le changement de filtre ne recharge que le fil.
+- « Dernières discussions », « Mes derniers sujets » et « Explorer les sections » sont dans la colonne de droite, masquée sur mobile. Les raccourcis déjà présents dans la barre de navigation ne sont pas répétés.
 
 ### 3.5 Forum
 - **Catégories hiérarchiques** (parent → enfant → petit-enfant, par exemple Warhammer → 40k → Space Marines) :
   - gérées dans EasyAdmin : parent, position, description ;
-  - l'option **« Création de sujets autorisée »** (`allowThreads`) : si elle est désactivée, la catégorie ne sert qu'à regrouper et affiche ses sous-catégories sous forme de liste ;
+  - l'option **« Création de sujets autorisée »** (`allowThreads`) : si elle est désactivée, la catégorie ne sert qu'à regrouper et affiche au centre la liste de ses sous-catégories (titre, description, liste) ; si elle est activée, ses sous-catégories sont dans une colonne à gauche et les sujets au centre ;
+  - l'option **« Lecture seule »** (`readOnly`, `CategoryVoter`) : seuls les administrateurs y créent des sujets et y répondent ; ces sujets alimentent le filtre « Actualités » du fil ;
+  - une **icône** facultative par catégorie ; sans icône, aucun pictogramme n'est affiché ;
   - **88 catégories** couvrent Warhammer (40k, Age of Sigmar, Horus Heresy, Old World, jeux spécialistes), les autres wargames, la peinture, le modélisme et maquettes, et la vie de la communauté. La commande `app:forum:seed-categories` les crée.
 - **Sujets :** titre et premier message ; création uniquement dans les catégories qui l'autorisent.
 - **Réponses :**
-  - deux types de vote, **« Positif »** et **« Aide »** (une fois par membre et par réponse) ;
+  - deux types de vote, **« Positif »** (bleu) et **« Aide »** (rouge), affichés en icône et compteur (une fois par membre et par réponse) ;
+  - le drapeau en haut à droite de chaque message ouvre le signalement ;
+  - les images des messages s'ouvrent en plein écran au clic (contrôleur `image-lightbox`, lien « Taille réelle ») ;
   - ces votes alimentent les badges Populaire et Dévoué.
 - **Éditeur Markdown** (sujets et réponses, contrôleur Stimulus `markdown-editor`) :
-  - barre d'outils (gras, italique, barré, citation, liste, lien, code, mention, image), raccourcis Ctrl+B / Ctrl+I / Ctrl+K, Ctrl+Entrée pour envoyer ;
+  - barre d'outils (gras, italique, barré, citation, liste, lien, code, mention, image, émoticônes), la syntaxe Markdown de chaque bouton en infobulle, raccourcis Ctrl+B / Ctrl+I / Ctrl+K, Ctrl+Entrée pour envoyer ;
   - onglet **Aperçu** rendu par le serveur (même rendu que le message publié) ;
   - **images** : bouton, coller ou glisser-déposer ; ré-encodées en WebP 1600 px dans `public/uploads/forum/`, 30 par jour et par membre ;
   - **brouillon** enregistré dans le navigateur, effacé à l'envoi.
 - **Rendu** (`App\Forum\ForumMarkdown`, filtre Twig `forum_markdown`) : HTML saisi échappé, liens externes en `nofollow` dans un nouvel onglet, seules les images envoyées sur le site sont affichées (une image externe devient un lien : pas de pistage des lecteurs). Les sauts de ligne sont conservés : les anciens messages s'affichent comme avant.
-- **Mentions `@pseudo`** : suggestions pendant la saisie, lien vers le profil, notification de la personne mentionnée (10 au plus par message).
+- **Mentions `@pseudo`** : suggestions pendant la saisie, lien vers le profil, notification de la personne mentionnée (10 au plus par message). Détection et résolution communes à tout le site : `App\Text\MentionResolver`.
+- **Émoticônes** : sélecteur commun (contrôleur `emoji-picker`, icône de casque de Space Marine), dans l'éditeur du forum et la messagerie.
 - **Citer** : le bouton « Citer » d'un message insère la citation (sans les citations imbriquées) dans la réponse.
 - **Abonnements** (`ThreadSubscription`) : l'auteur du sujet et chaque membre qui répond suivent automatiquement le sujet ; bouton « Suivre / Suivi » pour les autres. Chaque nouvelle réponse notifie les abonnés (un membre mentionné reçoit la mention plutôt que la réponse).
 - **Sujet résolu** : l'auteur du sujet (ou un administrateur) choisit la réponse « solution » (`ThreadVoter::SOLVE`). Le sujet affiche « Résolu » (liste du forum, fil d'actualité, en-tête avec lien vers la solution) ; l'auteur de la réponse gagne **+50 XP** (une fois par sujet) et reçoit une notification.
@@ -252,7 +262,7 @@ Fonctionnement :
   - envoi d'une demande depuis le profil ;
   - accepter, refuser, retirer un ami, bloquer ou débloquer ;
   - notifications pour une demande reçue et une demande acceptée ;
-  - page `/friendship/list` avec les onglets amis, demandes et bloqués.
+  - page `/friendship/list` avec les onglets amis, demandes et bloqués, et une colonne de **suggestions** : jusqu'à 8 amis d'amis, les plus d'amis en commun d'abord (hors demandes en cours et membres bloqués).
 - **Blocage** (`UserBlock`, `App\Service\MemberBlocker`) :
   - depuis le menu « … » du profil ; refuser une demande d'ami bloque aussi le demandeur ;
   - bloquer supprime l'amitié ou la demande en cours, donc la messagerie privée entre les deux membres ;
@@ -262,6 +272,8 @@ Fonctionnement :
   - **réservés aux amis** ;
   - pages `/messages` et `/messages/{username}`, plus une **messagerie flottante** ouvrable partout ;
   - envoi et réception **en temps réel** (Pusher, canaux privés), accusés de lecture, compteur de non-lus ;
+  - la page `/messages` classe les conversations par activité la plus récente et fait remonter en direct celle qui reçoit un message (contrôleur `conversation-list`) ;
+  - **mentions `@pseudo`** transformées en lien vers le profil, sans notification (`MentionResolver::linkify`, filtre Twig `mention_links`) ; **émoticônes** dans la page de conversation et la messagerie flottante ;
   - protégés par CSRF (identifiant `private_message`).
 
 ### 3.7 Groupes
@@ -323,6 +335,7 @@ Fonctionnement :
 - **Page d'une liste** : conformité (liste officielle), composition, menu **Exporter** (texte de l'application officielle à copier, téléchargement `.txt`, version imprimable / PDF, lien de partage), **Dupliquer**.
 - **Import** (`/army/import`, `App\Army\ArmyListTextFormat`) : texte de l'application officielle ou export SprueHub ; faction (détectée ou choisie), format, détachement, unités (nom anglais ou français), taille déduite des points, Seigneur de guerre et améliorations. Les lignes non reconnues sont listées ; une liste officielle qui enfreint les règles est importée en liste libre. La liste importée est privée.
 - **Explorer** (`/army/explorer`, accessible sans compte) : listes publiques de tous les membres, filtres faction, détachement, format et recherche (nom ou membre), 12 par page.
+- **Audience** (`App\Army\ArmyListStatistics`) : compteurs de **vues**, d'**exports** (texte téléchargé, version imprimable) et de **duplications**, sans les actions de l'auteur ; une vue et un export comptent une fois par session de visiteur. Colonne de droite de « Mes listes » et de l'Explorer : **les plus dupliquées** et **les plus exportées**.
 - **Visibilité :** une liste privée n'est visible que par son auteur. Les listes publiques apparaissent dans l'onglet Armées du profil et dans l'Explorer ; leur page est consultable sans compte.
 
 ### 3.10 Gamification
@@ -349,7 +362,7 @@ Fonctionnement :
 | Niveau | Héroïque / Légendaire / Immortel | Niveau 10 / 25 / 50 |
 | Spécial | Avant-garde | Faire partie des 1000 premiers inscrits |
 
-- **Paliers de couleur** selon l'XP du badge : bronze (jusqu'à 100), argent (101 à 200), or (201 à 300), premium (plus de 300).
+- **Paliers de couleur** selon l'XP du badge : bronze (jusqu'à 100), argent (101 à 200), or (201 à 300), premium (plus de 300) ; les badges **honorifiques** (sans XP : Immortel, Avant-garde) ont leur propre couleur, turquoise.
 - **Rareté :** le pourcentage des membres qui possèdent chaque badge.
 - **Titres :** un badge obtenu peut être affiché à côté du pseudo.
 - **Classement** (`/classement`) :
@@ -381,9 +394,10 @@ Fonctionnement :
 - **Écriture en base :** au plus une fois toutes les 25 s.
 - **Statut en ligne :** un membre est considéré en ligne s'il a donné signe de vie depuis moins de **90 s**.
 - **Affichage :** dans la carte « Utilisateurs actifs » du tableau de bord admin, avec un **rond vert**.
+- **Activité quotidienne** (`MemberDailyActivity`) : le premier signal de chaque jour enregistre une ligne par membre et par jour, base des futures statistiques (actifs quotidiens, rétention).
 
 ### 3.13 Recherche
-- **Barre de recherche** dans l'en-tête, résultats instantanés (`/search/api`).
+- **Barre de recherche** dans l'en-tête, résultats instantanés (`/search/api`) : membres, groupes publics, **sections du forum** (catégories et sous-catégories, avec leur parent) et **sujets** (avec leur catégorie).
 
 ### 3.14 Modération
 - **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus et profils (menu « … »). Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
@@ -392,7 +406,7 @@ Fonctionnement :
   - **Masquer** (réponse, sujet, photo) : les membres voient « masqué par la modération », l'équipe de modération (modérateurs et administrateurs) voit toujours le contenu. Un sujet masqué a son message d'ouverture masqué et est fermé. Une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher. Réversible (« Rétablir le contenu ») ;
   - **Supprimer** (tous les contenus sauf un profil) : définitif ; supprimer le message d'ouverture supprime tout le sujet ;
   - **Avertir** l'auteur avec un message ;
-  - **Suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif ;
+  - **Suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif (décision « suspendu temporairement » ou « banni définitivement ») ;
   - **Classer sans suite**.
 - Une décision clôt tous les signalements en attente du même contenu. L'auteur est prévenu par une notification et un e-mail (masquage, suppression, avertissement, suspension).
 - **Sanctions :** depuis la fiche d'un membre (`/admin/moderation/member/{id}`, action « Sanctions » de la liste des utilisateurs) : suspendre ou lever la sanction. Une suspension temporaire expirée ne compte plus, sans tâche planifiée (`User::isSuspended()`).
@@ -437,10 +451,11 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 - Organisation : Tâches.
 
 **Particularités :**
-- Catégories : choix du parent, affichage du chemin complet (« Warhammer › 40k › Space Marines »), option de création de sujets.
+- Catégories : choix du parent, affichage du chemin complet (« Warhammer › 40k › Space Marines »), options de création de sujets et de lecture seule, icône.
 - Sujets : on ne peut choisir qu'une catégorie qui autorise les sujets.
 - Badges : **lecture seule**. La source de vérité est `App\Gamification\BadgeCatalog`, synchronisé par `app:gamification:sync-badges`.
-- Signalements : **lecture seule**, filtres par statut, type et motif ; l'action « Traiter » ouvre la page de décision (voir 3.14).
+- Signalements : **lecture seule**, filtres par statut, type, motif et décision ; un clic sur la ligne ouvre la page de décision (voir 3.14), qui liste aussi l'**historique des signalements visant l'auteur**, chacun cliquable.
+- **Code couleur des sanctions** (`ReportResolution::severity()`, `assets/styles/admin.css`) : rouge = bannissement définitif, orange = suspension temporaire, jaune = contenu supprimé ou masqué sans bannissement.
 
 ---
 
@@ -495,13 +510,13 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 
 | Domaine | Entités |
 |---|---|
-| Comptes | `User` (XP, série, onboarding, titre, dernière activité, son de notification, suspension), `ResetPasswordRequest` (liens de mot de passe oublié) |
-| Forum | `Category` (arbre `parent`/`children`, `allowThreads`), `Thread` (`solutionPost`), `Post` (Markdown, masquage par la modération), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
+| Comptes | `User` (XP, série, onboarding, titre, bannière, dernière activité, son de notification, suspension), `ResetPasswordRequest` (liens de mot de passe oublié), `MemberDailyActivity` (jours d'activité) |
+| Forum | `Category` (arbre `parent`/`children`, `allowThreads`, `readOnly`, icône), `Thread` (`solutionPost`), `Post` (Markdown, masquage par la modération), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
 | Social | `Friendship` (en attente, acceptée), `UserBlock` (blocage entre membres), `PrivateConversation`, `PrivateMessage` |
 | Galerie | `GalleryAlbum` (albums), `GalleryPhoto` (album, description, visibilité, masquage par la modération), `GalleryPhotoLike`, `GalleryPhotoComment` |
 | Groupes | `Group` (public, `todoWriteRole`, `todoViewRole`, `pinRole`), `GroupMember` (rôle), `GroupChannel` (`canRead`/`canWrite`), `GroupMessage` (épinglé), `GroupInvitation` |
 | Tâches | `TodoNode` (arbre liste, catégorie, tâche ; progression ; assignation ; personnel ou de groupe) |
-| Armées | `ArmyList` (format officiel ou liste libre), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
+| Armées | `ArmyList` (format officiel ou liste libre, compteurs de vues, d'exports et de duplications), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
 | Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
 | Notifications | `Notification` (type, données, auteurs regroupés, lue) |
 | Modération | `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décision) |

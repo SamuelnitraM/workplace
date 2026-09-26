@@ -224,3 +224,24 @@ Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_i
 ## Cartes de choix avec description
 
 `.choice-card` accepte une icône, un titre et une ligne d'explication (formulaire de signalement, type de liste d'armée) ; le bouton radio peut être masqué (`sr-only`), l'état coché reste visible par la bordure et le fond.
+
+## Infobulles
+
+`data-tooltip="Texte"` sur un bouton ou un lien : bulle affichée au survol et au focus clavier (masquée sur les écrans tactiles). Garder un `aria-label` : l'infobulle est purement visuelle.
+
+## Sélecteur d'émoticônes
+
+`<div data-controller="emoji-picker" data-emoji-picker-input-value="id-du-champ"></div>` : le contrôleur construit lui-même le bouton (casque de Space Marine) et le panneau. `data-emoji-picker-placement-value="down"` ouvre le panneau vers le bas (barre d'outils en haut d'un champ). Sans `input`, l'émoticône va dans le premier champ texte du formulaire parent. La liste est dans `assets/lib/emoji.js`.
+
+## Réactions
+
+`.reaction .reaction-positive` (bleu *primary*) et `.reaction .reaction-helpful` (rouge) sur un `.btn-toggle` ou un `.chip` : icône et compteur seuls, le libellé passe dans `aria-label`.
+
+## Carrousel de photos
+
+`templates/home/_photo_carousel.html.twig` (contrôleur `carousel`) : liste à défilement horizontal aimanté, trois photos visibles, boutons précédent / suivant désactivés aux extrémités.
+
+## Paliers de badges
+
+`.badge-tier-bronze|silver|gold|premium|honorary` : les badges honorifiques (sans XP) ont leur propre couleur, turquoise.
+
