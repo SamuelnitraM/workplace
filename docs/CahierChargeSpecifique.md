@@ -195,6 +195,6 @@
 ## Découpage en lots
 
 1. **Lot 1 — Finition (fait) :** sections 1, 3 (hors didacticiel), 4, 5, 6, 7 et 8 ; lignes cliquables et code couleur des sanctions en administration. Le sélecteur d'émoticônes et la détection des mentions `@pseudo` sont réalisés une seule fois sous forme de composants communs (forum, groupes, messagerie). La table d'activité quotidienne des membres est créée dès ce lot afin d'alimenter les statistiques du lot 3.
-2. **Lot 2 — Groupes :** page en trois colonnes, tri personnalisé, invitations, assignations multiples avec demande et validation, groupe muet.
+2. **Lot 2 — Groupes (fait) :** page en trois colonnes, tri personnalisé, invitations, assignations multiples avec demande et validation, groupe muet.
 3. **Lot 3 — Chantiers lourds :** didacticiel en visite guidée, traitement combiné des signalements, statistiques d'activité (rétention, actifs quotidiens, inscriptions).
 

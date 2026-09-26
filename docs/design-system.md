@@ -253,3 +253,15 @@ Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_i
 
 `templates/_partials/_crop_dialog.html.twig` dans un bloc `data-controller="profile-image"` (valeur `aspect-ratio`) : le fichier choisi s'ouvre dans la fenêtre de recadrage, le cadre part avec le formulaire (`<type>_crop`).
 
+
+## Interrupteur
+
+`<button type="submit" role="switch" aria-checked="true|false" class="switch"><span class="switch-thumb"></span></button>` dans un formulaire POST, avec un libellé relié par `aria-labelledby` : tri des groupes, sourdine d'un groupe.
+
+## Liste réordonnable
+
+`stimulus_controller('sortable', {url, token})` sur la liste, `data-sortable-target="item"`, `data-id` et `draggable="true"` sur chaque ligne, poignée `.sortable-handle` (icône `grip-vertical`) et boutons `sortable#moveUp` / `sortable#moveDown` pour le clavier et le tactile. Chaque déplacement envoie l'ordre complet (`ids[]`) en POST.
+
+## Pile d'avatars
+
+`.avatar-stack` : avatars `xs` qui se chevauchent (suggestions de groupes, assignés d'une catégorie). Trois au plus, complétés par un texte (« 4 amis sont dans ce groupe »).

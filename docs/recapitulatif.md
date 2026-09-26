@@ -72,7 +72,8 @@
 ├── /army/{id}/imprimer             Version imprimable (composition et fiches techniques, PDF)
 └── /army/{id}/export.txt           Export texte (format de l'application officielle)
 /classement                         Classement général (filtres)
-/groups/                            Liste des groupes
+/groups/                            Groupes : invitations reçues, mes groupes, suggestions (visiteur : groupes publics)
+/groups/publics                     Groupes publics
 └── /groups/{slug}                  Groupe (selon visibilité et adhésion)
 ```
 
@@ -86,12 +87,11 @@
 /messages/                          Messagerie privée
 └── /messages/{username}            Conversation avec un ami
 /notifications                      Toutes mes notifications
-/group-invitation/list              Mes invitations de groupe
 /groups/new                         Créer un groupe
 /groups/{slug}/edit                 Paramètres du groupe (admin ou propriétaire)
 /groups/{slug}/todo/                Tâches du groupe
 /todo/                              Mes tâches personnelles
-/signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil)
+/signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil, groupe, message-groupe)
 /army/                              Mes listes d'armée
 ├── /army/new                       Créer une liste
 ├── /army/import                    Importer une liste au format texte
@@ -122,7 +122,11 @@
 | `POST /pusher/auth` | Autorisation d'accès aux canaux privés Pusher |
 | `GET /search/api` | Recherche globale (barre de recherche de l'en-tête) |
 | `GET /fil?fil=…&apres=…` | Pages suivantes du fil d'actualité (« Voir plus », Turbo Frame) |
-| `POST /forum/editor/preview`, `POST /forum/editor/image`, `GET /forum/editor/mentions` | Éditeur Markdown : aperçu, envoi d'image, suggestions de mention |
+| `POST /forum/editor/preview`, `POST /forum/editor/image` | Éditeur Markdown : aperçu, envoi d'image |
+| `GET /mentions?q=` | Suggestions de mention `@pseudo` (forum, messagerie, salons) |
+| `POST /groups/tri`, `POST /groups/ordre`, `POST /groups/{slug}/sourdine` | Tri de mes groupes (activité ou personnalisé), ordre personnalisé, sourdine d'un groupe |
+| `POST /group-invitation/group/{slug}` | Inviter plusieurs amis depuis la page du groupe |
+| `POST /groups/{slug}/todo/task/{id}/request`, `…/task/{id}/assign`, `…/assignment/{id}/{accept\|refuse\|remove\|withdraw}` | Assignations des tâches de groupe |
 | `POST /forum/thread/{slug}/subscription`, `POST /forum/thread/{slug}/solution/{postId}` | Suivre un sujet, choisir la solution |
 | `GET /notifications/recent`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | Menu des notifications |
 | `GET /messages/ajax/conversations`, `GET /messages/ajax/messages/{username}`, `POST /messages/ajax/send/{username}`, `POST /messages/ajax/read/{id}`, `GET /messages/ajax/notification-context` | Messagerie flottante |
@@ -280,29 +284,42 @@ Fonctionnement :
 
 ### 3.7 Groupes
 - **Création :** nom, description, public ou privé. Le créateur en devient **propriétaire**.
-- **Rôles :** `member` (1), `admin` (2), `owner` (3). Les droits s'appliquent au rôle choisi et aux rôles supérieurs.
+- **Rôles :** `member` (1), `admin` (2), `owner` (3). Les droits s'appliquent au rôle choisi et aux rôles supérieurs. Seul le propriétaire est signalé, par une couronne.
+- **Page des groupes** (`/groups/`, `App\Group\GroupDirectory`) en trois colonnes :
+  - à gauche, les **invitations reçues** (ancre `#invitations`, cible des notifications d'invitation), avec Accepter et Refuser ;
+  - au centre, **mes groupes**, triés par **activité la plus récente** (dernier message) ou dans **mon ordre personnalisé** (interrupteur, glisser-déposer ou flèches ; `User::groupSortMode`, `GroupMember::position`) ;
+  - à droite, les **suggestions** : groupes publics où sont mes amis (2 ou 3 avatars et « N amis sont dans ce groupe »), puis groupes publics populaires ;
+  - le visiteur voit les groupes publics ; la liste complète est sur `/groups/publics`.
 - **Adhésion :**
-  - on rejoint librement un groupe public ;
-  - un groupe privé se rejoint sur **invitation** (invitation envoyée depuis le profil d'un membre et page `/group-invitation/list`) ;
-  - on peut quitter un groupe ;
-  - les admins et le propriétaire peuvent exclure un membre.
+  - on rejoint librement un groupe public ouvert aux demandes ;
+  - un groupe privé se rejoint sur **invitation**, envoyée depuis le profil d'un membre ou depuis le bouton **Inviter** du groupe (fenêtre : recherche, sélection multiple d'amis, bouton fixe en bas) ; envoi centralisé dans `App\Group\GroupInvitationSender` ;
+  - réglage **« Qui peut inviter »** (`inviteRole`) ; dans un groupe en accès libre (public et ouvert aux demandes), tous les membres invitent ;
+  - on peut quitter un groupe ; les admins et le propriétaire peuvent exclure un membre.
 - **Salons (channels) :**
   - plusieurs salons par groupe, chacun avec des droits de lecture et d'écriture (`canRead` / `canWrite`) par rôle ;
-  - messages **en temps réel** ;
+  - messages **en temps réel**, sélecteur d'émoticônes, mentions `@pseudo` (suggestions, liens, notification de la personne mentionnée) ;
+  - **sourdine** par membre (`GroupMember::muted`) : plus de notification de message, mais les mentions notifient toujours ;
+  - **signalement** du groupe entier (son propriétaire en répond) et de chaque message ;
   - suppression d'un salon par les admins.
 - **Messages épinglés :**
   - épingler ou désépingler un message, avec un bandeau des épinglés en haut du salon ;
   - l'épinglage est diffusé en direct ;
   - réglage **« Qui peut épingler »** (`pinRole`).
+- **Colonne des tâches** sur la page du groupe (grand écran) : progression de chaque projet et de ses catégories, lien vers la page des tâches.
 - **Tâches du groupe** (`/groups/{slug}/todo/`) :
-  - arborescence **liste → catégorie → tâche**, avec une progression par tâche (augmenter, diminuer, valider) ;
-  - réglage **« Qui peut écrire »** (`todoWriteRole`, par défaut admin) : ces rédacteurs ont tous les droits (créer, renommer, supprimer, assigner) ;
-  - réglage **« Qui peut tout voir »** (`todoViewRole`) : ces lecteurs voient toute la liste sans pouvoir la modifier ;
-  - un membre **assigné à une catégorie** fait avancer toutes les tâches de cette catégorie et peut y créer des tâches ;
-  - un membre **assigné à une tâche** ne fait avancer que cette tâche et ne peut pas en créer ;
-  - les autres membres ne voient que ce qui leur est assigné ;
-  - les règles sont centralisées dans `GroupVoter` et `TodoNodeVoter`.
-- **Paramètres** (`/groups/{slug}/edit`) : informations, salons et leurs droits, réglages des tâches et des épingles, membres, suppression du groupe (propriétaire uniquement).
+  - arborescence **projet → catégorie → tâche**, projets repliés par défaut ; progression par tâche (augmenter, diminuer, valider) ; la progression d'une catégorie est la moyenne de ses tâches, calculée automatiquement et non modifiable ;
+  - réglage **« Qui peut modifier »** (`todoWriteRole`, par défaut admin) : ces rédacteurs créent, renomment, suppriment et font progresser toutes les tâches ;
+  - réglage **« Qui peut tout voir »** (`todoViewRole`) : ces lecteurs voient toute la liste et peuvent demander à être assignés ;
+  - les autres membres ne voient que ce qui leur est assigné.
+- **Assignations** (`TodoAssignment`, `App\Todo\TodoAssignmentManager`) :
+  - jusqu'à **3 membres par tâche**, réglage **« Membres par tâche »** 1, 2 ou 3 (`maxAssigneesPerTask`) ;
+  - réglage **« Gestion des assignations »** (`assignmentRole`) : admins et propriétaire, propriétaire seul, ou **mode libre** ;
+  - une **demande** d'assignation attend la décision d'un gestionnaire (avatar grisé ; fenêtre Accepter ou Refuser au clic) ; en mode libre, le membre s'assigne directement ;
+  - seuls les gestionnaires (admins et propriétaire, ou le propriétaire seul) assignent un membre et retirent un assigné, y compris en mode libre ;
+  - un membre assigné fait progresser sa tâche ; chaque catégorie affiche les avatars de ses assignés et leur nombre de tâches ;
+  - notifications : demande reçue (gestionnaires), demande acceptée ou refusée, assignation par un gestionnaire.
+- Les règles sont centralisées dans `GroupVoter` et `TodoNodeVoter`.
+- **Paramètres** (`/groups/{slug}/edit`) : informations et droit d'inviter, salons et leurs droits (liste défilante), réglages des tâches, des assignations et des épingles, membres, suppression du groupe (propriétaire uniquement).
 
 ### 3.8 Tâches personnelles
 - **Page :** `/todo/` suit la même structure que les tâches de groupe (liste, catégorie, tâche, progression), mais pour soi seul.
@@ -374,9 +391,9 @@ Fonctionnement :
 - **Notifications :** badge obtenu, niveau atteint.
 
 ### 3.11 Notifications
-- **13 types :**
+- **15 types :**
   - amis : demande d'ami, ami accepté ;
-  - groupes : invitation de groupe, invitation acceptée, message de groupe ;
+  - groupes : invitation de groupe, invitation acceptée, message de groupe, mention dans un salon, assignation de tâche (demande, acceptation, refus, assignation) ;
   - forum : réponse sur le forum, mention `@pseudo`, réponse choisie comme solution ;
   - galerie : like de photo, commentaire de photo ;
   - gamification : badge obtenu, niveau atteint ;
@@ -402,7 +419,7 @@ Fonctionnement :
 - **Barre de recherche** dans l'en-tête, résultats instantanés (`/search/api`) : membres, groupes publics, **sections du forum** (catégories et sous-catégories, avec leur parent) et **sujets** (avec leur catégorie).
 
 ### 3.14 Modération
-- **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus et profils (menu « … »). Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
+- **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus, profils (menu « … »), groupes et messages de groupe. Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
 - **Signalement** (`Report`) : l'extrait du contenu, son auteur et son lien sont enregistrés au moment du signalement, pour garder un historique lisible même après modification ou suppression.
 - **Décisions** (`App\Moderation\ModerationService`, point d'entrée unique) :
   - **Masquer** (réponse, sujet, photo) : les membres voient « masqué par la modération », l'équipe de modération (modérateurs et administrateurs) voit toujours le contenu. Un sujet masqué a son message d'ouverture masqué et est fermé. Une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher. Réversible (« Rétablir le contenu ») ;
@@ -516,8 +533,8 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | Forum | `Category` (arbre `parent`/`children`, `allowThreads`, `readOnly`, icône), `Thread` (`solutionPost`), `Post` (Markdown, masquage par la modération), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
 | Social | `Friendship` (en attente, acceptée), `UserBlock` (blocage entre membres), `PrivateConversation`, `PrivateMessage` |
 | Galerie | `GalleryAlbum` (albums), `GalleryPhoto` (album, description, visibilité, masquage par la modération), `GalleryPhotoLike`, `GalleryPhotoComment` |
-| Groupes | `Group` (public, `todoWriteRole`, `todoViewRole`, `pinRole`), `GroupMember` (rôle), `GroupChannel` (`canRead`/`canWrite`), `GroupMessage` (épinglé), `GroupInvitation` |
-| Tâches | `TodoNode` (arbre liste, catégorie, tâche ; progression ; assignation ; personnel ou de groupe) |
+| Groupes | `Group` (public, `inviteRole`, `todoWriteRole`, `todoViewRole`, `assignmentRole`, `maxAssigneesPerTask`, `pinRole`), `GroupMember` (rôle, position, sourdine), `GroupChannel` (`canRead`/`canWrite`), `GroupMessage` (épinglé), `GroupInvitation` |
+| Tâches | `TodoNode` (arbre projet, catégorie, tâche ; progression ; personnel ou de groupe), `TodoAssignment` (membre assigné à une tâche : en attente ou accepté) |
 | Armées | `ArmyList` (format officiel ou liste libre, compteurs de vues, d'exports et de duplications), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
 | Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
 | Notifications | `Notification` (type, données, auteurs regroupés, lue) |
@@ -538,7 +555,7 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 - **Anti-spam :** limites d'envoi centralisées (voir 3.15).
 - **Voters** (`src/Security/Voter/`) : ils centralisent les règles d'accès, au lieu de vérifications répétées dans les contrôleurs.
   - `GroupVoter` : `VIEW`, `MEMBER`, `MANAGE`, `OWNER`, `INVITE`, `JOIN`, `TODO_WRITE`, `TODO_VIEW_ALL` ;
-  - `TodoNodeVoter` : `TODO_VIEW`, `TODO_EDIT`, `TODO_DELETE`, `TODO_PROGRESS`, `TODO_ASSIGN`, `TODO_CREATE_CHILD` ;
+  - `TodoNodeVoter` : `TODO_VIEW`, `TODO_EDIT`, `TODO_DELETE`, `TODO_PROGRESS`, `TODO_ASSIGN`, `TODO_REQUEST_ASSIGNMENT`, `TODO_WITHDRAW_REQUEST`, `TODO_CREATE_CHILD` ;
   - `GroupMembershipResolver` met en cache les adhésions pendant la requête.
 - **CSRF** sur **toutes** les actions POST, formulaires et AJAX.
 - **Canaux Pusher privés :** chaque abonnement est autorisé côté serveur par `/pusher/auth`, qui vérifie l'appartenance à la conversation ou au groupe.
@@ -608,12 +625,17 @@ HighlightForge/
 │   │   └── *.php           Un contrôleur par rubrique (Forum, Thread, Group, GroupTodo, ArmyList, Profil…)
 │   ├── Entity/             Entités Doctrine (§6)
 │   ├── EventSubscriber/    Connexion quotidienne (XP), déconnexion (présence), membres suspendus…
+│   ├── Feed/               FeedService, FeedItem (fil d'actualité)
 │   ├── Form/               Types de formulaires
 │   ├── Gamification/       BadgeCatalog
+│   ├── Group/              GroupDirectory (mes groupes, tri, suggestions), GroupInvitationSender
 │   ├── Http/               SafeReferer (retour à la page précédente du site)
+│   ├── Image/              ImageCrop (cadre de recadrage des avatars et bannières)
 │   ├── Mailer/             TransactionalMailer (envoi de tous les e-mails)
 │   ├── Moderation/         ModerationService, ReportTargetResolver, énumérations (types, motifs, décisions, durées)
 │   ├── Repository/
+│   ├── Text/               MentionResolver (mentions @pseudo)
+│   ├── Todo/               TodoAssignmentManager (demandes et décisions d'assignation)
 │   ├── Security/           Voters, EmailVerifier, UserChecker, SubmissionThrottle, GroupMembershipResolver
 │   └── Service/            Gamification, Leaderboard, Notification(Renderer), Presence, Pusher, MemberBlocker,
 │                           AdminStats, Retention, Onboarding, BsDataFetcher, uploaders, ImageOptimizer
@@ -622,7 +644,7 @@ HighlightForge/
 │   ├── _partials/shell/         En-tête, barre du bas, pied de page, recherche, toasts, messagerie
 │   ├── form/theme.html.twig     Thème de formulaire global
 │   ├── email/                   Modèles d'e-mails (gabarit commun layout.html.twig)
-│   ├── admin/ army/ forum/ friendship/ gallery/ gamification/ group/ group_invitation/
+│   ├── admin/ army/ forum/ friendship/ gallery/ gamification/ group/
 │   ├── group_todo/ home/ leaderboard/ legal/ notification/ onboarding/ private_message/
 │   ├── profil/ registration/ report/ reset_password/ security/ styleguide/ thread/ todo/
 │   └── base.html.twig           Gabarit principal
