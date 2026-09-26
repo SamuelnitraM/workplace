@@ -1,6 +1,7 @@
 {#
-    Éditeur Markdown du forum (réponse, nouveau sujet) : barre d'outils, onglets Écrire / Aperçu,
-    envoi d'images (bouton, coller, glisser-déposer), suggestions de mention @pseudo, brouillon local.
+    Éditeur Markdown du forum (réponse, nouveau sujet) : barre d'outils (syntaxe expliquée en infobulle),
+    émoticônes, onglets Écrire / Aperçu, envoi d'images (bouton, coller, glisser-déposer),
+    suggestions de mention @pseudo, brouillon local.
 
     Le contrôleur Stimulus « markdown-editor » doit être posé sur un élément PARENT (il peut englober
     d'autres boutons, ex. « Citer » sur les messages du sujet) avec les attributs de
@@ -11,14 +12,14 @@
 {% import '_macros/ui.html.twig' as ui %}
 {% set input_id = field.vars.id %}
 {% set tools = [
-    {style: 'bold', icon: 'bold', label: 'Gras', shortcut: 'Ctrl+B'},
-    {style: 'italic', icon: 'italic', label: 'Italique', shortcut: 'Ctrl+I'},
-    {style: 'strike', icon: 'strikethrough', label: 'Barré'},
-    {style: 'quote', icon: 'quote', label: 'Citation'},
-    {style: 'list', icon: 'list', label: 'Liste à puces'},
-    {style: 'link', icon: 'link', label: 'Lien', shortcut: 'Ctrl+K'},
-    {style: 'code', icon: 'code', label: 'Code'},
-    {style: 'mention', icon: 'at-sign', label: 'Mentionner un membre'},
+    {style: 'bold', icon: 'bold', label: 'Gras', syntax: '**texte**', shortcut: 'Ctrl+B'},
+    {style: 'italic', icon: 'italic', label: 'Italique', syntax: '_texte_', shortcut: 'Ctrl+I'},
+    {style: 'strike', icon: 'strikethrough', label: 'Barré', syntax: '~~texte~~'},
+    {style: 'quote', icon: 'quote', label: 'Citation', syntax: '> texte'},
+    {style: 'list', icon: 'list', label: 'Liste à puces', syntax: '- élément'},
+    {style: 'link', icon: 'link', label: 'Lien', syntax: '[texte](https://…)', shortcut: 'Ctrl+K'},
+    {style: 'code', icon: 'code', label: 'Code', syntax: '`code`'},
+    {style: 'mention', icon: 'at-sign', label: 'Mentionner un membre', syntax: '@pseudo'},
 ] %}
 <div class="md-editor">
     <div class="md-editor-bar">
@@ -31,9 +32,12 @@
         <div class="md-editor-tools" role="toolbar" aria-label="Mise en forme" aria-controls="{{ input_id }}" data-markdown-editor-target="tools">
             {% for tool in tools %}
                 <button type="button" class="md-editor-tool" data-action="markdown-editor#format" data-markdown-editor-style-param="{{ tool.style }}"
-                        aria-label="{{ tool.label }}" title="{{ tool.label }}{% if tool.shortcut is defined %} ({{ tool.shortcut }}){% endif %}">{{ ui.icon(tool.icon, 'size-4') }}</button>
+                        aria-label="{{ tool.label }}{% if tool.shortcut is defined %} ({{ tool.shortcut }}){% endif %}"
+                        data-tooltip="{{ tool.label }} : {{ tool.syntax }}{% if tool.shortcut is defined %} · {{ tool.shortcut }}{% endif %}">{{ ui.icon(tool.icon, 'size-4') }}</button>
             {% endfor %}
-            <button type="button" class="md-editor-tool" data-action="markdown-editor#pickImage" aria-label="Ajouter une image" title="Ajouter une image (ou collez / glissez-la dans le texte)">{{ ui.icon('image-plus', 'size-4') }}</button>
+            <button type="button" class="md-editor-tool" data-action="markdown-editor#pickImage" aria-label="Ajouter une image"
+                    data-tooltip="Image : bouton, ou collez / glissez-la dans le texte">{{ ui.icon('image-plus', 'size-4') }}</button>
+            <div data-controller="emoji-picker" data-emoji-picker-input-value="{{ input_id }}" data-emoji-picker-placement-value="down"></div>
         </div>
     </div>
 
@@ -60,9 +64,6 @@
     </div>
 
     <div class="md-editor-footer">
-        <p class="md-editor-hint">
-            <span class="hidden sm:inline">Markdown : **gras**, _italique_, &gt; citation, - liste · </span>@pseudo pour mentionner · images : coller ou glisser
-        </p>
         <p class="md-editor-status" role="status" aria-live="polite" data-markdown-editor-target="status"></p>
     </div>
     <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden data-markdown-editor-target="file" data-action="change->markdown-editor#onFileChosen">

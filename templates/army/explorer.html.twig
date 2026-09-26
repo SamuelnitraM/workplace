@@ -4,7 +4,7 @@
 {% block title %}Explorer les listes d'armée — SprueHub{% endblock %}
 
 {% block body %}
-<div class="max-w-5xl mx-auto">
+<div class="mx-auto max-w-7xl">
 
     <header class="page-header">
         <div>
@@ -14,65 +14,69 @@
         </div>
     </header>
 
-    <form method="get" class="card mb-6" role="search" aria-label="Filtrer les listes">
-        <div class="card-body grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="field">
-                <label for="explorer-q" class="label">Recherche</label>
-                <input type="search" id="explorer-q" name="q" value="{{ filters.q }}" class="input" placeholder="Nom de liste ou membre">
-            </div>
-            <div class="field">
-                <label for="explorer-faction" class="label">Faction</label>
-                <select id="explorer-faction" name="faction" class="select">
-                    <option value="">Toutes</option>
-                    {% for group in factionGroups %}
-                        <optgroup label="{{ group.label }}">
-                            {% for faction in group.factions %}
-                                <option value="{{ faction.value }}" {{ faction.value == filters.faction ? 'selected' }}>{{ faction.value }}</option>
+    <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        <div class="min-w-0">
+            <form method="get" class="card mb-6" role="search" aria-label="Filtrer les listes">
+                <div class="card-body grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="field">
+                        <label for="explorer-q" class="label">Recherche</label>
+                        <input type="search" id="explorer-q" name="q" value="{{ filters.q }}" class="input" placeholder="Nom de liste ou membre">
+                    </div>
+                    <div class="field">
+                        <label for="explorer-faction" class="label">Faction</label>
+                        <select id="explorer-faction" name="faction" class="select">
+                            <option value="">Toutes</option>
+                            {% for group in factionGroups %}
+                                <optgroup label="{{ group.label }}">
+                                    {% for faction in group.factions %}
+                                        <option value="{{ faction.value }}" {{ faction.value == filters.faction ? 'selected' }}>{{ faction.value }}</option>
+                                    {% endfor %}
+                                </optgroup>
                             {% endfor %}
-                        </optgroup>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label for="explorer-detachment" class="label">Détachement</label>
-                <select id="explorer-detachment" name="detachment" class="select" {{ detachments is empty ? 'disabled' }}>
-                    <option value="">{{ detachments is empty ? 'Choisis une faction' : 'Tous' }}</option>
-                    {% for detachment in detachments %}
-                        <option value="{{ detachment.name }}" {{ detachment.name == filters.detachment ? 'selected' }}>{{ detachment.nameFr ?: detachment.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label for="explorer-format" class="label">Format</label>
-                <select id="explorer-format" name="format" class="select">
-                    <option value="">Tous</option>
-                    {% for size in battleSizes %}
-                        <option value="{{ size.value }}" {{ size.value == filters.format ? 'selected' }}>{{ size.label }} ({{ size.pointsLimit }} pts)</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="card-footer">
-            {% if filters.q or filters.faction or filters.format %}<a href="{{ path('app_army_explorer') }}" class="btn btn-ghost">Réinitialiser</a>{% endif %}
-            <button type="submit" class="btn btn-primary">{{ ui.icon('filter') }}Filtrer</button>
-        </div>
-    </form>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="explorer-detachment" class="label">Détachement</label>
+                        <select id="explorer-detachment" name="detachment" class="select" {{ detachments is empty ? 'disabled' }}>
+                            <option value="">{{ detachments is empty ? 'Choisis une faction' : 'Tous' }}</option>
+                            {% for detachment in detachments %}
+                                <option value="{{ detachment.name }}" {{ detachment.name == filters.detachment ? 'selected' }}>{{ detachment.nameFr ?: detachment.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="explorer-format" class="label">Format</label>
+                        <select id="explorer-format" name="format" class="select">
+                            <option value="">Tous</option>
+                            {% for size in battleSizes %}
+                                <option value="{{ size.value }}" {{ size.value == filters.format ? 'selected' }}>{{ size.label }} ({{ size.pointsLimit }} pts)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    {% if filters.q or filters.faction or filters.format %}<a href="{{ path('app_army_explorer') }}" class="btn btn-ghost">Réinitialiser</a>{% endif %}
+                    <button type="submit" class="btn btn-primary">{{ ui.icon('filter') }}Filtrer</button>
+                </div>
+            </form>
 
-    {% if lists.totalItemCount == 0 %}
-        {{ include('_partials/_empty_state.html.twig', {
-            icon: 'swords',
-            title: 'Aucune liste publique ne correspond',
-            text: 'Élargis les filtres, ou publie ta propre liste pour lancer la tendance.',
-        }) }}
-    {% else %}
-        <p class="mb-3 text-small text-muted">{{ lists.totalItemCount }} liste{{ lists.totalItemCount > 1 ? 's' }}</p>
-        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {% for list in lists %}
-                <li class="flex">{{ include('army/_card.html.twig', {list: list, show_visibility: false, show_owner: true}) }}</li>
-            {% endfor %}
-        </ul>
-        <div class="mt-6">{{ knp_pagination_render(lists, 'forum/_pagination.html.twig') }}</div>
-    {% endif %}
-
+            {% if lists.totalItemCount == 0 %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'swords',
+                    title: 'Aucune liste publique ne correspond',
+                    text: 'Élargis les filtres, ou publie ta propre liste pour lancer la tendance.',
+                }) }}
+            {% else %}
+                <p class="mb-3 text-small text-muted">{{ lists.totalItemCount }} liste{{ lists.totalItemCount > 1 ? 's' }}</p>
+                <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {% for list in lists %}
+                        <li class="flex">{{ include('army/_card.html.twig', {list: list, show_visibility: false, show_owner: true}) }}</li>
+                    {% endfor %}
+                </ul>
+                <div class="mt-6">{{ knp_pagination_render(lists, 'forum/_pagination.html.twig') }}</div>
+            {% endif %}
+        </div>
+        {{ include('army/_popular_sidebar.html.twig', {mostDuplicated: mostDuplicated, mostExported: mostExported}, with_context = false) }}
+    </div>
 </div>
 {% endblock %}

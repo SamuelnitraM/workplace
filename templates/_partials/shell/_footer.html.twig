@@ -1,4 +1,4 @@
-{# Compact footer. Logged-in member (desktop): the messenger bar, fixed at the bottom right, covers the right end of the row, hence a side gap instead of a bottom margin. #}
+{# Compact footer; the presentation link is shown only while the member has not completed it. Logged-in member (desktop): the messenger bar, fixed at the bottom right, covers the right end of the row, hence a side gap instead of a bottom margin. #}
 {% import '_macros/ui.html.twig' as ui %}
 <footer class="app-footer">
     <div class="container-app flex flex-col-reverse items-center gap-1.5 py-3 text-center md:flex-row md:justify-between md:gap-6 md:text-left{{ app.user ? ' md:pr-72' : '' }}">
@@ -6,13 +6,8 @@
         <nav aria-label="Liens du pied de page" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             <a href="{{ path('app_legal') }}">Mentions légales</a>
             <a href="{{ path('app_terms') }}">Conditions d’utilisation</a>
-            {% if app.user %}
-                <form method="post" action="{{ path('app_onboarding_restart') }}" class="contents">
-                    <input type="hidden" name="_token" value="{{ csrf_token('onboarding') }}">
-                    <button type="submit" class="inline-flex items-center gap-1.5">
-                        {{ ui.icon('compass', 'size-4') }}Relancer la présentation
-                    </button>
-                </form>
+            {% if app.user and app.user.onboardingCompletedAt is null %}
+                <a href="{{ path('app_onboarding') }}" class="inline-flex items-center gap-1.5">{{ ui.icon('compass', 'size-4') }}Continuer la présentation</a>
             {% endif %}
         </nav>
     </div>

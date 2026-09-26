@@ -67,6 +67,26 @@ class ModerationTest extends FunctionalTestCase
         self::assertSelectorTextNotContains('#post-' . $reply->getId(), 'Contenu insultant');
     }
 
+    public function testPermanentSuspensionFromAReportIsRecordedAsABan(): void
+    {
+        $alice = $this->createMember('alice');
+        $bob = $this->createMember('bob');
+        $admin = $this->createMember('admin', ['ROLE_ADMIN']);
+        $reply = $this->createThreadWithReply($alice, $bob);
+        $this->client->loginUser($alice);
+        $crawler = $this->client->request('GET', '/signaler/reponse/' . $reply->getId());
+        $this->client->submit($crawler->selectButton('Envoyer le signalement')->form(['report_form[reason]' => 'harassment']));
+        $report = $this->entityManager()->getRepository(Report::class)->findOneBy([]);
+        $this->client->loginUser($this->reload($admin));
+        $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
+        self::assertSelectorTextContains('body', 'Historique des signalements visant bob');
+        $this->client->submit($crawler->selectButton('Suspendre')->form(['duration' => 'permanent', 'note' => 'Harcèlement']));
+        $this->entityManager()->clear();
+        self::assertSame(ReportResolution::Banned, $this->entityManager()->find(Report::class, $report->getId())->getResolution());
+        $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
+        self::assertSelectorTextContains('.sanction-ban', 'Auteur banni définitivement');
+    }
+
     public function testMembersCannotReportTheirOwnContent(): void
     {
         $alice = $this->createMember('alice');

@@ -12,6 +12,7 @@ import { Controller } from '@hotwired/stimulus';
  *       <input type="hidden" name="liked" data-like-target="intent">
  *       <button type="submit" data-like-target="button"><span aria-hidden="true">♡</span>
  *         <span data-like-target="label">…</span> <span data-like-target="count">…</span></button>
+ *     (the label target is optional: compact buttons show only the heart and the counter)
  *     </form>
  *     <p class="hidden" data-like-target="error" role="alert"></p>
  *   </div>
@@ -28,7 +29,7 @@ export default class extends Controller {
         this.intentTarget.value = liked ? '0' : '1';
         button.setAttribute('aria-pressed', liked ? 'true' : 'false');
         button.querySelector('[aria-hidden]').textContent = liked ? '♥' : '♡';
-        this.labelTarget.textContent = liked ? 'Je n’aime plus' : 'J’aime';
+        if (this.hasLabelTarget) this.labelTarget.textContent = liked ? 'Je n’aime plus' : 'J’aime';
         this.countTarget.textContent = count;
         ['is-liked'].forEach(c => button.classList.toggle(c, liked));
         ['is-not-liked'].forEach(c => button.classList.toggle(c, !liked));

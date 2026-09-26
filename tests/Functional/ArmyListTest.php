@@ -123,6 +123,31 @@ class ArmyListTest extends FunctionalTestCase
         self::assertCount(1, $copies[0]->getUnits());
     }
 
+    public function testAudienceCountersIgnoreTheOwnerAndCountViewsOncePerSession(): void
+    {
+        $alice = $this->createMember('alice');
+        $this->client->loginUser($alice);
+        $this->submitNewList(null, [['factionUnitId' => $this->catalogue['captain']->getId(), 'quantity' => 1]], true);
+        $list = $this->entityManager()->getRepository(ArmyList::class)->findOneBy([]);
+        $listUrl = '/army/' . $list->getId();
+        $this->client->request('GET', $listUrl);
+        $this->client->request('GET', $listUrl . '/export.txt');
+        $this->client->loginUser($this->reload($this->createMember('bob')));
+        $this->client->request('GET', $listUrl);
+        $crawler = $this->client->request('GET', $listUrl);
+        $this->client->request('GET', $listUrl . '/export.txt');
+        $this->client->request('GET', $listUrl . '/imprimer');
+        $this->client->submit($crawler->selectButton('Dupliquer dans mes listes')->form());
+        $this->entityManager()->clear();
+        $list = $this->entityManager()->find(ArmyList::class, $list->getId());
+        self::assertSame(1, $list->getViewCount());
+        self::assertSame(1, $list->getExportCount());
+        self::assertSame(1, $list->getDuplicationCount());
+        $this->client->request('GET', '/army/explorer');
+        self::assertSelectorTextContains('[aria-labelledby="most-duplicated-title"]', 'Liste de test');
+        self::assertSelectorTextContains('[aria-labelledby="most-exported-title"]', 'Liste de test');
+    }
+
     public function testDatasheetFragmentShowsTheProfile(): void
     {
         $this->client->request('GET', '/army/fiche?unit=' . $this->catalogue['squad']->getId());

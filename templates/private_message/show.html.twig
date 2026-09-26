@@ -77,7 +77,7 @@
                                 <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('H:i') }}</time>
                                 {%- if not _own %} <a href="{{ path('app_report', {type: 'message', id: message.id}) }}" class="link text-muted" rel="nofollow" aria-label="Signaler ce message" title="Signaler ce message">{{ ui.icon('flag', 'size-3.5') }}</a>{% endif -%}
                             </div>
-                            <div class="chat-bubble">{{ message.content }}</div>
+                            <div class="chat-bubble">{{ message.content|mention_links }}</div>
                         </div>
                     </div>
                 {% endfor %}
@@ -109,6 +109,7 @@
                        maxlength="2000"
                        required
                        class="input flex-1 rounded-pill px-4">
+                <div data-controller="emoji-picker" data-emoji-picker-input-value="message-input"></div>
                 <button type="submit" class="btn btn-primary btn-icon shrink-0 rounded-pill" aria-label="Envoyer le message">
                     {{- ui.icon('send') -}}
                 </button>

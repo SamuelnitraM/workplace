@@ -109,7 +109,7 @@ class ModerationService
     public function suspendAuthor(Report $report, User $moderator, SuspensionDuration $duration, string $reason): void
     {
         $author = $report->getTargetAuthor() ?? throw new \LogicException('The reported content has no author anymore.');
-        $this->closeReportsOfTarget($report, ReportResolution::Suspended, $moderator, $reason);
+        $this->closeReportsOfTarget($report, ReportResolution::forSuspension($duration), $moderator, $reason);
         $this->suspend($author, $duration, $reason);
     }
 

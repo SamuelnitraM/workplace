@@ -43,9 +43,10 @@
                     <ul class="list-group list-group-flush">
                         {% for report in reports %}
                             <li class="list-group-item px-0 small">
-                                <a href="{{ path('admin_moderation_report', {id: report.id}) }}">#{{ report.id }}</a>
-                                {{ report.createdAt|date('d/m/Y') }} · {{ report.targetType.label }} · {{ report.reason.label }}
-                                {% if report.pending %}<span class="badge bg-warning text-dark">en attente</span>{% else %}<span class="badge bg-secondary">{{ report.resolution.label }}</span>{% endif %}
+                                <a href="{{ path('admin_moderation_report', {id: report.id}) }}" class="moderation-history-item">
+                                    <span>#{{ report.id }} · {{ report.createdAt|date('d/m/Y') }} · {{ report.targetType.label }} · {{ report.reason.label }}</span>
+                                    {% if report.pending %}<span class="badge bg-warning text-dark">en attente</span>{% else %}<span class="badge sanction sanction-{{ report.resolution.severity }}">{{ report.resolution.label }}</span>{% endif %}
+                                </a>
                             </li>
                         {% endfor %}
                     </ul>

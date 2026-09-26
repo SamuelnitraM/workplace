@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Army\ArmyListCounter;
 use App\Army\BattleSize;
 use App\Entity\ArmyList;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -48,5 +49,25 @@ class ArmyListRepository extends ServiceEntityRepository
                 ->setParameter('search', '%' . addcslashes($search, '%_\\') . '%');
         }
         return $queryBuilder->getQuery();
+    }
+
+    /**
+     * Public lists with the highest value of a counter (lists never counted are left out), owner loaded.
+     *
+     * @return ArmyList[]
+     */
+    public function findMostCounted(ArmyListCounter $counter, int $limit): array
+    {
+        $property = 'armyList.' . $counter->property();
+        return $this->createQueryBuilder('armyList')
+            ->addSelect('owner')
+            ->innerJoin('armyList.owner', 'owner')
+            ->where('armyList.isPublic = true')
+            ->andWhere($property . ' > 0')
+            ->orderBy($property, 'DESC')
+            ->addOrderBy('armyList.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 }

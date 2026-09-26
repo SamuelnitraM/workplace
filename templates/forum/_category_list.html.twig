@@ -1,9 +1,9 @@
 {# Liste de catégories en lignes (à placer dans une .card).
    Paramètres : children (Category[]), threadTotals (sujets, sous-catégories incluses),
                 lastActivities (id => date de dernière activité, sous-catégories incluses ; tableau vide = inconnu),
-                icon (facultatif, défaut 'folder'), heading (niveau du titre de ligne, défaut 3) #}
+                heading (niveau du titre de ligne, défaut 3).
+   Each row shows the category's own icon when one is configured; subcategory chips carry no icon. #}
 {% import '_macros/ui.html.twig' as ui %}
-{% set row_icon = icon ?? 'folder' %}
 {% set row_heading = heading ?? 3 %}
 {% set activities = lastActivities ?? [] %}
 <ul role="list">
@@ -11,7 +11,7 @@
         {% set total = threadTotals[child.id] ?? 0 %}
         {% set last = activities[child.id] ?? null %}
         <li class="list-row list-row-interactive relative items-start">
-            <span class="icon-tile mt-0.5" aria-hidden="true">{{ ui.icon(row_icon) }}</span>
+            {% if child.icon %}<span class="icon-tile mt-0.5" aria-hidden="true">{{ ui.icon(child.icon) }}</span>{% endif %}
             <div class="list-row-main">
                 <h{{ row_heading }} class="font-semibold text-fg leading-snug">
                     {# Lien étiré : toute la ligne est cliquable (les sous-catégories restent au-dessus) #}
@@ -22,12 +22,11 @@
                     <p class="mt-0.5 text-small text-fg-secondary line-clamp-2">{{ child.description }}</p>
                 {% endif %}
                 {% if child.children|length > 0 %}
-                    <ul class="relative mt-2 flex flex-wrap gap-1.5" aria-label="Sous-catégories de {{ child.name }}">
+                    {# The chip list lets clicks through to the row link; only the chips themselves capture them #}
+                    <ul class="pointer-events-none relative mt-2 flex flex-wrap gap-1.5" aria-label="Sous-catégories de {{ child.name }}">
                         {% for grandChild in child.children %}
-                            <li>
-                                <a href="{{ path('app_forum_category', {slug: grandChild.slug}) }}" class="chip">
-                                    {{- ui.icon('folder') }}{{ grandChild.name -}}
-                                </a>
+                            <li class="pointer-events-auto">
+                                <a href="{{ path('app_forum_category', {slug: grandChild.slug}) }}" class="chip">{{ grandChild.name }}</a>
                             </li>
                         {% endfor %}
                     </ul>

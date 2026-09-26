@@ -4,7 +4,7 @@
 {% block title %}Mes amis{% endblock %}
 
 {% block body %}
-<div class="container-reading">
+<div class="mx-auto max-w-6xl">
 
     <header class="page-header">
         <div>
@@ -16,7 +16,8 @@
         </div>
     </header>
 
-    <div class="space-y-6">
+    <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div class="min-w-0 space-y-6">
 
         {# DEMANDES REÇUES #}
         {% if pendingReceived is not empty %}
@@ -179,6 +180,36 @@
             </div>
 
         </section>
+    </div>
+
+    {# Friend suggestions: friends of friends, the most mutual friends first #}
+    <aside class="card lg:sticky lg:top-[calc(var(--header-h)+1rem)]" aria-labelledby="suggestions-title">
+        <div class="card-header">
+            <h2 id="suggestions-title" class="flex items-center gap-2 text-h3">{{ ui.icon('user-plus', 'size-5 text-muted') }}Suggestions</h2>
+        </div>
+        {% if suggestions is empty %}
+            <p class="card-body text-small text-muted">Les amis de vos amis apparaîtront ici. Ajoutez quelques amis pour recevoir des suggestions.</p>
+        {% else %}
+            <ul role="list">
+                {% for suggestion in suggestions %}
+                    {% set candidate = suggestion.user %}
+                    <li class="list-row">
+                        <a href="{{ path('app_profil_show', {username: candidate.username}) }}" class="flex min-w-0 flex-1 items-center gap-3 rounded-control">
+                            {{- ui.avatar(candidate, 'sm') -}}
+                            <span class="min-w-0">
+                                <span class="block truncate text-small font-semibold text-fg hover:text-primary-text">{{ candidate.username }}</span>
+                                <span class="block text-caption text-muted">{{ suggestion.mutual }} ami{{ suggestion.mutual > 1 ? 's' }} en commun</span>
+                            </span>
+                        </a>
+                        <form method="post" action="{{ path('app_friendship_request', {username: candidate.username}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
+                            <button type="submit" class="btn btn-secondary btn-icon btn-sm" aria-label="Ajouter {{ candidate.username }} en ami" title="Ajouter en ami">{{ ui.icon('user-plus', 'size-4') }}</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </aside>
     </div>
 </div>
 {% endblock %}

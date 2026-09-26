@@ -50,6 +50,7 @@ class ModerationController extends AbstractController
             'targetAvailable' => $targetAvailable,
             'targetHidden' => $targetAvailable && $this->moderation->isTargetHidden($report),
             'relatedReports' => $this->reportRepository->findAllForTarget($report->getTargetType(), $report->getTargetId()),
+            'authorHistory' => $report->getTargetAuthor() !== null ? $this->reportRepository->findForTargetAuthor($report->getTargetAuthor()) : [],
             'canSuspendAuthor' => $report->getTargetAuthor() !== null && $this->isGranted(MemberSanctionVoter::SANCTION, $report->getTargetAuthor()),
             'durations' => SuspensionDuration::cases(),
             'csrfTokenId' => self::DECISION_CSRF_PREFIX . $report->getId(),

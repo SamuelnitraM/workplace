@@ -21,11 +21,11 @@ final class HomeController extends AbstractController
     /** En dessous de ce nombre de membres, les compteurs sont masqués (preuve sociale peu flatteuse). */
     public const SOCIAL_PROOF_MIN_MEMBERS = 100;
 
-    /** Nombre de photos affichées dans la vitrine « Dernières créations de la communauté ». */
-    public const SHOWCASE_PHOTOS = 12;
+    /** Nombre de photos du carrousel « Dernières créations de la communauté ». */
+    public const SHOWCASE_PHOTOS = 10;
 
-    /** Trends: most liked photos of the last days. */
-    public const TRENDING_PHOTOS = 6;
+    /** Trends carousel: most liked photos of the last days (completed with the most liked of all time). */
+    public const TRENDING_PHOTOS = 10;
     public const TRENDING_PERIOD = '-7 days';
 
     #[Route('/', name: 'app_home')]
@@ -53,10 +53,10 @@ final class HomeController extends AbstractController
             ];
         }
 
-        // Vitrine : dernières photos visibles (propriétaire joint) + compteurs agrégés
+        // Carrousels : dernières photos visibles et tendances (propriétaire joint) + compteurs agrégés
         $showcasePhotos = $galleryPhotoRepository->findLatestVisible(self::SHOWCASE_PHOTOS);
-        $showcaseStats = $galleryPhotoRepository->getStatsForPhotos($showcasePhotos);
-        $trendingPhotos = $galleryPhotoRepository->findMostLikedSince(new \DateTimeImmutable(self::TRENDING_PERIOD), self::TRENDING_PHOTOS);
+        $trendingPhotos = array_column($galleryPhotoRepository->findTrending(new \DateTimeImmutable(self::TRENDING_PERIOD), self::TRENDING_PHOTOS), 'photo');
+        $photoStats = $galleryPhotoRepository->getStatsForPhotos(array_merge($showcasePhotos, $trendingPhotos));
 
         // Catégories racines uniquement
         $categories = $categoryRepository->findBy(['parent' => null], ['position' => 'ASC']);
@@ -85,8 +85,8 @@ final class HomeController extends AbstractController
             'stats' => $stats,
             'earlyMemberLimit' => BadgeCatalog::EARLY_MEMBER_LIMIT,
             'showcasePhotos' => $showcasePhotos,
-            'showcaseStats' => $showcaseStats,
             'trendingPhotos' => $trendingPhotos,
+            'photoStats' => $photoStats,
             'categories' => $categories,
             'latestPosts' => $latestPosts,
             'userDashboard' => $userDashboard,

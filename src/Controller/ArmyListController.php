@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Army\ArmyListComposer;
+use App\Army\ArmyListCounter;
+use App\Army\ArmyListStatistics;
 use App\Army\ArmyListRules;
 use App\Army\ArmyListTextFormat;
 use App\Army\BattleSize;
@@ -34,11 +36,14 @@ class ArmyListController extends AbstractController
 {
     private const CSRF_FORM = 'army_list';
     private const EXPLORER_PER_PAGE = 12;
+    /** Entries of each block of the popular lists column. */
+    private const POPULAR_LISTS = 5;
 
     public function __construct(
         private readonly ArmyListComposer $composer,
         private readonly ArmyListRules $rules,
         private readonly EntityManagerInterface $em,
+        private readonly ArmyListStatistics $statistics,
     ) {
     }
 
@@ -49,7 +54,7 @@ class ArmyListController extends AbstractController
     {
         return $this->render('army/index.html.twig', [
             'lists' => $armyListRepository->findBy(['owner' => $this->getUser()], ['createdAt' => 'DESC']),
-        ]);
+        ] + $this->popularLists($armyListRepository));
     }
 
     /** Public lists of every member, filterable. */
@@ -73,7 +78,7 @@ class ArmyListController extends AbstractController
             'detachments' => $faction !== '' ? $detachmentRepository->findBy(['faction' => $faction], ['name' => 'ASC']) : [],
             'battleSizes' => BattleSize::cases(),
             'filters' => ['faction' => $faction, 'detachment' => $detachment, 'format' => $battleSize?->value, 'q' => $search],
-        ]);
+        ] + $this->popularLists($armyListRepository));
     }
 
     // Créer une nouvelle liste
@@ -178,6 +183,7 @@ class ArmyListController extends AbstractController
     {
         $armyList = $armyListRepository->find($id) ?? throw $this->createNotFoundException('Liste introuvable');
         $this->denyAccessUnlessGranted(ArmyListVoter::VIEW, $armyList);
+        $this->statistics->record($armyList, ArmyListCounter::View);
         return $this->render('army/show.html.twig', [
             'armyList' => $armyList,
             'unitGroups' => $this->groupUnits($armyList, $factionUnitRepository),
@@ -192,6 +198,7 @@ class ArmyListController extends AbstractController
     {
         $armyList = $armyListRepository->find($id) ?? throw $this->createNotFoundException('Liste introuvable');
         $this->denyAccessUnlessGranted(ArmyListVoter::VIEW, $armyList);
+        $this->statistics->record($armyList, ArmyListCounter::Export);
         return $this->render('army/print.html.twig', [
             'armyList' => $armyList,
             'unitGroups' => $this->groupUnits($armyList, $factionUnitRepository),
@@ -204,6 +211,7 @@ class ArmyListController extends AbstractController
     {
         $armyList = $armyListRepository->find($id) ?? throw $this->createNotFoundException('Liste introuvable');
         $this->denyAccessUnlessGranted(ArmyListVoter::VIEW, $armyList);
+        $this->statistics->record($armyList, ArmyListCounter::Export);
         $response = new Response($textFormat->export($armyList), Response::HTTP_OK, ['Content-Type' => 'text/plain; charset=UTF-8']);
         $fileName = ($slugger->slug((string) $armyList->getName())->lower()->toString() ?: 'liste') . '.txt';
         $response->headers->set('Content-Disposition', $response->headers->makeDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $fileName));
@@ -276,6 +284,7 @@ class ArmyListController extends AbstractController
         $copy = $source->duplicateFor($user, mb_substr('Copie de ' . $source->getName(), 0, ArmyListComposer::NAME_MAX_LENGTH));
         $this->em->persist($copy);
         $this->em->flush();
+        $this->statistics->record($source, ArmyListCounter::Duplication);
         $this->addFlash('success', 'Liste copiée dans tes listes d\'armée : elle est privée tant que tu ne la publies pas.');
         return $this->redirectToRoute('app_army_edit', ['id' => $copy->getId()]);
     }
@@ -354,6 +363,19 @@ class ArmyListController extends AbstractController
      *
      * @return string|null error message, or null when the list can be saved
      */
+    /**
+     * Blocks of the right column: the public lists most duplicated and most exported by other members.
+     *
+     * @return array{mostDuplicated: ArmyList[], mostExported: ArmyList[]}
+     */
+    private function popularLists(ArmyListRepository $armyListRepository): array
+    {
+        return [
+            'mostDuplicated' => $armyListRepository->findMostCounted(ArmyListCounter::Duplication, self::POPULAR_LISTS),
+            'mostExported' => $armyListRepository->findMostCounted(ArmyListCounter::Export, self::POPULAR_LISTS),
+        ];
+    }
+
     private function composeAndCheck(Request $request, ArmyList $armyList): ?string
     {
         $error = $this->composer->apply($request, $armyList);

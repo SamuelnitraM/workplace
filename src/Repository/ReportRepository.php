@@ -55,4 +55,14 @@ class ReportRepository extends ServiceEntityRepository
     {
         return $this->findBy(['targetType' => $targetType, 'targetId' => $targetId], ['createdAt' => 'DESC']);
     }
+
+    /**
+     * Every report about the contents of a member, most recent first (moderation history of the member).
+     *
+     * @return Report[]
+     */
+    public function findForTargetAuthor(User $author): array
+    {
+        return $this->findBy(['targetAuthor' => $author], ['createdAt' => 'DESC']);
+    }
 }

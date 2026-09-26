@@ -40,4 +40,23 @@ class ThreadRepository extends ServiceEntityRepository
     //            ->getOneOrNullResult()
     //        ;
     //    }
+
+    /**
+     * Forum threads whose title contains the query (site search), the most recently active first, category loaded.
+     *
+     * @return Thread[]
+     */
+    public function searchByTitle(string $query, int $limit): array
+    {
+        return $this->createQueryBuilder('t')
+            ->addSelect('c')
+            ->innerJoin('t.category', 'c')
+            ->where('t.title LIKE :query')
+            ->setParameter('query', '%' . addcslashes($query, '%_\\') . '%')
+            ->orderBy('t.updatedAt', 'DESC')
+            ->addOrderBy('t.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 }

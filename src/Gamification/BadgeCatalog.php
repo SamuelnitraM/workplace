@@ -74,12 +74,15 @@ final class BadgeCatalog
     public const TIER_SILVER = 'silver';
     public const TIER_GOLD = 'gold';
     public const TIER_PREMIUM = 'premium';
+    /** Honorary badges (no XP reward) have a colour of their own. */
+    public const TIER_HONORARY = 'honorary';
 
     public const TIER_LABELS = [
         self::TIER_BRONZE => 'Bronze',
         self::TIER_SILVER => 'Argent',
         self::TIER_GOLD => 'Or',
         self::TIER_PREMIUM => 'Premium',
+        self::TIER_HONORARY => 'Honorifique',
     ];
 
     /**
@@ -156,6 +159,7 @@ final class BadgeCatalog
     public static function tierFor(int $xp): string
     {
         return match (true) {
+            $xp === 0 => self::TIER_HONORARY,
             $xp > 300 => self::TIER_PREMIUM,
             $xp > 200 => self::TIER_GOLD,
             $xp > 100 => self::TIER_SILVER,

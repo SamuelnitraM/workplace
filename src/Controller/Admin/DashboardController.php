@@ -6,6 +6,7 @@ use App\Repository\ReportRepository;
 use App\Service\AdminStatsService;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\MenuItem;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractDashboardController;
@@ -77,6 +78,11 @@ class DashboardController extends AbstractDashboardController
             ->setTitle('SprueHub Admin')
             ->setFaviconPath('favicon.ico')
             ->renderContentMaximized();
+    }
+
+    public function configureAssets(): Assets
+    {
+        return parent::configureAssets()->addCssFile('styles/admin.css');
     }
 
     public function configureMenuItems(): iterable

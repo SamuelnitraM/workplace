@@ -41,6 +41,18 @@ class Category
     private bool $allowThreads = true;
 
     /**
+     * Read-only category: only administrators may create threads or reply; other members can only read.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $readOnly = false;
+
+    /**
+     * Optional icon name (templates/_partials/_icon.html.twig) shown next to the category; none when null.
+     */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $icon = null;
+
+    /**
      * @var Collection<int, Thread>
      */
     #[ORM\OneToMany(targetEntity: Thread::class, mappedBy: 'category', orphanRemoval: true, fetch: 'EXTRA_LAZY')]
@@ -148,6 +160,30 @@ class Category
     public function setAllowThreads(bool $allowThreads): static
     {
         $this->allowThreads = $allowThreads;
+
+        return $this;
+    }
+
+    public function isReadOnly(): bool
+    {
+        return $this->readOnly;
+    }
+
+    public function setReadOnly(bool $readOnly): static
+    {
+        $this->readOnly = $readOnly;
+
+        return $this;
+    }
+
+    public function getIcon(): ?string
+    {
+        return $this->icon;
+    }
+
+    public function setIcon(?string $icon): static
+    {
+        $this->icon = $icon !== '' ? $icon : null;
 
         return $this;
     }

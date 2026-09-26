@@ -8,7 +8,6 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     gallery_directory: '%kernel.project_dir%/public/uploads/gallery'
-    avatars_directory: '%kernel.project_dir%/public/uploads/avatars'
     forum_images_directory: '%kernel.project_dir%/public/uploads/forum'
 services:
     # default configuration for services in *this* file

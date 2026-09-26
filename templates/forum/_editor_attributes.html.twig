@@ -1,6 +1,7 @@
 {#- Attributs du contrôleur Stimulus « markdown-editor » (à inclure DANS la balise ouvrante de l'élément parent).
-    Paramètre facultatif : draft_key (clé du brouillon local, ex. « reply-<slug> » ; vide = pas de brouillon). -#}
-data-controller="markdown-editor"
+    Paramètre facultatif : draft_key (clé du brouillon local, ex. « reply-<slug> » ; vide = pas de brouillon).
+    with_controller (default true): false when the element declares data-controller itself (several controllers). -#}
+{% if with_controller ?? true %}data-controller="markdown-editor"{% endif %}
 data-markdown-editor-preview-url-value="{{ path('app_forum_editor_preview') }}"
 data-markdown-editor-image-url-value="{{ path('app_forum_editor_image') }}"
 data-markdown-editor-mentions-url-value="{{ path('app_forum_editor_mentions') }}"

@@ -44,12 +44,6 @@ final class OnboardingService
         $user->setOnboardingStep(max($user->getOnboardingStep(), $step));
     }
 
-    /** Relance la présentation : étape 1, bannière réaffichée ; les données déjà saisies sont conservées. Pas de flush. */
-    public function restart(User $user): void
-    {
-        $user->setOnboardingCompletedAt(null)->setOnboardingStep(1);
-    }
-
     public function complete(User $user): void
     {
         $user->setOnboardingCompletedAt(new \DateTimeImmutable())->setOnboardingStep(self::STEP_COUNT);

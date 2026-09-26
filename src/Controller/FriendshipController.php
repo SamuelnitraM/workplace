@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Friendship;
 use App\Entity\Notification;
 use App\Entity\User;
+use App\Http\SafeReferer;
 use App\Repository\FriendshipRepository;
 use App\Repository\NotificationRepository;
 use App\Repository\UserBlockRepository;
@@ -24,6 +25,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/friendship', name: 'app_friendship_')]
 class FriendshipController extends AbstractController
 {
+    /** Friend suggestions shown next to the friend list. */
+    public const SUGGESTIONS_LIMIT = 8;
+
     // Envoyer une demande d'ami
     #[Route('/request/{username}', name: 'request', methods: ['POST'])]
     public function request(
@@ -83,7 +87,8 @@ class FriendshipController extends AbstractController
         );
 
         $this->addFlash('success', 'Demande d\'ami envoyée à ' . $targetUser->getUsername() . ' !');
-        return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+        // Back to the page of the request (profile, friend suggestions)
+        return $this->redirect(SafeReferer::urlOr($request, $this->generateUrl('app_profil_show', ['username' => $username])));
     }
 
     // Accepter une demande d'ami
@@ -246,6 +251,7 @@ public function refuse(
             'pendingReceived' => $pendingReceived,
             'pendingSent' => $pendingSent,
             'blocked' => $blocked,
+            'suggestions' => $friendshipRepository->findSuggestions($currentUser, self::SUGGESTIONS_LIMIT),
         ]);
     }
 

@@ -917,6 +917,13 @@
     }
     .modal-media::backdrop { background: rgb(0 0 0 / 0.9); }
     .modal-media img { display: block; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); object-fit: contain; border-radius: var(--radius-control); }
+    .modal-media .modal-media-original {
+        position: fixed;
+        top: 0.75rem;
+        left: 0.75rem;
+        background: rgb(0 0 0 / 0.55);
+        color: #fff;
+    }
     .modal-media .modal-close {
         position: fixed;
         top: 0.75rem;
@@ -1390,6 +1397,13 @@
     animation: badge-iridescent 6s linear infinite;
 }
 
+.badge-tier-honorary {
+    --badge-panel: #0f2420;
+    --badge-ring: linear-gradient(135deg, #115e59, #2dd4bf 45%, #99f6e4 55%, #0f766e);
+    --badge-medal: radial-gradient(circle at 30% 25%, #ccfbf1, #14b8a6 45%, #134e4a 100%);
+    --badge-accent: #2dd4bf;
+}
+
 .badge-tier-premium .badge-medal {
     animation: badge-glow 3s ease-in-out infinite;
 }
@@ -1574,6 +1588,159 @@
     }
     .btn-toggle-count { padding-left: 0.5rem; border-left: 1px solid currentColor; opacity: 0.85; }
 
+    /* Forum reactions: icon + counter, colour-coded (.reaction-positive = primary, .reaction-helpful = danger) */
+    .reaction { gap: 0.375rem; font-variant-numeric: tabular-nums; }
+    .reaction-positive > svg { color: var(--color-primary-text); }
+    .reaction-helpful > svg { color: var(--color-danger-text); }
+    .btn-toggle.reaction-positive[aria-pressed="true"] {
+        --btn-bg: var(--color-primary-soft);
+        --btn-bg-hover: rgb(99 102 241 / 0.26);
+        --btn-fg: var(--color-primary-text);
+        --btn-border: rgb(165 180 252 / 0.55);
+    }
+    .btn-toggle.reaction-helpful[aria-pressed="true"] {
+        --btn-bg: var(--color-danger-soft);
+        --btn-bg-hover: rgb(239 68 68 / 0.24);
+        --btn-fg: var(--color-danger-text);
+        --btn-border: rgb(248 113 113 / 0.55);
+    }
+    .reaction-positive[aria-pressed="true"] > svg, .reaction-helpful[aria-pressed="true"] > svg { fill: currentColor; }
+
+    /* Tooltip shown on hover and keyboard focus: <button data-tooltip="Texte">…</button> */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 0.375rem);
+        z-index: 40;
+        width: max-content;
+        max-width: 16rem;
+        padding: 0.3125rem 0.5rem;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-control);
+        background: var(--color-surface-raised);
+        box-shadow: var(--shadow-overlay);
+        color: var(--color-fg);
+        font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1.35;
+        white-space: normal;
+        text-align: center;
+        pointer-events: none;
+        opacity: 0;
+        transform: translate(-50%, 0.25rem);
+        transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+    [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+    @media (hover: none) { [data-tooltip]:hover::after { opacity: 0; } }
+
+    /* Emoji picker (assets/controllers/emoji_picker_controller.js) */
+    .emoji-picker { position: relative; display: inline-flex; }
+    .emoji-picker-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        border-radius: var(--radius-control);
+        color: var(--color-fg-secondary);
+    }
+    .emoji-picker-toggle:hover, .emoji-picker-toggle[aria-expanded="true"] { background: rgb(255 255 255 / 0.06); color: var(--color-fg); }
+    .emoji-picker-toggle > svg { width: 1.125rem; height: 1.125rem; }
+    .emoji-picker-panel {
+        position: absolute;
+        right: 0;
+        z-index: 50;
+        width: min(19rem, calc(100vw - 2rem));
+        max-height: 17rem;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 0.5rem;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-card);
+        background: var(--color-surface-raised);
+        box-shadow: var(--shadow-overlay);
+    }
+    .emoji-picker-panel-up { bottom: calc(100% + 0.375rem); }
+    .emoji-picker-panel-down { top: calc(100% + 0.375rem); }
+    .emoji-picker-group {
+        padding: 0.25rem 0.25rem 0.125rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--color-muted);
+    }
+    .emoji-picker-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .emoji-picker-emoji {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        aspect-ratio: 1;
+        border-radius: var(--radius-control);
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+    .emoji-picker-emoji:hover, .emoji-picker-emoji:focus-visible { background: rgb(255 255 255 / 0.08); }
+
+    /* Rank of an entry in a "most popular" list */
+    .popular-rank {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: var(--radius-pill);
+        background: var(--color-surface-raised);
+        color: var(--color-fg-secondary);
+        font-size: 0.75rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Results of the header search: one scrollable menu, sections separated by a rule */
+    .site-search-results { max-height: min(28rem, calc(100dvh - var(--header-h) - 2rem)); overflow-y: auto; overscroll-behavior: contain; }
+    .site-search-section ~ .site-search-section { margin-top: 0.375rem; padding-top: 0.375rem; border-top: 1px solid var(--color-line); }
+
+    /* Forum category page: subcategories in a left column, threads in the centre */
+    .forum-category-layout { display: grid; gap: 1.5rem; align-items: start; }
+    @media (min-width: 1024px) { .forum-category-layout { grid-template-columns: 15rem minmax(0, 1fr); } }
+    .forum-subcategory-nav { min-width: 0; }
+    @media (min-width: 1024px) { .forum-subcategory-nav { position: sticky; top: calc(var(--header-h) + 1rem); } }
+    .forum-subcategory-list { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+    @media (min-width: 1024px) {
+        .forum-subcategory-list { flex-direction: column; flex-wrap: nowrap; gap: 0.125rem; }
+    }
+    .forum-subcategory-link {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.5rem;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-control);
+        background: var(--color-surface);
+        color: var(--color-fg-secondary);
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    @media (min-width: 1024px) {
+        .forum-subcategory-link { border-color: transparent; background: transparent; }
+    }
+    .forum-subcategory-link:hover { background: var(--color-surface-raised); color: var(--color-fg); }
+    .forum-subcategory-count {
+        min-width: 1.75rem;
+        padding: 0 0.375rem;
+        border-radius: var(--radius-pill);
+        background: rgb(255 255 255 / 0.06);
+        color: var(--color-muted);
+        font-size: 0.75rem;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+
     /* Message du forum : ancre #post-N visible sous l'en-tête collant + surbrillance de la cible */
     .forum-post { scroll-margin-top: calc(var(--header-h) + 1rem); }
     .forum-post-first { border-color: rgb(165 180 252 / 0.35); }
@@ -1637,6 +1804,8 @@
         text-decoration: none;
     }
     .mention:hover { text-decoration: underline; }
+    /* Mention inside a bubble on the primary colour (own messages) */
+    :where(.chat-msg-own .chat-bubble, .bg-primary) .mention { background: rgb(255 255 255 / 0.22); color: var(--color-primary-fg); }
 
     /* Éditeur Markdown du forum (templates/forum/_editor.html.twig) */
     .md-editor {
@@ -1695,6 +1864,10 @@
         color: var(--color-muted);
     }
     .md-editor-status:empty { display: none; }
+    .md-editor-footer:has(.md-editor-status:empty) { display: none; }
+    .md-editor-tools .emoji-picker-toggle { min-height: 2.25rem; }
+    /* Images of rendered posts open in the lightbox (assets/controllers/image_lightbox_controller.js) */
+    .post-content img.is-zoomable { cursor: zoom-in; }
     .md-editor-status { color: var(--color-fg-secondary); }
     .md-mention-list {
         position: absolute;
@@ -1747,6 +1920,65 @@
         background: var(--color-surface-raised);
         color: var(--color-muted);
     }
+    /* Home feed: scrolls on its own on large screens, next pages load when reached */
+    @media (min-width: 1024px) {
+        .feed-scroll {
+            max-height: calc(100dvh - var(--header-h) - 8rem);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding-right: 0.5rem;
+            scrollbar-gutter: stable;
+        }
+    }
+
+    /* Home photo carousels (templates/home/_photo_carousel.html.twig): three photos visible */
+    .photo-carousel { min-width: 0; }
+    .photo-carousel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .photo-carousel.is-static .photo-carousel-head .btn-icon { visibility: hidden; }
+    .photo-carousel-track {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: calc((100% - 2 * 0.75rem) / 3);
+        gap: 0.75rem;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+    }
+    .photo-carousel-track::-webkit-scrollbar { display: none; }
+    .photo-carousel-slide { scroll-snap-align: start; min-width: 0; }
+    .photo-carousel-link {
+        position: relative;
+        display: block;
+        aspect-ratio: 1;
+        overflow: hidden;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-card);
+        background: var(--color-surface-raised);
+    }
+    .photo-carousel-link:hover { border-color: var(--color-line-strong); }
+    .photo-carousel-link:focus-visible { outline-offset: -3px; }
+    .photo-carousel-image { width: 100%; height: 100%; object-fit: cover; transition: transform var(--duration-slow) ease; }
+    .photo-carousel-link:hover .photo-carousel-image { transform: scale(1.05); }
+    @media (prefers-reduced-motion: reduce) { .photo-carousel-link:hover .photo-carousel-image { transform: none; } }
+    .photo-carousel-caption {
+        position: absolute;
+        inset: auto 0 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 1.5rem 0.5rem 0.5rem;
+        background: linear-gradient(to top, rgb(0 0 0 / 0.75), transparent);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    /* Action row of a feed item: like, comments and replies share one height and baseline */
+    .feed-item-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; }
+    .feed-item-actions > form { display: flex; }
+    @media (min-width: 640px) { .feed-item-actions { padding-inline: 1.25rem; } }
     .feed-photo { display: block; width: 100%; max-height: 34rem; object-fit: cover; }
 
     /* Pagination (templates/forum/_pagination.html.twig) */
@@ -1945,6 +2177,10 @@
         border-bottom: 1px solid var(--color-line);
     }
     @media (min-width: 768px) { .profile-cover { height: 8.5rem; } }
+    .profile-cover-image { display: block; width: 100%; object-fit: cover; }
+    /* Banner preview in the profile settings */
+    .profile-cover-preview { height: 8.5rem; overflow: hidden; border: 1px solid var(--color-line); border-radius: var(--radius-card); background: var(--color-surface-raised); }
+    .profile-cover-preview > .profile-cover { height: 100%; border: 0; border-radius: 0; }
     .profile-hero-body {
         display: grid;
         grid-template-areas: "avatar" "identity" "actions" "footer";
@@ -2398,6 +2634,7 @@
         mask: var(--heart-outline) center / contain no-repeat;
     }
     .like-toggle-count { padding-left: 0.5rem; border-left: 1px solid rgb(255 255 255 / 0.18); font-variant-numeric: tabular-nums; }
+    .like-toggle-compact .like-toggle-count { padding-left: 0; border-left: 0; }
     .like-toggle:not([aria-pressed="true"]):hover { --btn-border: rgb(251 113 133 / 0.6); }
     .like-toggle[aria-pressed="true"] {
         --btn-bg: rgb(225 29 72 / 0.16);

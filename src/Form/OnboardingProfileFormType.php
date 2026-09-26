@@ -3,7 +3,8 @@
 namespace App\Form;
 
 use App\Entity\GalleryPhoto;
-use App\Service\AvatarUploader;
+use App\Profile\ProfileImage;
+use App\Service\ProfileImageUploader;
 use App\Service\GalleryPhotoUploader;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
@@ -26,9 +27,9 @@ class OnboardingProfileFormType extends AbstractType
             ->add('avatarFile', FileType::class, [
                 'label' => 'Photo de profil',
                 'required' => false,
-                'constraints' => [AvatarUploader::fileConstraint()],
-                'attr' => ['accept' => implode(',', AvatarUploader::MIME_TYPES)],
-                'help' => 'JPG, PNG ou WEBP, ' . AvatarUploader::MAX_SIZE . 'o maximum.',
+                'constraints' => [ProfileImageUploader::fileConstraint(ProfileImage::Avatar)],
+                'attr' => ['accept' => implode(',', ProfileImageUploader::MIME_TYPES)],
+                'help' => 'JPG, PNG ou WEBP, ' . ProfileImage::Avatar->maxFileSize() . 'o maximum.',
             ])
             ->add('bio', TextareaType::class, [
                 'label' => 'Ta bio',

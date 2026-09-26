@@ -178,4 +178,22 @@ class CategoryRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Forum categories and subcategories whose name contains the query (site search), parents loaded for their path.
+     *
+     * @return Category[]
+     */
+    public function searchByName(string $query, int $limit): array
+    {
+        return $this->createQueryBuilder('c')
+            ->addSelect('p')
+            ->leftJoin('c.parent', 'p')
+            ->where('c.name LIKE :query')
+            ->setParameter('query', '%' . addcslashes($query, '%_\\') . '%')
+            ->orderBy('c.position', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 }

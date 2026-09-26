@@ -4,13 +4,13 @@
 {% block title %}{{ thread.title }}{% endblock %}
 
 {% block body %}
-{% set can_reply = app.user and not thread.isLocked and form %}
+{% set can_reply = form is not null %}
 {% set can_solve = is_granted('THREAD_SOLVE', thread) %}
 {% set solution = thread.solutionPost %}
 {% set total_posts = posts.getTotalItemCount %}
 {% set reply_count = max(total_posts - 1, 0) %}
 {# L'éditeur (et donc les boutons « Citer ») n'existe que si l'on peut répondre #}
-<div class="container-reading" {% if can_reply %}{{ include('forum/_editor_attributes.html.twig', {draft_key: 'reply-' ~ thread.id}) }}{% endif %}>
+<div class="container-reading" data-controller="{{ can_reply ? 'markdown-editor ' }}image-lightbox" {% if can_reply %}{{ include('forum/_editor_attributes.html.twig', {draft_key: 'reply-' ~ thread.id, with_controller: false}) }}{% endif %}>
 
     <header class="page-header block">
         <div class="min-w-0">
@@ -53,9 +53,6 @@
                             <input type="hidden" name="_token" value="{{ csrf_token('gamification_share') }}">
                             <button type="submit" class="btn btn-ghost btn-sm">{{ ui.icon('external-link') }}Partager</button>
                         </form>
-                        {% if can_reply %}
-                            <a href="#reply" class="btn btn-primary btn-sm">{{ ui.icon('message-circle') }}Répondre</a>
-                        {% endif %}
                     </div>
                 {% endif %}
             </div>
@@ -106,10 +103,14 @@
                             <time datetime="{{ post.createdAt|date('c') }}" title="{{ post.createdAt|date('d/m/Y à H:i') }}">{{ post.createdAt|time_ago }}</time>
                         </p>
                     </div>
-                    <a href="#post-{{ post.id }}" class="btn btn-ghost btn-icon btn-sm shrink-0 text-muted" aria-label="Lien vers ce message" title="Lien vers ce message">#</a>
+                    {% if app.user and app.user.id != post.author.id %}
+                        <a href="{{ post.isFirst ? path('app_report', {type: 'sujet', id: thread.id}) : path('app_report', {type: 'reponse', id: post.id}) }}"
+                           class="btn btn-ghost btn-icon btn-sm shrink-0 text-muted" rel="nofollow"
+                           aria-label="Signaler le message de {{ post.author.username }}" title="Signaler ce message">{{ ui.icon('flag', 'size-4') }}</a>
+                    {% endif %}
                 </header>
 
-                <div class="post-content px-4 py-4 sm:px-5 sm:pl-[4.5rem]">
+                <div class="post-content px-4 py-4 sm:px-5 sm:pl-[4.5rem]" data-action="click->image-lightbox#open keydown->image-lightbox#openWithKeyboard">
                     {% if post.hiddenByModeration and not is_granted('ROLE_MODERATOR') %}
                         <p class="flex items-center gap-2 text-muted italic">{{ ui.icon('shield', 'size-4') }}Ce message a été masqué par la modération.</p>
                     {% else %}
@@ -129,22 +130,24 @@
                         <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'positive'}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_positive') }}">
                             <input type="hidden" name="page" value="{{ posts.currentPageNumber }}">
-                            <button type="submit" class="btn btn-sm btn-toggle" aria-pressed="{{ voted_positive ? 'true' : 'false' }}"
+                            <button type="submit" class="btn btn-sm btn-toggle reaction reaction-positive" aria-pressed="{{ voted_positive ? 'true' : 'false' }}"
+                                    aria-label="Positif : {{ positive }} vote{{ positive > 1 ? 's' }}"
                                     title="{{ voted_positive ? 'Retirer mon vote « Positif »' : 'Voter « Positif »' }}">
-                                {{- ui.icon('thumbs-up') }}Positif<span class="btn-toggle-count">{{ positive }}</span>
+                                {{- ui.icon('thumbs-up') }}<span class="tabular-nums">{{ positive }}</span>
                             </button>
                         </form>
                         <form method="post" action="{{ path('app_thread_vote', {slug: thread.slug, postId: post.id, type: 'helpful'}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('post_vote_' ~ post.id ~ '_helpful') }}">
                             <input type="hidden" name="page" value="{{ posts.currentPageNumber }}">
-                            <button type="submit" class="btn btn-sm btn-toggle" aria-pressed="{{ voted_helpful ? 'true' : 'false' }}"
+                            <button type="submit" class="btn btn-sm btn-toggle reaction reaction-helpful" aria-pressed="{{ voted_helpful ? 'true' : 'false' }}"
+                                    aria-label="Aide : {{ helpful }} vote{{ helpful > 1 ? 's' }}"
                                     title="{{ voted_helpful ? 'Retirer mon vote « Aide »' : 'Voter « Aide » : cette réponse m\'a aidé' }}">
-                                {{- ui.icon('heart') }}Aide<span class="btn-toggle-count">{{ helpful }}</span>
+                                {{- ui.icon('heart') }}<span class="tabular-nums">{{ helpful }}</span>
                             </button>
                         </form>
                     {% else %}
-                        <span class="chip">{{ ui.icon('thumbs-up') }}<span class="sr-only">Votes positifs :</span>{{ positive }}</span>
-                        <span class="chip">{{ ui.icon('heart') }}<span class="sr-only">Votes « aide » :</span>{{ helpful }}</span>
+                        <span class="chip reaction reaction-positive" title="Votes « Positif »">{{ ui.icon('thumbs-up') }}<span class="sr-only">Votes positifs :</span>{{ positive }}</span>
+                        <span class="chip reaction reaction-helpful" title="Votes « Aide »">{{ ui.icon('heart') }}<span class="sr-only">Votes « aide » :</span>{{ helpful }}</span>
                         {% if not app.user and loop.first %}
                             <a href="{{ path('app_login') }}" class="btn btn-link btn-sm ml-auto">Connectez-vous pour voter</a>
                         {% endif %}
@@ -159,11 +162,6 @@
                                     {{- ui.icon(is_solution ? 'x-circle' : 'check-circle') }}{{ is_solution ? 'Retirer la solution' : 'C\'est la solution' -}}
                                 </button>
                             </form>
-                        {% endif %}
-                        {% if app.user and app.user.id != post.author.id %}
-                            <a href="{{ post.isFirst ? path('app_report', {type: 'sujet', id: thread.id}) : path('app_report', {type: 'reponse', id: post.id}) }}"
-                               class="btn btn-ghost btn-sm text-muted" rel="nofollow"
-                               aria-label="Signaler le message de {{ post.author.username }}">{{ ui.icon('flag', 'size-4') }}<span class="max-sm:sr-only">Signaler</span></a>
                         {% endif %}
                         {% if can_reply and not post.hiddenByModeration %}
                             <button type="button" class="btn btn-ghost btn-sm" data-action="markdown-editor#quote"
@@ -200,7 +198,10 @@
     {% if can_reply %}
         <section id="reply" class="card forum-post" aria-labelledby="reply-title">
             <div class="card-header">
-                <h2 id="reply-title" class="flex items-center gap-2 text-h3">{{ ui.icon('message-circle', 'size-5 text-muted') }}Votre réponse</h2>
+                <h2 id="reply-title" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-h3">
+                    {{- ui.icon('message-circle', 'size-5 text-muted') }}Votre réponse
+                    <span class="text-caption font-normal text-muted">· Restez courtois et constructif</span>
+                </h2>
             </div>
             {{ form_start(form) }}
                 <div class="card-body">
@@ -209,7 +210,6 @@
                     {{ form_errors(form.content) }}
                 </div>
                 <div class="card-footer">
-                    <p class="mr-auto hidden text-caption text-muted sm:block">Restez courtois et constructif · <kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">Entrée</kbd> pour envoyer</p>
                     <button type="submit" class="btn btn-primary">{{ ui.icon('send') }}Envoyer la réponse</button>
                 </div>
             {{ form_end(form) }}
@@ -225,5 +225,10 @@
         }) }}
     {% endif %}
 
+    <dialog class="modal modal-media" data-image-lightbox-target="dialog" data-action="click->image-lightbox#closeOnBackdrop" aria-label="Image agrandie">
+        <img src="" alt="" data-image-lightbox-target="image">
+        <a href="#" class="btn btn-sm modal-media-original" target="_blank" rel="noopener" data-image-lightbox-target="original">{{ ui.icon('external-link', 'size-4') }}Taille réelle</a>
+        <button type="button" class="btn btn-icon modal-close" data-action="image-lightbox#close" aria-label="Fermer">{{ ui.icon('x') }}</button>
+    </dialog>
 </div>
 {% endblock %}

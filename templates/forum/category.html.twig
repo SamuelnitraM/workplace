@@ -4,15 +4,22 @@
 {% block title %}{{ category.name }} — Forum{% endblock %}
 
 {% block body %}
+{% set can_create_thread = is_granted('CATEGORY_CREATE_THREAD', category) %}
+{% set has_sidebar = not category.grouping and category.children|length > 0 %}
 <header class="page-header">
     <div class="min-w-0">
         {{ include('forum/_breadcrumb.html.twig', {category: category}) }}
-        <h1 class="page-header-title">{{ category.name }}</h1>
+        <h1 class="page-header-title flex items-center gap-3">
+            {% if category.icon %}<span class="icon-tile" aria-hidden="true">{{ ui.icon(category.icon) }}</span>{% endif %}{{ category.name }}
+        </h1>
         {% if category.description %}
             <p class="page-header-subtitle">{{ category.description }}</p>
         {% endif %}
+        {% if category.readOnly %}
+            <p class="mt-2"><span class="chip chip-info">{{ ui.icon('lock') }}Lecture seule : seuls les administrateurs publient ici</span></p>
+        {% endif %}
     </div>
-    {% if app.user and category.allowThreads %}
+    {% if can_create_thread %}
         <div class="page-header-actions">
             <a href="{{ path('app_thread_new', {slug: category.slug}) }}" class="btn btn-primary">
                 {{- ui.icon('plus') }}Nouveau sujet
@@ -21,29 +28,26 @@
     {% endif %}
 </header>
 
-<div class="space-y-8">
+<div class="{{ has_sidebar ? 'forum-category-layout' : 'space-y-8' }}">
     {% if category.grouping %}
-        {# Catégorie de regroupement : ses sous-catégories en liste, à la place des sujets #}
-        <section aria-labelledby="subcategories-title">
-            <h2 id="subcategories-title" class="section-title">{{ ui.icon('folder') }}Sous-catégories</h2>
-            {% if category.children|length > 0 %}
-                <div class="card overflow-hidden">
-                    {{ include('forum/_category_list.html.twig', {children: category.children}) }}
-                </div>
-            {% else %}
-                {{ include('_partials/_empty_state.html.twig', {
-                    icon: 'folder',
-                    title: 'Aucune sous-catégorie pour le moment',
-                    compact: true,
-                    heading: 3,
-                }) }}
-            {% endif %}
-        </section>
-    {% elseif category.children|length > 0 %}
-        <section aria-labelledby="subcategories-title">
-            <h2 id="subcategories-title" class="eyebrow mb-3">Sous-catégories</h2>
+        {# Grouping category: its subcategories replace the thread list #}
+        {% if category.children|length > 0 %}
+            <div class="card overflow-hidden">
+                {{ include('forum/_category_list.html.twig', {children: category.children, heading: 2}) }}
+            </div>
+        {% else %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'folder',
+                title: 'Aucune sous-catégorie pour le moment',
+                compact: true,
+                heading: 2,
+            }) }}
+        {% endif %}
+    {% elseif has_sidebar %}
+        <nav class="forum-subcategory-nav" aria-labelledby="subcategories-title">
+            <h2 id="subcategories-title" class="eyebrow mb-2">Sous-catégories</h2>
             {{ include('forum/_subcategories.html.twig', {children: category.children}) }}
-        </section>
+        </nav>
     {% endif %}
 
     {% if threads is null %}
@@ -57,6 +61,13 @@
                     ? 'Les discussions se passent dans les sous-catégories ci-dessus.'
                     : 'La création de sujets n\'est pas ouverte dans cette catégorie.',
                 cta: {label: 'Retour au forum', url: path('app_forum_index'), icon: 'arrow-left'},
+            }) }}
+        {% elseif category.readOnly %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'message-square',
+                title: 'Aucune publication pour l\'instant',
+                text: 'Les annonces de l\'équipe apparaîtront ici.',
+                compact: true,
             }) }}
         {% elseif app.user %}
             {{ include('_partials/_empty_state.html.twig', {
@@ -77,7 +88,7 @@
             }) }}
         {% endif %}
     {% else %}
-        <section aria-labelledby="threads-title">
+        <section aria-labelledby="threads-title" class="min-w-0">
             {% if category.grouping %}
                 {# Sujets créés avant la désactivation : toujours consultables #}
                 <h2 id="threads-title" class="section-title">{{ ui.icon('message-square') }}Sujets existants</h2>

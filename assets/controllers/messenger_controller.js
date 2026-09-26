@@ -13,6 +13,8 @@ import { playNotificationSound } from '../lib/sounds.js';
  * il est rechargé à chaque page et après chaque lecture, et incrémenté en temps réel.
  *
  * Toute donnée utilisateur est échappée (esc) avant insertion ; aucune donnée dans des attributs onclick.
+ * Message content is inserted from contentHtml, already escaped by the server (App\Text\MentionResolver::linkify,
+ * only the @pseudo mentions are links); esc(content) is the fallback.
  */
 const CSRF_ID = 'private-message';
 // Icônes du design system (templates/_partials/_icon.html.twig), décoratives
@@ -362,7 +364,7 @@ export default class extends Controller {
                 ? (conv.messages.length > 0
                     ? conv.messages.map(msg => `
                         <div class="flex gap-2 ${msg.isCurrentUser ? 'flex-row-reverse' : ''}">
-                            <div class="px-3 py-1.5 rounded-xl text-xs max-w-xs break-words ${msg.isCurrentUser ? 'bg-primary text-primary-fg' : 'bg-overlay text-fg'}">${esc(msg.content)}</div>
+                            <div class="px-3 py-1.5 rounded-xl text-xs max-w-xs break-words ${msg.isCurrentUser ? 'bg-primary text-primary-fg' : 'bg-overlay text-fg'}">${typeof msg.contentHtml === 'string' ? msg.contentHtml : esc(msg.content)}</div>
                         </div>
                     `).join('')
                     : '<div class="text-muted text-xs text-center py-4">Commencez la conversation !</div>'
@@ -398,11 +400,13 @@ export default class extends Controller {
                                 </div>
                                 <div class="p-2 border-t border-line flex gap-2">
                                     <input data-input-key="${conv.key}"
+                                           id="messenger-input-${conv.key}"
                                            type="text"
                                            maxlength="2000"
                                            placeholder="Message..."
                                            autocomplete="off"
                                            class="input flex-1 min-h-9 px-2.5 py-1 text-small">
+                                    <div data-controller="emoji-picker" data-emoji-picker-input-value="messenger-input-${conv.key}"></div>
                                     <button type="button" data-send-conv="${conv.key}"
                                             class="btn btn-primary btn-icon btn-sm shrink-0" aria-label="Envoyer">
                                         ${ICON_SEND}

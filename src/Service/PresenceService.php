@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Repository\MemberDailyActivityRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -12,6 +13,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * (et immédiatement quand l'onglet redevient visible). Un utilisateur est considéré
  * connecté si son dernier heartbeat date de moins de ONLINE_WINDOW_SECONDS.
  * La déconnexion le retire immédiatement (voir markOffline()).
+ * The first heartbeat of each day also records the member's daily activity (activity statistics).
  */
 class PresenceService
 {
@@ -24,8 +26,10 @@ class PresenceService
     /** Au-delà de ce délai sans heartbeat, l'utilisateur est hors ligne (3 heartbeats manqués). */
     public const ONLINE_WINDOW_SECONDS = 90;
 
-    public function __construct(private readonly EntityManagerInterface $em)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly MemberDailyActivityRepository $dailyActivityRepository,
+    ) {
     }
 
     /** Enregistre un heartbeat ; retourne true si la base a été mise à jour. */
@@ -40,6 +44,9 @@ class PresenceService
 
         $user->setLastActivityAt($now);
         $this->em->flush();
+        if ($last === null || $last->format('Y-m-d') !== $now->format('Y-m-d')) {
+            $this->dailyActivityRepository->record($user, $now);
+        }
 
         return true;
     }

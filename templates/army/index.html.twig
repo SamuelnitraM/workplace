@@ -4,7 +4,7 @@
 {% block title %}Mes listes d'armées{% endblock %}
 
 {% block body %}
-<div class="max-w-5xl mx-auto">
+<div class="mx-auto max-w-7xl">
 
     <header class="page-header">
         <div>
@@ -20,20 +20,24 @@
         </div>
     </header>
 
-    {% if lists is empty %}
-        {{ include('_partials/_empty_state.html.twig', {
-            icon: 'swords',
-            title: 'Aucune liste d\'armée pour le moment',
-            text: 'Choisissez une faction et un détachement, ajoutez vos unités : le total de points se calcule tout seul. Rendez la liste publique pour l\'afficher sur votre profil.',
-            cta: {label: 'Créer ma première liste', url: path('app_army_new'), icon: 'plus'},
-        }) }}
-    {% else %}
-        <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for list in lists %}
-                <li class="flex">{{ include('army/_card.html.twig', {list: list}) }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-
+    <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_19rem]">
+        <div class="min-w-0">
+            {% if lists is empty %}
+                {{ include('_partials/_empty_state.html.twig', {
+                    icon: 'swords',
+                    title: 'Aucune liste d\'armée pour le moment',
+                    text: 'Choisissez une faction et un détachement, ajoutez vos unités : le total de points se calcule tout seul. Rendez la liste publique pour l\'afficher sur votre profil.',
+                    cta: {label: 'Créer ma première liste', url: path('app_army_new'), icon: 'plus'},
+                }) }}
+            {% else %}
+                <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {% for list in lists %}
+                        <li class="flex">{{ include('army/_card.html.twig', {list: list}) }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+        {{ include('army/_popular_sidebar.html.twig', {mostDuplicated: mostDuplicated, mostExported: mostExported}, with_context = false) }}
+    </div>
 </div>
 {% endblock %}

@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Army\ArmyListCounter;
 use App\Army\BattleSize;
 use App\Repository\ArmyListRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -54,6 +55,16 @@ class ArmyList
     /** Official list (matched play rules checked, points limit) when set; free list otherwise. */
     #[ORM\Column(nullable: true, enumType: BattleSize::class)]
     private ?BattleSize $battleSize = null;
+
+    /** Audience by other members than the owner (App\Army\ArmyListStatistics). */
+    #[ORM\Column(options: ['default' => 0])]
+    private int $viewCount = 0;
+
+    #[ORM\Column(options: ['default' => 0])]
+    private int $exportCount = 0;
+
+    #[ORM\Column(options: ['default' => 0])]
+    private int $duplicationCount = 0;
 
     public function __construct()
     {
@@ -251,5 +262,30 @@ class ArmyList
         $this->description = $description;
 
         return $this;
+    }
+
+    public function getViewCount(): int
+    {
+        return $this->viewCount;
+    }
+
+    public function getExportCount(): int
+    {
+        return $this->exportCount;
+    }
+
+    public function getDuplicationCount(): int
+    {
+        return $this->duplicationCount;
+    }
+
+    /** In-memory counterpart of the atomic increment made by App\Army\ArmyListStatistics. */
+    public function incrementCounter(ArmyListCounter $counter): void
+    {
+        match ($counter) {
+            ArmyListCounter::View => $this->viewCount++,
+            ArmyListCounter::Export => $this->exportCount++,
+            ArmyListCounter::Duplication => $this->duplicationCount++,
+        };
     }
 }

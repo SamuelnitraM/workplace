@@ -22,7 +22,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Service\GamificationService;
-use App\Service\AvatarUploader;
+use App\Profile\ProfileImage;
+use App\Service\ProfileImageUploader;
 use App\Service\GalleryPhotoUploader;
 use App\Service\GalleryAlbumManager;
 use App\Service\MemberBlocker;
@@ -163,6 +164,30 @@ public function show(
     ]);
 }
 
+    /** Friends of a member, public like the profile; unavailable when either member blocked the other. */
+    #[Route('/{username}/amis', name: 'friends', methods: ['GET'])]
+    public function friends(string $username, UserRepository $userRepository, FriendshipRepository $friendshipRepository, MemberBlocker $memberBlocker): Response
+    {
+        $user = $userRepository->findOneBy(['username' => $username]) ?? throw $this->createNotFoundException('Utilisateur introuvable');
+        /** @var \App\Entity\User|null $viewer */
+        $viewer = $this->getUser();
+        if ($viewer !== null && $viewer->getId() === $user->getId()) {
+            return $this->redirectToRoute('app_friendship_list');
+        }
+        if ($viewer !== null && $memberBlocker->isBlockedEitherWay($viewer, $user)) {
+            throw $this->createNotFoundException('Liste d\'amis indisponible');
+        }
+        $viewerFriendIds = $viewer !== null
+            ? array_map(static fn ($friend) => $friend->getId(), $friendshipRepository->findFriendsOf($viewer))
+            : [];
+
+        return $this->render('profil/friends.html.twig', [
+            'user' => $user,
+            'friends' => $friendshipRepository->findFriendsOf($user),
+            'viewerFriendIds' => $viewerFriendIds,
+        ]);
+    }
+
     #[Route('/{username}/gallery/upload', name: 'gallery_upload', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function uploadGalleryPhoto(string $username, Request $request, UserRepository $userRepository, EntityManagerInterface $em, GalleryPhotoUploader $galleryUploader): Response
@@ -215,12 +240,29 @@ public function show(
         if (!$user || $user !== $currentUser || !$photo || $photo->getOwner() !== $user || !$this->isCsrfTokenValid('gallery_visibility_' . $id, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
+        $wantsJson = $request->getPreferredFormat() === 'json';
         if ($photo->isHiddenByModeration()) {
-            $this->addFlash('error', 'Cette photo a été masquée par la modération : elle ne peut pas être affichée à nouveau.');
+            $message = 'Cette photo a été masquée par la modération : elle ne peut pas être affichée à nouveau.';
+            if ($wantsJson) {
+                return $this->json(['error' => $message], Response::HTTP_CONFLICT);
+            }
+            $this->addFlash('error', $message);
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
         $photo->setIsVisible(!$photo->isVisible());
         $em->flush();
+        // Asynchronous toggle: the refreshed tile replaces the current one without reloading the page
+        if ($wantsJson) {
+            return $this->json([
+                'visible' => $photo->isVisible(),
+                'tile' => $this->renderView('gallery/_photo_tile.html.twig', [
+                    'photo' => $photo,
+                    'user' => $user,
+                    'isOwner' => true,
+                    'stats' => $galleryPhotoRepository->getStatsForPhotos([$photo])[$photo->getId()],
+                ]),
+            ]);
+        }
 
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);
     }
@@ -228,7 +270,7 @@ public function show(
     // Modifier son propre profil — connecté uniquement
     #[Route('/settings/edit', name: 'edit')]
     #[IsGranted('ROLE_USER')]
-    public function edit(Request $request, EntityManagerInterface $em, AvatarUploader $avatarUploader): Response
+    public function edit(Request $request, EntityManagerInterface $em, ProfileImageUploader $profileImageUploader): Response
     {
         /** @var \App\Entity\User $user */
         $user = $this->getUser();
@@ -243,23 +285,26 @@ public function show(
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $oldAvatar = $user->getAvatar();
-            /** @var UploadedFile|null $avatarFile */
-            $avatarFile = $form->get('avatarFile')->getData();
-
-            if ($request->request->get('delete_avatar') === '1') {
-                $user->setAvatar(null);
-            }
-
-            // L'avatar est ré-encodé en WebP (suppression des métadonnées EXIF)
-            if ($avatarFile instanceof UploadedFile && ($error = $avatarUploader->upload($user, $avatarFile))) {
-                $this->addFlash('error', $error);
+            // Profile photo and banner: removal requested, then optional new file (re-encoded to WebP, EXIF removed)
+            $previousFilenames = [];
+            foreach ([ProfileImage::Avatar, ProfileImage::Cover] as $kind) {
+                $previousFilenames[$kind->value] = $kind->filenameOf($user);
+                if ($request->request->get('delete_' . $kind->value) === '1') {
+                    $kind->assignTo($user, null);
+                }
+                /** @var UploadedFile|null $imageFile */
+                $imageFile = $form->get($kind->value . 'File')->getData();
+                if ($imageFile instanceof UploadedFile && ($error = $profileImageUploader->upload($user, $kind, $imageFile))) {
+                    $this->addFlash('error', $error);
+                }
             }
 
             $em->flush();
 
-            // Suppression de l'ancien fichier s'il a été remplacé ou supprimé
-            $avatarUploader->deleteReplaced($oldAvatar, $user);
+            // Suppression des anciens fichiers remplacés ou retirés
+            foreach ([ProfileImage::Avatar, ProfileImage::Cover] as $kind) {
+                $profileImageUploader->deleteReplaced($user, $kind, $previousFilenames[$kind->value]);
+            }
 
             $this->addFlash('success', 'Profil mis à jour avec succès !');
             return $this->redirectToRoute('app_profil_show', ['username' => $user->getUsername()]);

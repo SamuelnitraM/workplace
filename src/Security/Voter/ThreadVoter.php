@@ -11,7 +11,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
  * Règles d'accès aux sujets du forum :
- *  - REPLY     : connecté, sujet ouvert ;
+ *  - REPLY     : connecté, sujet ouvert, catégorie non en lecture seule (sauf administrateur) ;
  *  - SOLVE     : choisir / retirer la réponse « solution » — auteur du sujet ou administrateur ;
  *  - SUBSCRIBE : suivre / ne plus suivre le sujet — tout membre connecté.
  *
@@ -41,7 +41,7 @@ final class ThreadVoter extends Voter
 
         /** @var Thread $subject */
         return match ($attribute) {
-            self::REPLY => !$subject->isLocked(),
+            self::REPLY => !$subject->isLocked() && ($subject->getCategory() === null || CategoryVoter::canWriteIn($subject->getCategory(), $this->security)),
             self::SOLVE => $subject->getAuthor()?->getId() === $user->getId() || $this->security->isGranted('ROLE_ADMIN'),
             self::SUBSCRIBE => true,
             default => false,

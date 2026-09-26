@@ -37,12 +37,33 @@
                         <li class="list-group-item px-0 small">
                             {{ related.createdAt|date('d/m/Y H:i') }} · {{ related.reason.label }} · {{ related.reporter ? related.reporter.username : 'compte supprimé' }}
                             {% if related.pending %}<span class="badge bg-warning text-dark">en attente</span>
-                            {% else %}<span class="badge bg-secondary">{{ related.resolution.label }}</span>{% if related.handledBy %} par {{ related.handledBy.username }}{% endif %}{% if related.moderatorNote %} — {{ related.moderatorNote }}{% endif %}{% endif %}
+                            {% else %}<span class="badge sanction sanction-{{ related.resolution.severity }}">{{ related.resolution.label }}</span>{% if related.handledBy %} par {{ related.handledBy.username }}{% endif %}{% if related.moderatorNote %} — {{ related.moderatorNote }}{% endif %}{% endif %}
                         </li>
                     {% endfor %}
                 </ul>
             </div>
         </section>
+
+        {% if author %}
+            {# Every report about the contents of the author; each entry opens its report page #}
+            <section class="card mt-4">
+                <div class="card-body">
+                    <h2 class="h6">Historique des signalements visant {{ author.username }} ({{ authorHistory|length }})</h2>
+                    <ul class="list-group list-group-flush">
+                        {% for entry in authorHistory %}
+                            <li class="list-group-item px-0 small">
+                                <a href="{{ path('admin_moderation_report', {id: entry.id}) }}" class="moderation-history-item {{ entry.id == report.id ? 'is-current' }}">
+                                    <span>#{{ entry.id }} · {{ entry.createdAt|date('d/m/Y H:i') }} · {{ entry.targetType.label }} · {{ entry.reason.label }}</span>
+                                    {% if entry.pending %}<span class="badge bg-warning text-dark">en attente</span>
+                                    {% else %}<span class="badge sanction sanction-{{ entry.resolution.severity }}">{{ entry.resolution.label }}</span>{% endif %}
+                                    {% if entry.id == report.id %}<span class="text-muted">(ce signalement)</span>{% endif %}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </section>
+        {% endif %}
     </div>
 
     <div class="col-lg-5">
@@ -107,7 +128,7 @@
             <section class="card">
                 <div class="card-body">
                     <h2 class="h6">Signalement traité</h2>
-                    <p class="mb-2">{{ report.resolution.label }}{% if report.handledBy %} par {{ report.handledBy.username }}{% endif %} le {{ report.handledAt|date('d/m/Y à H:i') }}.</p>
+                    <p class="mb-2"><span class="badge sanction sanction-{{ report.resolution.severity }}">{{ report.resolution.label }}</span>{% if report.handledBy %} par {{ report.handledBy.username }}{% endif %} le {{ report.handledAt|date('d/m/Y à H:i') }}.</p>
                     {% if report.moderatorNote %}<p class="small text-muted">{{ report.moderatorNote }}</p>{% endif %}
                     {% if targetHidden %}
                         <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">

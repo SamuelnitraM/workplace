@@ -66,24 +66,45 @@ class GalleryPhotoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Most liked visible photos over a period (likes given during the period), owner loaded.
+     * Trending photos: the most liked over the period, completed with the most liked of all time
+     * so that the selection stays full while the community is small.
      *
      * @return list<array{photo: GalleryPhoto, likes: int}>
      */
-    public function findMostLikedSince(\DateTimeImmutable $since, int $limit): array
+    public function findTrending(\DateTimeImmutable $since, int $limit): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $trending = $this->findMostLiked($since, $limit);
+        if (count($trending) < $limit) {
+            $selectedIds = array_map(static fn (array $entry): int => $entry['photo']->getId(), $trending);
+            $trending = array_merge($trending, $this->findMostLiked(null, $limit - count($trending), $selectedIds));
+        }
+        return $trending;
+    }
+
+    /**
+     * Most liked visible photos (likes given since the date, or of all time when null), owner loaded.
+     *
+     * @param int[] $excludedIds
+     * @return list<array{photo: GalleryPhoto, likes: int}>
+     */
+    public function findMostLiked(?\DateTimeImmutable $since, int $limit, array $excludedIds = []): array
+    {
+        $queryBuilder = $this->createQueryBuilder('p')
             ->select('p AS photo', 'o', 'COUNT(l.id) AS likes')
             ->innerJoin('p.owner', 'o')
-            ->innerJoin(GalleryPhotoLike::class, 'l', 'WITH', 'l.photo = p AND l.createdAt >= :since')
+            ->innerJoin(GalleryPhotoLike::class, 'l', 'WITH', $since !== null ? 'l.photo = p AND l.createdAt >= :since' : 'l.photo = p')
             ->where('p.isVisible = true')
-            ->setParameter('since', $since)
             ->groupBy('p.id')
             ->orderBy('likes', 'DESC')
             ->addOrderBy('p.createdAt', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
+            ->setMaxResults($limit);
+        if ($since !== null) {
+            $queryBuilder->setParameter('since', $since);
+        }
+        if ($excludedIds !== []) {
+            $queryBuilder->andWhere('p.id NOT IN (:excludedIds)')->setParameter('excludedIds', $excludedIds);
+        }
+        $rows = $queryBuilder->getQuery()->getResult();
         return array_map(static fn (array $row): array => ['photo' => $row['photo'], 'likes' => (int) $row['likes']], $rows);
     }
 

@@ -1,0 +1,37 @@
+{#
+    Horizontal photo carousel of the home page (three photos visible, previous / next buttons, swipe on touch screens).
+    Parameters: id (unique prefix), title, icon, subtitle (optional), photos (GalleryPhoto[]), photoStats (id => {likes, comments}).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+<section class="photo-carousel" data-controller="carousel" aria-labelledby="{{ id }}-title" aria-roledescription="carrousel">
+    <div class="photo-carousel-head">
+        <div class="min-w-0">
+            <h2 id="{{ id }}-title" class="section-title mb-0">{{ ui.icon(icon) }}{{ title }}</h2>
+            {% if subtitle is defined and subtitle %}<p class="mt-0.5 text-caption text-muted">{{ subtitle }}</p>{% endif %}
+        </div>
+        <div class="flex shrink-0 gap-1">
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-carousel-target="previous" data-action="carousel#previous" aria-label="Photos précédentes" aria-controls="{{ id }}-track">{{ ui.icon('chevron-left') }}</button>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-carousel-target="next" data-action="carousel#next" aria-label="Photos suivantes" aria-controls="{{ id }}-track">{{ ui.icon('chevron-right') }}</button>
+        </div>
+    </div>
+    <ul id="{{ id }}-track" class="photo-carousel-track" data-carousel-target="track" data-action="scroll->carousel#update">
+        {% for photo in photos %}
+            {% set stats = photoStats[photo.id] ?? {likes: 0, comments: 0} %}
+            {% set excerpt = photo.description ? (photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description) : null %}
+            <li class="photo-carousel-slide" aria-label="{{ loop.index }} sur {{ loop.length }}">
+                <a href="{{ path('app_gallery_photo_show', {username: photo.owner.username, id: photo.id}) }}" class="photo-carousel-link group">
+                    <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}"
+                         alt="Photo de {{ photo.owner.username }}{% if excerpt %} : {{ excerpt }}{% endif %}"
+                         loading="lazy" decoding="async" class="photo-carousel-image">
+                    <span class="photo-carousel-caption">
+                        <span class="flex min-w-0 items-center gap-1.5">
+                            {{- ui.avatar(photo.owner, 'xs') -}}
+                            <span class="truncate">{{ photo.owner.username }}</span>
+                        </span>
+                        <span class="inline-flex shrink-0 items-center gap-1">{{ ui.icon('heart', 'size-3.5') }}{{ stats.likes }}<span class="sr-only"> j'aime</span></span>
+                    </span>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</section>

@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Text\MentionResolver;
 use App\Entity\PrivateConversation;
 use App\Entity\PrivateMessage;
 use App\Entity\User;
@@ -35,6 +36,7 @@ class PrivateMessageController extends AbstractController
         private UserRepository $userRepository,
         private EntityManagerInterface $em,
         private SubmissionThrottle $throttle,
+        private MentionResolver $mentionResolver,
     ) {}
 
     // ─── Page liste des conversations ─────────────────────────
@@ -305,6 +307,8 @@ class PrivateMessageController extends AbstractController
         return [
             'id' => $message->getId(),
             'content' => $message->getContent(),
+            // Escaped content, @pseudo of existing members as links to their profile (no notification)
+            'contentHtml' => $this->mentionResolver->linkify((string) $message->getContent()),
             'author' => $message->getAuthor()->getUsername(),
             'authorId' => $message->getAuthor()->getId(),
             'avatar' => $message->getAuthor()->getAvatar(),

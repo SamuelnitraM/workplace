@@ -3,43 +3,25 @@
 namespace App\Twig;
 
 use App\Entity\User;
-use App\Repository\GroupInvitationRepository;
 use App\Repository\NotificationRepository;
 use App\Service\GalleryAlbumManager;
 use App\Service\NotificationRenderer;
+use App\Text\MentionResolver;
 use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
-use Twig\Extension\GlobalsInterface;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
-class AppExtension extends AbstractExtension implements GlobalsInterface
+class AppExtension extends AbstractExtension
 {
     private ?int $unreadNotifications = null;
 
     public function __construct(
-        private GroupInvitationRepository $groupInvitationRepository,
         private NotificationRepository $notificationRepository,
         private NotificationRenderer $notificationRenderer,
-        private Security $security
+        private Security $security,
+        private MentionResolver $mentionResolver,
     ) {}
-
-    public function getGlobals(): array
-    {
-        $pendingInvitationsCount = 0;
-
-        $user = $this->security->getUser();
-        if ($user) {
-            $pendingInvitationsCount = $this->groupInvitationRepository->count([
-                'invitedUser' => $user,
-                'status' => 'pending',
-            ]);
-        }
-
-        return [
-            'pendingInvitationsCount' => $pendingInvitationsCount,
-        ];
-    }
 
     public function getFunctions(): array
     {
@@ -55,6 +37,8 @@ class AppExtension extends AbstractExtension implements GlobalsInterface
     {
         return [
             new TwigFilter('time_ago', $this->timeAgo(...)),
+            // Plain text (private messages, chat) escaped, with the @pseudo of existing members as profile links
+            new TwigFilter('mention_links', $this->mentionResolver->linkify(...), ['is_safe' => ['html']]),
         ];
     }
 

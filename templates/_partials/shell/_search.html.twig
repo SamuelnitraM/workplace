@@ -1,4 +1,4 @@
-{# Recherche globale (utilisateurs + groupes) — API app_search_api.
+{# Recherche globale (membres, groupes, sections et sujets du forum) — API app_search_api.
    Desktop : champ dans la barre. Mobile (< 768 px) : masquée, ouverte en pleine largeur par la loupe
    (searchOpen, porté par le x-data de l'en-tête ; voir .site-search dans app.css). #}
 {% import '_macros/ui.html.twig' as ui %}
@@ -6,11 +6,14 @@
      x-effect="if (searchOpen) $nextTick(() => $refs.searchInput.focus())"
      x-data="{
         query: '',
-        results: { users: [], groups: [] },
+        results: { users: [], groups: [], categories: [], threads: [] },
         showResults: false,
+        get hasResults() {
+            return Object.values(this.results).some(entries => entries.length > 0);
+        },
         async fetchResults() {
             if (this.query.length < 2) {
-                this.results = { users: [], groups: [] };
+                this.results = { users: [], groups: [], categories: [], threads: [] };
                 this.showResults = false;
                 return;
             }
@@ -28,47 +31,72 @@
     <input
         type="search"
         x-ref="searchInput"
-        aria-label="Rechercher un utilisateur ou un groupe"
+        aria-label="Rechercher un membre, un groupe, une section ou un sujet du forum"
         x-model="query"
         @input.debounce.300ms="fetchResults()"
-        placeholder="Rechercher un membre, un groupe…"
+        placeholder="Rechercher un membre, un groupe, un sujet…"
         autocomplete="off"
         class="input site-search-input">
 
-    <div x-show="showResults && (results.users.length > 0 || results.groups.length > 0)"
+    <div x-show="showResults && hasResults"
          x-cloak
          @click.outside="showResults = false"
          x-transition.opacity.duration.150ms
-         class="menu left-0 right-0 min-w-0 p-1.5">
+         class="menu site-search-results left-0 right-0 min-w-0 p-1.5">
         <template x-if="results.users.length > 0">
-            <div>
+            <div class="site-search-section">
                 <p class="eyebrow menu-label">Membres</p>
-                <div class="max-h-48 overflow-y-auto">
-                    <template x-for="user in results.users" :key="user.username">
-                        <a :href="user.url" class="menu-item">
-                            <span class="avatar avatar-xs">
-                                <template x-if="user.avatar"><img :src="user.avatar" alt=""></template>
-                                <template x-if="!user.avatar"><span aria-hidden="true" x-text="user.username[0].toUpperCase()"></span></template>
-                            </span>
-                            <span class="truncate text-fg" x-text="user.username"></span>
-                        </a>
-                    </template>
-                </div>
+                <template x-for="user in results.users" :key="user.url">
+                    <a :href="user.url" class="menu-item">
+                        <span class="avatar avatar-xs">
+                            <template x-if="user.avatar"><img :src="user.avatar" alt=""></template>
+                            <template x-if="!user.avatar"><span aria-hidden="true" x-text="user.username[0].toUpperCase()"></span></template>
+                        </span>
+                        <span class="truncate text-fg" x-text="user.username"></span>
+                    </a>
+                </template>
             </div>
         </template>
 
         <template x-if="results.groups.length > 0">
-            <div>
-                <div x-show="results.users.length > 0" class="menu-separator"></div>
+            <div class="site-search-section">
                 <p class="eyebrow menu-label">Groupes</p>
-                <div class="max-h-48 overflow-y-auto">
-                    <template x-for="group in results.groups" :key="group.name">
-                        <a :href="group.url" class="menu-item">
-                            {{ ui.icon('users') }}
-                            <span class="truncate text-fg" x-text="group.name"></span>
-                        </a>
-                    </template>
-                </div>
+                <template x-for="group in results.groups" :key="group.url">
+                    <a :href="group.url" class="menu-item">
+                        {{ ui.icon('users') }}
+                        <span class="truncate text-fg" x-text="group.name"></span>
+                    </a>
+                </template>
+            </div>
+        </template>
+
+        <template x-if="results.categories.length > 0">
+            <div class="site-search-section">
+                <p class="eyebrow menu-label">Sections du forum</p>
+                <template x-for="category in results.categories" :key="category.url">
+                    <a :href="category.url" class="menu-item">
+                        {{ ui.icon('messages-square') }}
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-fg" x-text="category.name"></span>
+                            <span class="block truncate text-caption text-muted" x-show="category.context" x-text="category.context"></span>
+                        </span>
+                    </a>
+                </template>
+            </div>
+        </template>
+
+        <template x-if="results.threads.length > 0">
+            <div class="site-search-section">
+                <p class="eyebrow menu-label">Sujets</p>
+                <template x-for="thread in results.threads" :key="thread.url">
+                    <a :href="thread.url" class="menu-item">
+                        {{ ui.icon('message-square') }}
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-fg" x-text="thread.title"></span>
+                            <span class="block truncate text-caption text-muted" x-text="thread.context"></span>
+                        </span>
+                    </a>
+                </template>
             </div>
         </template>
     </div>

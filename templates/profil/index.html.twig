@@ -10,7 +10,11 @@
 
     {# ================= EN-TÊTE DU PROFIL ================= #}
     <header class="card profile-hero">
-        <div class="profile-cover" aria-hidden="true"></div>
+        {% if user.cover %}
+            <img src="{{ asset('uploads/covers/' ~ user.cover) }}" alt="" class="profile-cover profile-cover-image" decoding="async">
+        {% else %}
+            <div class="profile-cover" aria-hidden="true"></div>
+        {% endif %}
 
         <div class="profile-hero-body">
             <div class="profile-hero-top">
@@ -20,13 +24,6 @@
                 <div class="profile-actions">
                     {% if isOwner %}
                         <a href="{{ path('app_profil_edit') }}" class="btn btn-primary">{{ ui.icon('pencil') }}Modifier le profil</a>
-                        <a href="{{ path('app_group_invitation_list') }}" class="btn btn-secondary">
-                            {{ ui.icon('mail') }}Invitations
-                            {% if pendingInvitationsCount > 0 %}
-                                <span class="count-badge">{{ pendingInvitationsCount }}<span class="sr-only"> en attente</span></span>
-                            {% endif %}
-                        </a>
-                        <a href="{{ path('app_army_index') }}" class="btn btn-ghost">{{ ui.icon('swords') }}Mes listes d'armée</a>
 
                     {% elseif app.user %}
                         {% set blocked_between = blockedByMe or blockedMe %}
@@ -139,11 +136,7 @@
                 <dl class="profile-stats">
                     <div class="profile-stat">
                         <dt>Amis</dt>
-                        {% if isOwner %}
-                            <dd><a href="{{ path('app_friendship_list') }}" class="profile-stat-link">{{ friends|length }}<span class="sr-only"> — voir mes amis</span></a></dd>
-                        {% else %}
-                            <dd>{{ friends|length }}</dd>
-                        {% endif %}
+                        <dd><a href="{{ isOwner ? path('app_friendship_list') : path('app_profil_friends', {username: user.username}) }}" class="profile-stat-link">{{ friends|length }}<span class="sr-only"> — voir {{ isOwner ? 'mes amis' : 'les amis de ' ~ user.username }}</span></a></dd>
                     </div>
                     <div class="profile-stat"><dt>Sujets</dt><dd>{{ user.threads|length }}</dd></div>
                     <div class="profile-stat"><dt>Messages</dt><dd>{{ user.posts|length }}</dd></div>
@@ -190,8 +183,7 @@
     {# ================= GALERIE ================= #}
     <section id="panel-gallery" role="tabpanel" aria-labelledby="tab-gallery" data-panel="gallery" data-tabs-target="panel" data-controller="profile-gallery modal" class="profile-gallery">
         {% if isOwner %}
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <p class="text-small text-muted max-w-reading">Coche des photos pour les ranger dans un album (« + » sur un album existant) ou les supprimer. L'œil masque une photo aux visiteurs.</p>
+            <div class="mb-4 flex flex-wrap items-center justify-end gap-3">
                 <div class="flex items-center gap-3 min-w-44" title="{{ photo_count }} photo{{ photo_count > 1 ? 's' }} sur 10">
                     <div class="progress progress-sm flex-1 {{ gallery_full ? 'progress-accent' : '' }}" role="progressbar" aria-valuenow="{{ photo_count }}" aria-valuemin="0" aria-valuemax="10" aria-label="Photos publiées">
                         <div class="progress-bar" style="width: {{ photo_count * 10 }}%"></div>

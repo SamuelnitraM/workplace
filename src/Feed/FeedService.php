@@ -20,8 +20,9 @@ use Doctrine\ORM\EntityManagerInterface;
  *  - listes d'armée publiques ;
  *  - badges obtenus (regroupés par membre et par jour : « a obtenu 3 badges »).
  *
- * Filtres : « tout » (amis + groupes), « amis », « groupes », « communaute » (tous les membres).
- * Les activités du membre lui-même ne sont pas affichées.
+ * Filtres : « tout » (amis + groupes), « amis », « groupes », « communaute » (tous les membres),
+ * « actualites » (sujets des catégories en lecture seule du forum : annonces et nouveautés du site).
+ * Les activités du membre lui-même ne sont pas affichées, sauf dans les actualités.
  *
  * Pagination par curseur (« Voir plus ») : date du dernier élément affiché + clés des éléments de même date
  * déjà affichés (évite de sauter ou répéter des éléments créés à la même seconde, ex. badges simultanés).
@@ -33,7 +34,9 @@ final class FeedService
         'amis' => 'Amis',
         'groupes' => 'Groupes',
         'communaute' => 'Communauté',
+        self::NEWS_FILTER => 'Actualités',
     ];
+    public const NEWS_FILTER = 'actualites';
     public const DEFAULT_FILTER = 'tout';
     public const PER_PAGE = 12;
 
@@ -59,7 +62,7 @@ final class FeedService
      */
     public function page(User $user, string $filter, ?string $cursor = null, int $limit = self::PER_PAGE): array
     {
-        $actorIds = $filter === 'communaute' ? null : $this->actorIds($user, $filter);
+        $actorIds = in_array($filter, ['communaute', self::NEWS_FILTER], true) ? null : $this->actorIds($user, $filter);
         if ($actorIds === []) {
             return ['items' => [], 'next' => null, 'filter' => $filter];
         }
@@ -67,12 +70,14 @@ final class FeedService
         [$before, $seen] = self::decodeCursor($cursor);
         $fetch = $limit + 1 + count($seen);
 
-        $items = array_merge(
-            $this->photos($user, $actorIds, $before, $fetch),
-            $this->threads($user, $actorIds, $before, $fetch),
-            $this->armyLists($user, $actorIds, $before, $fetch),
-            $this->badges($user, $actorIds, $before, $fetch),
-        );
+        $items = $filter === self::NEWS_FILTER
+            ? $this->news($before, $fetch)
+            : array_merge(
+                $this->photos($user, $actorIds, $before, $fetch),
+                $this->threads($user, $actorIds, $before, $fetch),
+                $this->armyLists($user, $actorIds, $before, $fetch),
+                $this->badges($user, $actorIds, $before, $fetch),
+            );
         $items = array_values(array_filter($items, static fn (FeedItem $item) => !in_array($item->key, $seen, true)));
         usort($items, static fn (FeedItem $a, FeedItem $b) => [$b->date, $b->key] <=> [$a->date, $a->key]);
 
@@ -157,6 +162,34 @@ final class FeedService
         return array_map(
             static fn (Thread $thread) => new FeedItem(FeedItem::TYPE_THREAD, 'thread-' . $thread->getId(), $thread->getCreatedAt(), $thread->getAuthor(), $thread),
             $qb->getQuery()->getResult()
+        );
+    }
+
+    /**
+     * Site news: threads of the read-only forum categories, whoever published them.
+     *
+     * @return FeedItem[]
+     */
+    private function news(\DateTimeImmutable $before, int $limit): array
+    {
+        $threads = $this->em->createQueryBuilder()
+            ->select('t', 'a', 'c', 'atb')
+            ->from(Thread::class, 't')
+            ->innerJoin('t.author', 'a')
+            ->leftJoin('a.titleBadge', 'atb')
+            ->innerJoin('t.category', 'c')
+            ->where('c.readOnly = true')
+            ->andWhere('t.createdAt <= :before')
+            ->setParameter('before', $before)
+            ->orderBy('t.createdAt', 'DESC')
+            ->addOrderBy('t.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return array_map(
+            static fn (Thread $thread) => new FeedItem(FeedItem::TYPE_NEWS, 'news-' . $thread->getId(), $thread->getCreatedAt(), $thread->getAuthor(), $thread),
+            $threads
         );
     }
 
@@ -259,7 +292,7 @@ final class FeedService
         foreach ($items as $item) {
             if ($item->type === FeedItem::TYPE_PHOTO) {
                 $photos[$item->subject->getId()] = $item->subject;
-            } elseif ($item->type === FeedItem::TYPE_THREAD) {
+            } elseif ($item->isThread()) {
                 $threads[$item->subject->getId()] = $item->subject;
             }
         }
@@ -305,7 +338,7 @@ final class FeedService
             }
 
             foreach ($items as $item) {
-                if ($item->type === FeedItem::TYPE_THREAD) {
+                if ($item->isThread()) {
                     $id = $item->subject->getId();
                     $item->meta = [
                         'replies' => max(0, (int) ($counts[$id] ?? 1) - 1),

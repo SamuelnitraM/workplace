@@ -1,12 +1,13 @@
 {#
     Élément du fil d'actualité (App\Feed\FeedItem).
-    Paramètre : item. Types : photo, thread, army, badges.
+    Paramètre : item. Types : photo, thread, news (site news: thread of a read-only category), army, badges.
 #}
 {% import '_macros/ui.html.twig' as ui %}
 {% set actor = item.actor %}
 {% set actions = {
     photo: 'a partagé une photo',
     thread: 'a lancé une discussion',
+    news: 'a publié une actualité',
     army: 'a publié une liste d\'armée',
     badges: item.type == 'badges' and item.subject|length > 1 ? 'a obtenu ' ~ item.subject|length ~ ' badges' : 'a obtenu un badge',
 } %}
@@ -22,7 +23,7 @@
             </span>
         </p>
         <span class="feed-item-type" aria-hidden="true">
-            {{- ui.icon({photo: 'camera', thread: 'message-square', army: 'swords', badges: 'medal'}[item.type], 'size-4') -}}
+            {{- ui.icon({photo: 'camera', thread: 'message-square', news: 'megaphone', army: 'swords', badges: 'medal'}[item.type], 'size-4') -}}
         </span>
     </header>
 
@@ -36,33 +37,33 @@
         {% if photo.description %}
             <p class="px-4 pt-3 text-small text-fg-secondary break-words sm:px-5 line-clamp-3">{{ photo.description }}</p>
         {% endif %}
-        <footer class="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5" data-controller="like">
+        <footer class="feed-item-actions" data-controller="like">
             {% if is_granted('GALLERY_PHOTO_LIKE', photo) %}
                 {% set liked = item.meta.liked ?? false %}
                 <form method="post" action="{{ path('app_gallery_photo_like', {username: actor.username, id: photo.id}) }}" data-like-target="form" data-action="like#submit">
                     <input type="hidden" name="_token" value="{{ csrf_token('gallery_like_' ~ photo.id) }}">
                     <input type="hidden" name="liked" value="{{ liked ? '0' : '1' }}" data-like-target="intent">
-                    <button type="submit" class="btn btn-secondary btn-sm like-toggle {{ liked ? 'is-liked' : 'is-not-liked' }}" aria-pressed="{{ liked ? 'true' : 'false' }}" data-like-target="button">
+                    <button type="submit" class="btn btn-secondary btn-sm like-toggle like-toggle-compact {{ liked ? 'is-liked' : 'is-not-liked' }}" aria-pressed="{{ liked ? 'true' : 'false' }}"
+                            aria-label="J’aime" title="J’aime" data-like-target="button">
                         <span class="like-toggle-heart" aria-hidden="true">{{ liked ? '♥' : '♡' }}</span>
-                        <span data-like-target="label">{{ liked ? 'Je n’aime plus' : 'J’aime' }}</span>
                         <span class="like-toggle-count" data-like-target="count">{{ item.meta.likes ?? 0 }}</span>
                     </button>
                 </form>
             {% else %}
-                <span class="chip">{{ ui.icon('heart') }}{{ item.meta.likes ?? 0 }}<span class="sr-only"> j’aime</span></span>
+                <span class="btn btn-secondary btn-sm pointer-events-none">{{ ui.icon('heart') }}<span class="tabular-nums">{{ item.meta.likes ?? 0 }}</span><span class="sr-only"> j’aime</span></span>
             {% endif %}
-            <a href="{{ photo_url }}#comments" class="btn btn-ghost btn-sm">
-                {{- ui.icon('message-circle') }}{{ item.meta.comments ?? 0 }} commentaire{{ (item.meta.comments ?? 0) > 1 ? 's' }}
+            <a href="{{ photo_url }}#comments" class="btn btn-secondary btn-sm" title="Commentaires">
+                {{- ui.icon('message-circle') }}<span class="tabular-nums">{{ item.meta.comments ?? 0 }}</span><span class="sr-only"> commentaire{{ (item.meta.comments ?? 0) > 1 ? 's' }}</span>
             </a>
             <p class="field-error hidden w-full" data-like-target="error" role="alert"></p>
         </footer>
 
-    {% elseif item.type == 'thread' %}
+    {% elseif item.type in ['thread', 'news'] %}
         {% set thread = item.subject %}
         {% set thread_url = path('app_thread_show', {slug: thread.slug}) %}
         <div class="px-4 pt-3 sm:px-5">
             <p class="mb-1 flex flex-wrap items-center gap-1.5">
-                <a href="{{ path('app_forum_category', {slug: thread.category.slug}) }}" class="chip hover:text-fg">{{ ui.icon('folder') }}{{ thread.category.name }}</a>
+                <a href="{{ path('app_forum_category', {slug: thread.category.slug}) }}" class="chip hover:text-fg">{% if thread.category.icon %}{{ ui.icon(thread.category.icon) }}{% endif %}{{ thread.category.name }}</a>
                 {% if thread.solved %}<span class="chip chip-success">{{ ui.icon('check-circle') }}Résolu</span>{% endif %}
             </p>
             <h3 class="text-h3 text-fg break-words"><a href="{{ thread_url }}" class="hover:text-primary-text">{{ thread.title }}</a></h3>
@@ -70,9 +71,13 @@
                 <p class="mt-1 line-clamp-3 break-words text-small text-fg-secondary">{{ item.meta.content|forum_excerpt(260) }}</p>
             {% endif %}
         </div>
-        <footer class="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
-            <span class="chip">{{ ui.icon('message-circle') }}{{ item.meta.replies ?? 0 }} réponse{{ (item.meta.replies ?? 0) > 1 ? 's' }}</span>
-            <a href="{{ thread_url }}#reply" class="btn btn-ghost btn-sm ml-auto">{{ ui.icon('pencil') }}Répondre</a>
+        <footer class="feed-item-actions">
+            <span class="btn btn-secondary btn-sm pointer-events-none" title="Réponses">{{ ui.icon('message-circle') }}<span class="tabular-nums">{{ item.meta.replies ?? 0 }}</span><span class="sr-only"> réponse{{ (item.meta.replies ?? 0) > 1 ? 's' }}</span></span>
+            {% if is_granted('THREAD_REPLY', thread) %}
+                <a href="{{ thread_url }}#reply" class="btn btn-ghost btn-sm ml-auto">{{ ui.icon('pencil') }}Répondre</a>
+            {% else %}
+                <a href="{{ thread_url }}" class="btn btn-ghost btn-sm ml-auto">{{ ui.icon('arrow-right') }}Lire</a>
+            {% endif %}
         </footer>
 
     {% elseif item.type == 'army' %}

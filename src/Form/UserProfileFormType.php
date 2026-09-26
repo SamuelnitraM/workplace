@@ -6,7 +6,8 @@ use App\Entity\Badge;
 use App\Entity\User;
 use App\Gamification\UserTitleManager;
 use App\Notification\NotificationSound;
-use App\Service\AvatarUploader;
+use App\Profile\ProfileImage;
+use App\Service\ProfileImageUploader;
 use App\Service\BsDataFetcher;
 use Doctrine\ORM\EntityRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
@@ -109,8 +110,18 @@ class UserProfileFormType extends AbstractType
                 'mapped' => false,
                 'required' => false,
                 'constraints' => [
-                    AvatarUploader::fileConstraint(),
+                    ProfileImageUploader::fileConstraint(ProfileImage::Avatar),
                 ],
+            ])
+            ->add('coverFile', FileType::class, [
+                'label' => 'Bannière',
+                'mapped' => false,
+                'required' => false,
+                'constraints' => [
+                    ProfileImageUploader::fileConstraint(ProfileImage::Cover),
+                ],
+                'attr' => ['accept' => implode(',', ProfileImageUploader::MIME_TYPES)],
+                'help' => 'Image affichée en haut de votre profil. JPG, PNG ou WEBP, ' . ProfileImage::Cover->maxFileSize() . 'o maximum ; format large conseillé (ex. 1600 × 400).',
             ])
         ;
     }

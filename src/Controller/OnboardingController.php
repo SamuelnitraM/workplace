@@ -8,7 +8,8 @@ use App\Form\OnboardingProfileFormType;
 use App\Form\UserProfileFormType;
 use App\Repository\GroupRepository;
 use App\Security\Voter\GroupVoter;
-use App\Service\AvatarUploader;
+use App\Profile\ProfileImage;
+use App\Service\ProfileImageUploader;
 use App\Service\GalleryPhotoUploader;
 use App\Service\GamificationService;
 use App\Service\OnboardingService;
@@ -46,13 +47,13 @@ final class OnboardingController extends AbstractController
     }
 
     #[Route('/etape/{step}', name: '_step', requirements: ['step' => '[1-4]'], methods: ['GET', 'POST'])]
-    public function step(int $step, Request $request, AvatarUploader $avatarUploader, GalleryPhotoUploader $galleryUploader): Response
+    public function step(int $step, Request $request, ProfileImageUploader $profileImageUploader, GalleryPhotoUploader $galleryUploader): Response
     {
         $user = $this->currentUser();
 
         return match ($step) {
             1 => $this->factionStep($request, $user),
-            2 => $this->profileStep($request, $user, $avatarUploader, $galleryUploader),
+            2 => $this->profileStep($request, $user, $profileImageUploader, $galleryUploader),
             3 => $this->groupsStep($request, $user),
             default => $this->render('onboarding/step4.html.twig', $this->common($user, 4) + [
                 'dailyLoginXp' => GamificationService::DAILY_LOGIN_XP,
@@ -114,18 +115,6 @@ final class OnboardingController extends AbstractController
         return $this->redirectToRoute('app_home');
     }
 
-    /** Pied de page « Relancer la présentation » : retour à l'étape 1, données déjà saisies conservées. */
-    #[Route('/relancer', name: '_restart', methods: ['POST'])]
-    public function restart(Request $request): Response
-    {
-        $this->denyUnlessCsrfValid($request);
-        $this->onboarding->restart($this->currentUser());
-        $this->em->flush();
-        $request->getSession()->remove(self::SESSION_JOINED_GROUPS);
-
-        return $this->redirectToStep(1);
-    }
-
     private function factionStep(Request $request, User $user): Response
     {
         $choices = UserProfileFormType::factionChoices();
@@ -150,7 +139,7 @@ final class OnboardingController extends AbstractController
         ]);
     }
 
-    private function profileStep(Request $request, User $user, AvatarUploader $avatarUploader, GalleryPhotoUploader $galleryUploader): Response
+    private function profileStep(Request $request, User $user, ProfileImageUploader $profileImageUploader, GalleryPhotoUploader $galleryUploader): Response
     {
         $form = $this->createForm(OnboardingProfileFormType::class, ['bio' => $user->getBio()], [
             'action' => $this->generateUrl('app_onboarding_step', ['step' => 2]),
@@ -164,7 +153,7 @@ final class OnboardingController extends AbstractController
 
             $oldAvatar = $user->getAvatar();
             $avatarFile = $form->get('avatarFile')->getData();
-            if ($avatarFile instanceof UploadedFile && ($error = $avatarUploader->upload($user, $avatarFile))) {
+            if ($avatarFile instanceof UploadedFile && ($error = $profileImageUploader->upload($user, ProfileImage::Avatar, $avatarFile))) {
                 $errors[] = $error;
             }
 
@@ -180,7 +169,7 @@ final class OnboardingController extends AbstractController
                 $this->onboarding->advanceTo($user, 3);
             }
             $this->em->flush();
-            $avatarUploader->deleteReplaced($oldAvatar, $user);
+            $profileImageUploader->deleteReplaced($user, ProfileImage::Avatar, $oldAvatar);
 
             // Ce qui a réussi est enregistré ; en cas d'erreur, on reste sur l'étape pour corriger
             foreach ($errors as $error) {

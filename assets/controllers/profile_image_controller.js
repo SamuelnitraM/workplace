@@ -3,12 +3,13 @@ import { Controller } from '@hotwired/stimulus';
 /* stimulusFetch: 'lazy' */
 
 /*
- * Édition de la photo de profil : aperçu du fichier choisi, sélection puis marquage de la photo
- * actuelle pour suppression (champ caché delete_avatar = 1, appliqué à l'enregistrement du formulaire).
+ * Edition of a profile image (profile photo or banner): preview of the chosen file, then selection and marking
+ * of the current image for deletion (hidden field delete_<kind> = 1, applied when the form is saved).
+ * One controller instance per image, placed on the block that holds its fields.
  *
- * Cibles : preview (img actuelle), placeholder (initiale), selectContainer / selectCheckbox (case de sélection),
- * deleteButton (bouton « Supprimer la photo »), deleteInput (champ caché delete_avatar).
- * Actions : change->avatar#preview (input fichier), change->avatar#toggleDelete (case), avatar#markForDeletion (bouton).
+ * Targets: preview (current img), placeholder (initial or default visual), selectContainer / selectCheckbox (selection box),
+ * deleteButton ("Supprimer" button), deleteInput (hidden delete_<kind> field).
+ * Actions: change->profile-image#preview (file input), change->profile-image#toggleDelete (box), profile-image#markForDeletion (button).
  */
 export default class extends Controller {
     static targets = ['preview', 'placeholder', 'selectContainer', 'selectCheckbox', 'deleteButton', 'deleteInput'];

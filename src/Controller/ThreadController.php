@@ -25,6 +25,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use App\Forum\ForumActivityNotifier;
 use App\Repository\ThreadSubscriptionRepository;
+use App\Security\Voter\CategoryVoter;
 use App\Security\Voter\ThreadVoter;
 use App\Service\GamificationService;
 use App\Service\NotificationService;
@@ -160,7 +161,7 @@ class ThreadController extends AbstractController
         );
 
         $form = null;
-        if ($this->getUser() && !$thread->isLocked()) {
+        if ($this->isGranted(ThreadVoter::REPLY, $thread)) {
             $post = new Post();
             $form = $this->createForm(PostFormType::class, $post);
             $form->handleRequest($request);
@@ -223,9 +224,11 @@ class ThreadController extends AbstractController
             throw $this->createNotFoundException('Catégorie introuvable');
         }
 
-        // Catégorie de regroupement : refus avant tout traitement du formulaire (GET comme POST forgé)
-        if (!$category->isAllowThreads()) {
-            $this->addFlash('error', 'La création de sujets est désactivée dans cette catégorie. Choisissez l\'une de ses sous-catégories.');
+        // Grouping or read-only category: refused before any form handling (GET as well as a forged POST)
+        if (!$this->isGranted(CategoryVoter::CREATE_THREAD, $category)) {
+            $this->addFlash('error', $category->isAllowThreads()
+                ? 'Cette catégorie est en lecture seule : seuls les administrateurs peuvent y publier.'
+                : 'La création de sujets est désactivée dans cette catégorie. Choisissez l\'une de ses sous-catégories.');
 
             return $this->redirectToRoute('app_forum_category', ['slug' => $category->getSlug()]);
         }

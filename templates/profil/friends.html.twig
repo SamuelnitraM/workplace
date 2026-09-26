@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Amis de {{ user.username }}{% endblock %}
+
+{% block body %}
+<div class="container-reading">
+    <header class="page-header">
+        <div class="flex min-w-0 items-center gap-4">
+            <a href="{{ path('app_profil_show', {username: user.username}) }}" class="shrink-0 rounded-pill" aria-label="Profil de {{ user.username }}">{{ ui.avatar(user, 'lg') }}</a>
+            <div class="min-w-0">
+                <p class="page-header-eyebrow"><a class="link" href="{{ path('app_profil_show', {username: user.username}) }}">{{ user.username }}</a>{{ ui.icon('chevron-right', 'size-4') }}Amis</p>
+                <h1 class="page-header-title break-words">Amis de {{ user.username }}</h1>
+                <p class="page-header-subtitle">{{ friends|length }} ami{{ friends|length > 1 ? 's' }}</p>
+            </div>
+        </div>
+    </header>
+
+    {% if friends is empty %}
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'users',
+            title: user.username ~ ' n\'a pas encore d\'ami',
+            text: 'Les amitiés confirmées de ce membre apparaîtront ici.',
+            cta: {label: 'Retour au profil', url: path('app_profil_show', {username: user.username}), icon: 'arrow-left'},
+        }) }}
+    {% else %}
+        <ul role="list" class="card overflow-hidden">
+            {% for friend in friends %}
+                <li class="list-row list-row-interactive relative">
+                    {{ ui.avatar(friend, 'md') }}
+                    <div class="list-row-main">
+                        <a href="{{ path('app_profil_show', {username: friend.username}) }}" class="font-semibold text-fg hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ friend.username }}</a>
+                        {{ include('gamification/_user_title.html.twig', {user: friend}) }}
+                    </div>
+                    {% if app.user and friend.id == app.user.id %}
+                        <span class="chip chip-primary shrink-0">Vous</span>
+                    {% elseif friend.id in viewerFriendIds %}
+                        <span class="chip chip-success shrink-0">{{ ui.icon('user-check') }}Ami en commun</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+{% endblock %}

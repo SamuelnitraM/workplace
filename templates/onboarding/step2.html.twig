@@ -9,18 +9,18 @@
 {{ form_start(form, {attr: {id: 'onboarding-form', class: 'space-y-8', novalidate: 'novalidate'}}) }}
     {{ form_errors(form) }}
 
-    {# ─── Photo de profil (aperçu : assets/controllers/avatar_controller.js) ─── #}
-    <div data-controller="avatar" class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+    {# ─── Photo de profil (aperçu : assets/controllers/profile_image_controller.js) ─── #}
+    <div data-controller="profile-image" class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
         <div class="relative size-28 shrink-0 overflow-hidden rounded-pill border-2 border-line-strong bg-surface-raised">
             <img {% if user.avatar %}src="{{ asset('uploads/avatars/' ~ user.avatar) }}" {% endif %}alt="Aperçu de ta photo de profil"
-                 data-avatar-target="preview" class="size-full object-cover {{ user.avatar ? '' : 'hidden' }}">
-            <div data-avatar-target="placeholder" class="size-full items-center justify-center text-4xl font-bold text-muted {{ user.avatar ? 'hidden' : 'flex' }}" aria-hidden="true">
+                 data-profile-image-target="preview" class="size-full object-cover {{ user.avatar ? '' : 'hidden' }}">
+            <div data-profile-image-target="placeholder" class="size-full items-center justify-center text-4xl font-bold text-muted {{ user.avatar ? 'hidden' : 'flex' }}" aria-hidden="true">
                 {{ user.username|first|upper }}
             </div>
         </div>
         <div class="field w-full">
             {{ form_label(form.avatarFile) }}
-            {{ form_widget(form.avatarFile, {attr: form.avatarFile.vars.attr|merge({'data-action': 'change->avatar#preview'})}) }}
+            {{ form_widget(form.avatarFile, {attr: form.avatarFile.vars.attr|merge({'data-action': 'change->profile-image#preview'})}) }}
             {{ form_help(form.avatarFile) }}
             {{ form_errors(form.avatarFile) }}
         </div>

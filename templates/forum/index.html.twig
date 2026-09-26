@@ -60,7 +60,7 @@
                     </div>
                     <div class="card overflow-hidden">
                         {% if block.items|length > 0 %}
-                            {{ include('forum/_category_list.html.twig', {children: block.items, icon: 'folder'}) }}
+                            {{ include('forum/_category_list.html.twig', {children: block.items}) }}
                         {% else %}
                             <p class="px-4 py-5 text-small text-muted">Aucune sous-catégorie pour le moment.</p>
                         {% endif %}
@@ -69,7 +69,7 @@
             {% else %}
                 <section aria-label="Catégories">
                     <div class="card overflow-hidden">
-                        {{ include('forum/_category_list.html.twig', {children: block.items, icon: 'messages-square', heading: 2}) }}
+                        {{ include('forum/_category_list.html.twig', {children: block.items, heading: 2}) }}
                     </div>
                 </section>
             {% endif %}

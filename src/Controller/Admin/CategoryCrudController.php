@@ -13,6 +13,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Event\BeforeEntityPersistedEvent;
 use EasyCorp\Bundle\EasyAdminBundle\Event\BeforeEntityUpdatedEvent;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\BooleanField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
@@ -20,13 +21,15 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Twig\Environment;
 
 #[IsGranted('ROLE_ADMIN')]
 class CategoryCrudController extends AbstractCrudController implements EventSubscriberInterface
 {
     public function __construct(
         private CategoryRepository $categoryRepository,
-        private EntityManagerInterface $em
+        private EntityManagerInterface $em,
+        private Environment $twig,
     ) {}
 
     public static function getEntityFqcn(): string
@@ -90,9 +93,29 @@ class CategoryCrudController extends AbstractCrudController implements EventSubs
         // les mêmes événements qu'une édition classique.
         yield BooleanField::new('allowThreads', 'Création de sujets')
             ->setHelp('Si désactivé, la catégorie sert uniquement de regroupement : ses sous-catégories sont affichées en liste et aucun sujet ne peut y être créé.');
+        yield BooleanField::new('readOnly', 'Lecture seule')
+            ->setHelp('Seuls les administrateurs peuvent créer des sujets et répondre ; les autres membres lisent uniquement. Les sujets de ces catégories alimentent le filtre « Actualités » du fil.');
+        yield ChoiceField::new('icon', 'Icône')
+            ->setChoices($this->iconChoices())
+            ->setRequired(false)
+            ->hideOnIndex()
+            ->setHelp('Icône affichée à côté de la catégorie. Sans icône, aucun pictogramme n\'est affiché.');
         yield IntegerField::new('position', 'Position')
             ->setHelp('Position parmi les catégories de même niveau (même parent).');
         yield DateTimeField::new('createdAt', 'Créée le')->hideOnForm();
+    }
+
+    /**
+     * Icon names of the design system, as label => value choices.
+     *
+     * @return array<string, string>
+     */
+    private function iconChoices(): array
+    {
+        $names = explode(',', trim($this->twig->render('_partials/_icon.html.twig', ['name' => '__names'])));
+        sort($names);
+
+        return array_combine($names, $names);
     }
 
     public function createEntity(string $entityFqcn): Category

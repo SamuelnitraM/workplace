@@ -9,7 +9,9 @@ import { Controller } from '@hotwired/stimulus';
  *   qui envoie le formulaire #gallery-delete-form avec les photo_ids[] sélectionnés ;
  * - selection actions (fillSelection): delete, create an album, add to an album ("+" of an album tile),
  *   remove from the album; each button sends its own form with the selected photo_ids[];
- * - en mode sélection, un clic sur une vignette ne navigue pas vers la page de la photo.
+ * - en mode sélection, un clic sur une vignette ne navigue pas vers la page de la photo ;
+ * - visibility toggle (eye of a tile, toggleVisibility): sent without reloading, the tile rendered by the server
+ *   replaces the current one (the selection is kept); a non-JSON answer falls back to the regular form submission.
  *
  * Cibles : zone (formulaire d'envoi, data-upload-locked), input, label, preview, submit, description, deleteForm.
  * Une vignette : [data-photo-id] contenant le bouton .gallery-select (.is-idle = masqué hors survol ; vignette cochée : .is-selected).
@@ -105,6 +107,44 @@ export default class extends Controller {
             selector.classList.remove('is-idle');
         }
         this.updateDeleteMode();
+    }
+
+    toggleVisibility(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const tile = form.closest('[data-photo-id]');
+        const button = form.querySelector('button');
+        button.disabled = true;
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        }).then(response => {
+            if (!(response.headers.get('Content-Type') || '').includes('application/json')) {
+                form.submit();
+                return;
+            }
+            return response.json().then(data => {
+                if (!response.ok) throw new Error(data.error || 'Une erreur est survenue.');
+                this.replaceTile(tile, data.tile);
+            });
+        }).catch(error => {
+            button.disabled = false;
+            button.title = error.message;
+        });
+    }
+
+    replaceTile(tile, html) {
+        const template = document.createElement('template');
+        template.innerHTML = html.trim();
+        const freshTile = template.content.firstElementChild;
+        if (this.selectedPhotos.has(tile.dataset.photoId)) {
+            freshTile.classList.add('is-selected');
+            freshTile.querySelector('.gallery-select')?.classList.remove('is-idle');
+        }
+        tile.replaceWith(freshTile);
+        freshTile.querySelector('.gallery-photo-action button')?.focus();
     }
 
     // En mode sélection (suppression), un clic sur la vignette ne navigue pas vers la page de la photo

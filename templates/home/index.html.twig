@@ -5,58 +5,12 @@
 
 {#
     Accueil : deux vues.
-    - Visiteur : accroche plein écran, proposition de valeur, preuve sociale, vitrine, discussions, sections.
-    - Membre : tableau de bord (bienvenue, présentation guidée + « Premiers pas », actions rapides, vitrine, discussions).
+    - Visiteur : accroche plein écran, proposition de valeur, preuve sociale, carrousels de la galerie, discussions, sections.
+    - Membre : tableau de bord (bienvenue, présentation guidée + « Premiers pas », carrousels de la galerie, fil d'actualité).
+    The side blocks (latest discussions, my threads, forum sections) are hidden on mobile.
 #}
 
-{# Weekly trends: most liked photos of the last 7 days (hidden while nobody liked a photo this week) #}
-{% macro trending_section(trendingPhotos) %}
-    {% import '_macros/ui.html.twig' as ui %}
-    {% import _self as home %}
-    {% if trendingPhotos is not empty %}
-        <section aria-labelledby="trending-title">
-            <h2 id="trending-title" class="section-title">{{ ui.icon('flame') }}Tendances de la semaine</h2>
-            <p class="-mt-2 mb-4 text-small text-muted">Les photos les plus aimées ces 7 derniers jours.</p>
-            <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-                {% for entry in trendingPhotos %}
-                    {{ home.showcase_tile(entry.photo, {likes: entry.likes, comments: 0}) }}
-                {% endfor %}
-            </ul>
-        </section>
-    {% endif %}
-{% endmacro %}
-
-{# ─── Tuile de la vitrine (photo carrée, auteur, j'aime) ─── #}
-{% macro showcase_tile(photo, photoStats) %}
-    {% import '_macros/ui.html.twig' as ui %}
-    {% set excerpt = photo.description ? (photo.description|length > 80 ? photo.description|slice(0, 80) ~ '…' : photo.description) : null %}
-    <li>
-        <a href="{{ path('app_gallery_photo_show', {username: photo.owner.username, id: photo.id}) }}"
-           class="group flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface shadow-raised transition-colors duration-(--duration-fast) hover:border-line-strong focus-visible:border-primary-text">
-            <div class="relative aspect-square overflow-hidden bg-surface-raised">
-                <img src="{{ asset('uploads/gallery/' ~ photo.filename) }}"
-                     alt="Photo de {{ photo.owner.username }}{% if excerpt %} : {{ excerpt }}{% endif %}"
-                     loading="lazy" decoding="async"
-                     class="size-full object-cover transition-transform duration-(--duration-slow) ease-standard group-hover:scale-105 group-focus-visible:scale-105 motion-reduce:transform-none">
-                <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-pill bg-canvas/80 px-2 py-0.5 text-caption font-medium text-fg backdrop-blur-sm">
-                    {{ ui.icon('heart', 'size-3.5') }}{{ photoStats.likes }}<span class="sr-only"> j'aime</span>
-                </span>
-            </div>
-            <div class="flex flex-1 flex-col justify-end gap-2 p-3">
-                {% if excerpt %}
-                    <p class="line-clamp-2 break-words text-small text-fg-secondary">{{ excerpt }}</p>
-                {% endif %}
-                <span class="flex min-w-0 items-center gap-2 text-caption text-muted">
-                    {{ ui.avatar(photo.owner, 'xs') }}
-                    <span class="truncate font-medium text-fg-secondary group-hover:text-fg">{{ photo.owner.username }}</span>
-                </span>
-            </div>
-        </a>
-    </li>
-{% endmacro %}
-
 {% block body %}
-{% import _self as home %}
 {% set me = app.user %}
 
 {% if not me %}
@@ -124,32 +78,13 @@
             </section>
         {% endif %}
 
-        {{ home.trending_section(trendingPhotos) }}
-
-        {# Vitrine #}
-        <section aria-labelledby="showcase-title">
-            <h2 id="showcase-title" class="section-title">{{ ui.icon('camera') }}Dernières créations de la communauté</h2>
-            {% if showcasePhotos is not empty %}
-                <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-                    {% for photo in showcasePhotos %}
-                        {{ home.showcase_tile(photo, showcaseStats[photo.id] ?? {likes: 0, comments: 0}) }}
-                    {% endfor %}
-                </ul>
-            {% else %}
-                {{ include('_partials/_empty_state.html.twig', {
-                    icon: 'camera',
-                    title: 'Aucune création partagée pour l\'instant',
-                    text: 'Inscris-toi et montre la première figurine de la communauté !',
-                    cta: {label: 'Partager ma première figurine', url: path('app_register'), icon: 'image-plus'},
-                }, with_context = false) }}
-            {% endif %}
-        </section>
+        {{ block('gallery_carousels') }}
 
         <div class="grid gap-8 lg:grid-cols-3">
-            <div class="lg:col-span-2">
+            <div class="hidden lg:col-span-2 lg:block">
                 {{ block('latest_discussions') }}
             </div>
-            <div>
+            <div class="hidden lg:block">
                 {{ block('categories') }}
             </div>
         </div>
@@ -171,9 +106,6 @@
                 </p>
             </div>
         </div>
-        <div class="page-header-actions">
-            <a href="{{ path('app_profil_show', {username: me.username}) }}#gallery" class="btn btn-primary">{{ ui.icon('image-plus') }}Partager une photo</a>
-        </div>
     </header>
 
     <div class="space-y-10">
@@ -185,51 +117,7 @@
             </div>
         {% endif %}
 
-        {# Actions rapides #}
-        <nav aria-label="Actions rapides">
-            <ul class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {% for action in [
-                    {icon: 'message-square', label: 'Nouveau sujet', text: 'Pose une question au forum', url: path('app_forum_index')},
-                    {icon: 'swords', label: 'Liste d\'armée', text: 'Compose ta prochaine liste', url: path('app_army_new')},
-                    {icon: 'users', label: 'Groupes', text: 'Club, armée ou projet', url: path('app_group_index')},
-                    {icon: 'trophy', label: 'Classement', text: 'Les membres les plus actifs', url: path('app_leaderboard')},
-                ] %}
-                    <li>
-                        <a href="{{ action.url }}" class="card card-interactive flex h-full items-center gap-3 p-3 sm:p-4">
-                            <span class="flex size-10 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-text">{{ ui.icon(action.icon) }}</span>
-                            <span class="min-w-0">
-                                <span class="block truncate text-small font-semibold text-fg">{{ action.label }}</span>
-                                <span class="hidden truncate text-caption text-muted sm:block">{{ action.text }}</span>
-                            </span>
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
-        </nav>
-
-        {{ home.trending_section(trendingPhotos) }}
-
-        {# Vitrine #}
-        <section aria-labelledby="showcase-title">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <h2 id="showcase-title" class="section-title mb-0">{{ ui.icon('camera') }}Dernières créations de la communauté</h2>
-            </div>
-            {% if showcasePhotos is not empty %}
-                {# Une seule rangée : le fil d'actualité ci-dessous prend le relais #}
-                <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-                    {% for photo in showcasePhotos|slice(0, 6) %}
-                        {{ home.showcase_tile(photo, showcaseStats[photo.id] ?? {likes: 0, comments: 0}) }}
-                    {% endfor %}
-                </ul>
-            {% else %}
-                {{ include('_partials/_empty_state.html.twig', {
-                    icon: 'camera',
-                    title: 'Aucune création partagée pour l\'instant',
-                    text: 'Montre la première figurine de la communauté !',
-                    cta: {label: 'Partager ma première figurine', url: path('app_profil_show', {username: me.username}) ~ '#gallery', icon: 'image-plus'},
-                }, with_context = false) }}
-            {% endif %}
-        </section>
+        {{ block('gallery_carousels') }}
 
         <div class="grid gap-8 lg:grid-cols-3">
             <div class="min-w-0 lg:col-span-2">
@@ -237,7 +125,7 @@
                 {{ include('feed/_feed.html.twig', {feed: userDashboard.feed, hasNetwork: userDashboard.hasNetwork, filters: feedFilters}, with_context = false) }}
             </div>
 
-            <div class="space-y-8">
+            <div class="hidden space-y-8 lg:block">
                 {{ block('latest_discussions') }}
 
                 {# Mes derniers sujets #}
@@ -332,7 +220,7 @@
                 {% for category in categories %}
                     <li>
                         <a href="{{ path('app_forum_category', {slug: category.slug}) }}" class="list-row">
-                            <span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised text-primary-text">{{ ui.icon('folder', 'size-4') }}</span>
+                            {% if category.icon %}<span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised text-primary-text">{{ ui.icon(category.icon, 'size-4') }}</span>{% endif %}
                             <span class="list-row-main">
                                 <span class="block truncate text-small font-medium">{{ category.name }}</span>
                                 {% if category.description %}<span class="block truncate text-caption text-muted">{{ category.description }}</span>{% endif %}
@@ -344,4 +232,31 @@
             </ul>
         </section>
     {% endif %}
+{% endblock %}
+
+{# ─── Galerie : carrousels « Dernières créations » et « Tendances de la semaine » (commun) ─── #}
+{% block gallery_carousels %}
+    {% import '_macros/ui.html.twig' as ui %}
+    {% set publish_url = app.user ? path('app_profil_show', {username: app.user.username}) ~ '#gallery' : path('app_register') %}
+    <section class="space-y-4" aria-label="Galerie de la communauté">
+        {% if showcasePhotos is not empty %}
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-small text-fg-secondary">Les figurines peintes, converties et exposées par la communauté.</p>
+                <a href="{{ publish_url }}" class="btn btn-primary">{{ ui.icon('image-plus') }}Publier une photo</a>
+            </div>
+            <div class="grid gap-6 {{ trendingPhotos is not empty ? 'lg:grid-cols-2' }}">
+                {{ include('home/_photo_carousel.html.twig', {id: 'showcase', title: 'Dernières créations de la communauté', icon: 'camera', subtitle: 'Les dernières photos publiées.', photos: showcasePhotos, photoStats: photoStats}, with_context = false) }}
+                {% if trendingPhotos is not empty %}
+                    {{ include('home/_photo_carousel.html.twig', {id: 'trending', title: 'Tendances de la semaine', icon: 'flame', subtitle: 'Les photos les plus aimées du moment.', photos: trendingPhotos, photoStats: photoStats}, with_context = false) }}
+                {% endif %}
+            </div>
+        {% else %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'camera',
+                title: 'Aucune création partagée pour l\'instant',
+                text: 'Montre la première figurine de la communauté !',
+                cta: {label: 'Publier une photo', url: publish_url, icon: 'image-plus'},
+            }, with_context = false) }}
+        {% endif %}
+    </section>
 {% endblock %}

@@ -18,7 +18,7 @@
             {% endfor %}
         </nav>
 
-        <div class="space-y-4">
+        <div class="feed-scroll space-y-4">
             {% if feed.items is not empty %}
                 {{ include('feed/_items.html.twig', {feed: feed}, with_context = false) }}
             {% elseif feed.filter != 'communaute' and not hasNetwork %}

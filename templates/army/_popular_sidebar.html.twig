@@ -1,0 +1,33 @@
+{#
+    Right column of the army list pages: the public lists most duplicated and most exported by other members.
+    Parameters: mostDuplicated (ArmyList[]), mostExported (ArmyList[]).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% macro popular_block(id, title, icon, lists, count_property, count_label) %}
+    {% import '_macros/ui.html.twig' as ui %}
+    <section class="card" aria-labelledby="{{ id }}-title">
+        <div class="card-header">
+            <h2 id="{{ id }}-title" class="flex items-center gap-2 text-h3">{{ ui.icon(icon, 'size-5 text-muted') }}{{ title }}</h2>
+        </div>
+        {% if lists is empty %}
+            <p class="card-body text-small text-muted">Aucune liste pour l'instant.</p>
+        {% else %}
+            <ol role="list">
+                {% for list in lists %}
+                    <li class="list-row list-row-interactive relative items-start">
+                        <span class="popular-rank" aria-hidden="true">{{ loop.index }}</span>
+                        <div class="list-row-main">
+                            <a href="{{ path('app_army_show', {id: list.id}) }}" class="block truncate text-small font-semibold text-fg hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ list.name }}</a>
+                            <p class="truncate text-caption text-muted">{{ list.faction }} · {{ list.owner.username }}</p>
+                        </div>
+                        <span class="chip shrink-0 tabular-nums" title="{{ count_label }}">{{ attribute(list, count_property) }}<span class="sr-only"> {{ count_label|lower }}</span></span>
+                    </li>
+                {% endfor %}
+            </ol>
+        {% endif %}
+    </section>
+{% endmacro %}
+<aside class="space-y-6" aria-label="Listes populaires">
+    {{ _self.popular_block('most-duplicated', 'Les plus dupliquées', 'copy', mostDuplicated, 'duplicationCount', 'Duplications') }}
+    {{ _self.popular_block('most-exported', 'Les plus exportées', 'download', mostExported, 'exportCount', 'Exports') }}
+</aside>

@@ -4,7 +4,7 @@
 {% block title %}Modifier mon profil — SprueHub{% endblock %}
 
 {% block body %}
-<div class="container-reading" data-controller="avatar">
+<div class="container-reading">
 
     <header class="page-header">
         <div>
@@ -17,8 +17,6 @@
     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data', 'class': 'space-y-6'}}) }}
         {{ form_errors(form) }}
 
-        <input type="hidden" name="delete_avatar" id="delete-avatar" value="0" data-avatar-target="deleteInput">
-
         {# ─── Profil ─── #}
         <section class="card" aria-labelledby="settings-profile">
             <div class="card-header">
@@ -26,15 +24,16 @@
             </div>
             <div class="card-body space-y-6">
 
-                {# Photo de profil (assets/controllers/avatar_controller.js) #}
-                <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+                {# Photo de profil (assets/controllers/profile_image_controller.js) #}
+                <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-center" data-controller="profile-image">
+                    <input type="hidden" name="delete_avatar" id="delete-avatar" value="0" data-profile-image-target="deleteInput">
                     <div class="group relative size-28 shrink-0">
                         <div class="relative size-full overflow-hidden rounded-pill border-2 border-line-strong bg-surface-raised">
                             <img {% if user.avatar %}src="{{ asset('uploads/avatars/' ~ user.avatar) }}" {% endif %}
                                  alt="Photo de profil actuelle"
-                                 id="avatar-preview" data-avatar-target="preview"
+                                 id="avatar-preview" data-profile-image-target="preview"
                                  class="size-full object-cover {{ user.avatar ? '' : 'hidden' }}">
-                            <div id="avatar-placeholder" data-avatar-target="placeholder" aria-hidden="true"
+                            <div id="avatar-placeholder" data-profile-image-target="placeholder" aria-hidden="true"
                                  class="size-full items-center justify-center text-4xl font-bold text-muted {{ user.avatar ? 'hidden' : 'flex' }}">
                                 {{ user.username|first|upper }}
                             </div>
@@ -44,7 +43,7 @@
                         </div>
                         {# Champ fichier masqué, ouvert par la photo ou le bouton « Changer la photo » #}
                         <div class="absolute inset-0">
-                            {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'data-action': 'change->avatar#preview'}, 'id': 'avatar-upload-input'}) }}
+                            {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'data-action': 'change->profile-image#preview'}, 'id': 'avatar-upload-input'}) }}
                             <label for="avatar-upload-input" class="absolute inset-0 cursor-pointer rounded-pill"><span class="sr-only">Choisir une nouvelle photo de profil</span></label>
                         </div>
                     </div>
@@ -57,9 +56,9 @@
                         <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                             <label for="avatar-upload-input" class="btn btn-secondary btn-sm cursor-pointer">{{ ui.icon('upload') }}Changer la photo</label>
                             {% if user.avatar %}
-                                <div id="select-avatar-container" data-avatar-target="selectContainer">
+                                <div id="select-avatar-container" data-profile-image-target="selectContainer">
                                     <label class="check py-0 text-small text-fg-secondary">
-                                        <input type="checkbox" id="select-avatar" class="checkbox" data-avatar-target="selectCheckbox" data-action="change->avatar#toggleDelete">
+                                        <input type="checkbox" id="select-avatar" class="checkbox" data-profile-image-target="selectCheckbox" data-action="change->profile-image#toggleDelete">
                                         <span>Retirer la photo actuelle</span>
                                     </label>
                                 </div>
@@ -67,13 +66,43 @@
                         </div>
                         {% if user.avatar %}
                             <button type="button" id="btn-delete-avatar"
-                                    data-avatar-target="deleteButton" data-action="avatar#markForDeletion"
+                                    data-profile-image-target="deleteButton" data-action="profile-image#markForDeletion"
                                     class="btn btn-danger btn-sm hidden">
                                 {{ ui.icon('trash') }}Supprimer la photo
                             </button>
                         {% endif %}
                         {{ form_errors(form.avatarFile) }}
                     </div>
+                </div>
+
+                <hr class="divider my-0">
+
+                {# Banner (assets/controllers/profile_image_controller.js): the default visual is shown without one #}
+                <div class="space-y-3" data-controller="profile-image">
+                    <input type="hidden" name="delete_cover" value="0" data-profile-image-target="deleteInput">
+                    <p class="label">Bannière</p>
+                    <div class="profile-cover-preview">
+                        <img {% if user.cover %}src="{{ asset('uploads/covers/' ~ user.cover) }}" {% endif %}alt="Bannière actuelle"
+                             data-profile-image-target="preview" class="size-full object-cover {{ user.cover ? '' : 'hidden' }}">
+                        <div data-profile-image-target="placeholder" class="profile-cover size-full {{ user.cover ? 'hidden' : '' }}" aria-hidden="true"></div>
+                    </div>
+                    {{ form_widget(form.coverFile, {attr: form.coverFile.vars.attr|merge({class: 'sr-only', 'data-action': 'change->profile-image#preview'}), id: 'cover-upload-input'}) }}
+                    <div class="flex flex-wrap items-center gap-2">
+                        <label for="cover-upload-input" class="btn btn-secondary btn-sm cursor-pointer">{{ ui.icon('upload') }}Changer la bannière</label>
+                        {% if user.cover %}
+                            <div data-profile-image-target="selectContainer">
+                                <label class="check py-0 text-small text-fg-secondary">
+                                    <input type="checkbox" class="checkbox" data-profile-image-target="selectCheckbox" data-action="change->profile-image#toggleDelete">
+                                    <span>Retirer la bannière actuelle</span>
+                                </label>
+                            </div>
+                            <button type="button" data-profile-image-target="deleteButton" data-action="profile-image#markForDeletion" class="btn btn-danger btn-sm hidden">
+                                {{ ui.icon('trash') }}Supprimer la bannière
+                            </button>
+                        {% endif %}
+                    </div>
+                    <p class="help">{{ form.coverFile.vars.help }}</p>
+                    {{ form_errors(form.coverFile) }}
                 </div>
 
                 <hr class="divider my-0">

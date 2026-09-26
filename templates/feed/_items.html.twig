@@ -1,13 +1,15 @@
 {#
-    Éléments d'une page du fil + lien « Voir plus » dans un Turbo Frame propre à la page suivante :
-    la réponse de /fil remplace ce frame par les éléments suivants (et le lien de la page d'après).
+    Éléments d'une page du fil + Turbo Frame de la page suivante, chargé automatiquement (loading="lazy")
+    dès qu'il entre dans la zone visible : la réponse de /fil remplace ce frame par les éléments suivants
+    (et le frame de la page d'après). Le lien « Voir plus » reste disponible si le chargement n'a pas lieu.
     Paramètre : feed (résultat de FeedService::page).
 #}
 {% for item in feed.items %}
     {{ include('feed/_item.html.twig', {item: item}, with_context = false) }}
 {% endfor %}
 {% if feed.next %}
-    <turbo-frame id="feed-page-{{ feed.next }}" class="block space-y-4" target="_top">
+    <turbo-frame id="feed-page-{{ feed.next }}" class="block space-y-4" target="_top" loading="lazy"
+                 src="{{ path('app_feed_page', {fil: feed.filter, apres: feed.next}) }}">
         <div class="flex justify-center pt-2">
             <a href="{{ path('app_feed_page', {fil: feed.filter, apres: feed.next}) }}" class="btn btn-secondary" data-turbo-frame="feed-page-{{ feed.next }}">
                 Voir plus d'activité

@@ -2,7 +2,7 @@
 
 namespace App\Forum;
 
-use App\Repository\UserRepository;
+use App\Text\MentionResolver;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
@@ -17,7 +17,6 @@ use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
 use League\CommonMark\MarkdownConverter;
 use League\CommonMark\Node\Inline\AbstractInline;
 use League\CommonMark\Node\Inline\Text;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Rendu Markdown des messages du forum (CommonMark + barré + liens automatiques + mentions @pseudo).
@@ -32,9 +31,6 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final class ForumMarkdown
 {
-    /** Pseudo mentionnable (mêmes caractères que la contrainte du pseudo ; pas de « . » ou « - » final, pour « @pseudo. »). */
-    public const MENTION_PATTERN = '[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,48}[A-Za-z0-9_])?';
-
     /** Préfixe des images autorisées dans les messages. */
     public const IMAGE_PATH_PREFIX = '/uploads/forum/';
 
@@ -43,18 +39,14 @@ final class ForumMarkdown
 
     private ?MarkdownConverter $converter = null;
 
-    /** @var array<string, string|false> pseudo en minuscules → pseudo réel (false : inconnu) */
-    private array $knownUsers = [];
-
-    public function __construct(
-        private readonly UserRepository $userRepository,
-        private readonly UrlGeneratorInterface $urlGenerator,
-    ) {
+    public function __construct(private readonly MentionResolver $mentionResolver)
+    {
     }
 
     public function toHtml(string $markdown): string
     {
-        $this->preloadUsers($markdown);
+        // One query for every member mentioned in the text, instead of one per mention
+        $this->mentionResolver->preload(self::extractMentions($markdown));
 
         return $this->converter()->convert($markdown)->getContent();
     }
@@ -76,44 +68,7 @@ final class ForumMarkdown
      */
     public static function extractMentions(string $markdown): array
     {
-        $text = (string) preg_replace(['/```.*?```/s', '/`[^`\n]*`/'], ' ', $markdown);
-        preg_match_all('/(?<![\w@])@(' . self::MENTION_PATTERN . ')/u', $text, $matches);
-
-        $mentions = [];
-        foreach ($matches[1] as $username) {
-            $mentions[mb_strtolower($username)] ??= $username;
-        }
-
-        return array_values($mentions);
-    }
-
-    /** Une seule requête pour tous les pseudos mentionnés du texte (au lieu d'une par mention). */
-    private function preloadUsers(string $markdown): void
-    {
-        $missing = array_filter(self::extractMentions($markdown), fn (string $name) => !isset($this->knownUsers[mb_strtolower($name)]));
-        if ($missing === []) {
-            return;
-        }
-        foreach ($missing as $name) {
-            $this->knownUsers[mb_strtolower($name)] = false;
-        }
-        foreach ($this->userRepository->findByUsernames($missing) as $user) {
-            $this->knownUsers[mb_strtolower((string) $user->getUsername())] = (string) $user->getUsername();
-        }
-    }
-
-    private function resolveUsername(string $identifier): ?string
-    {
-        $key = mb_strtolower($identifier);
-        if (!isset($this->knownUsers[$key])) {
-            $this->knownUsers[$key] = false;
-            $user = $this->userRepository->findByUsernames([$identifier])[0] ?? null;
-            if ($user) {
-                $this->knownUsers[$key] = (string) $user->getUsername();
-            }
-        }
-
-        return $this->knownUsers[$key] ?: null;
+        return MentionResolver::extract((string) preg_replace(['/```.*?```/s', '/`[^`\n]*`/'], ' ', $markdown));
     }
 
     private function converter(): MarkdownConverter
@@ -138,7 +93,7 @@ final class ForumMarkdown
             'mentions' => [
                 'user' => [
                     'prefix' => '@',
-                    'pattern' => self::MENTION_PATTERN,
+                    'pattern' => MentionResolver::PATTERN,
                     'generator' => new class($this) implements MentionGeneratorInterface {
                         public function __construct(private readonly ForumMarkdown $markdown)
                         {
@@ -165,12 +120,12 @@ final class ForumMarkdown
     /** @internal Générateur des mentions : lien vers le profil si le membre existe, texte brut sinon. */
     public function mentionLink(Mention $mention): ?AbstractInline
     {
-        $username = $this->resolveUsername($mention->getIdentifier());
+        $username = $this->mentionResolver->resolve($mention->getIdentifier());
         if ($username === null) {
             return null;
         }
 
-        $mention->setUrl($this->urlGenerator->generate('app_profil_show', ['username' => $username]));
+        $mention->setUrl($this->mentionResolver->profileUrl($username));
         $mention->setLabel('@' . $username);
         $mention->data->append('attributes/class', 'mention');
 

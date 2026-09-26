@@ -14,6 +14,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\Field;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\ChoiceFilter;
@@ -37,6 +38,8 @@ class ReportCrudController extends AbstractCrudController
             ->setEntityLabelInSingular('Signalement')
             ->setEntityLabelInPlural('Signalements')
             ->setDefaultSort(['status' => 'DESC', 'createdAt' => 'ASC'])
+            // A click anywhere on a row opens the report page
+            ->setDefaultRowAction('process')
             ->setPageTitle(Crud::PAGE_INDEX, 'File de modération');
     }
 
@@ -55,7 +58,8 @@ class ReportCrudController extends AbstractCrudController
         return $filters
             ->add(ChoiceFilter::new('status', 'Statut')->setChoices(['En attente' => Report::STATUS_PENDING, 'Traité' => Report::STATUS_CLOSED]))
             ->add(ChoiceFilter::new('targetType', 'Type')->setChoices(self::enumChoices(ReportTargetType::cases())))
-            ->add(ChoiceFilter::new('reason', 'Motif')->setChoices(self::enumChoices(ReportReason::cases())));
+            ->add(ChoiceFilter::new('reason', 'Motif')->setChoices(self::enumChoices(ReportReason::cases())))
+            ->add(ChoiceFilter::new('resolution', 'Décision')->setChoices(self::enumChoices(ReportResolution::cases())));
     }
 
     public function configureFields(string $pageName): iterable
@@ -71,7 +75,7 @@ class ReportCrudController extends AbstractCrudController
         yield AssociationField::new('targetAuthor', 'Auteur');
         yield AssociationField::new('reporter', 'Signalé par');
         yield DateTimeField::new('createdAt', 'Reçu le');
-        yield ChoiceField::new('resolution', 'Décision')->setChoices(self::enumChoices(ReportResolution::cases()));
+        yield Field::new('resolution', 'Décision')->setTemplatePath('admin/field/resolution.html.twig');
     }
 
     /**

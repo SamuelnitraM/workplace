@@ -8,7 +8,8 @@ import { listen, setActive, clearActive, postJson, visit } from '../lib/realtime
  *
  * - abonnement au canal Pusher privé à la connexion, désabonnement à la déconnexion (visites Turbo comprises) ;
  * - envoi AJAX : le message est affiché depuis la réponse du serveur ;
- * - messages construits avec textContent (jamais interprétés comme du HTML) ;
+ * - messages construits avec textContent (jamais interprétés comme du HTML), sauf contentHtml : contenu échappé
+ *   par le serveur (App\Text\MentionResolver::linkify) où seules les mentions @pseudo sont des liens ;
  * - signale au messenger / aux notifications le contenu affiché (activeConversation, notificationKey).
  */
 export default class extends Controller {
@@ -157,7 +158,11 @@ export default class extends Controller {
         // La bulle suit immédiatement la ligne meta (pinned_controller s'appuie sur meta.nextElementSibling)
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble';
-        bubble.textContent = data.content;
+        if (typeof data.contentHtml === 'string') {
+            bubble.innerHTML = data.contentHtml;
+        } else {
+            bubble.textContent = data.content;
+        }
         body.append(meta, bubble);
 
         if (avatarDiv) msgDiv.append(avatarDiv);
@@ -199,7 +204,7 @@ export default class extends Controller {
     /** Titre de l'auteur ({name, tier, icon}), même rendu que templates/gamification/_user_title.html.twig. */
     buildTitle(title) {
         if (!title || !title.name) return null;
-        const tier = ['bronze', 'silver', 'gold', 'premium'].includes(title.tier) ? title.tier : 'bronze';
+        const tier = ['bronze', 'silver', 'gold', 'premium', 'honorary'].includes(title.tier) ? title.tier : 'bronze';
         const pill = document.createElement('span');
         pill.className = `user-title badge-tier-${tier}`;
         pill.title = `Titre : ${title.name}`;

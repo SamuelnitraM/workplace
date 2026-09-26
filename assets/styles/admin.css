@@ -1,0 +1,12 @@
+/*
+ * Administration (EasyAdmin) additions.
+ * Colour code of moderation sanctions (App\Moderation\ReportResolution::severity()):
+ * red = permanent ban, orange = temporary suspension, yellow = content removed or hidden without ban.
+ */
+.sanction { font-weight: 600; }
+.sanction-ban { background: #dc2626; color: #fff; }
+.sanction-suspension { background: #ea580c; color: #fff; }
+.sanction-content { background: #facc15; color: #422006; }
+.sanction-none { background: var(--gray-200, #e5e7eb); color: var(--gray-800, #1f2937); }
+.moderation-history-item { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.moderation-history-item.is-current { font-weight: 600; }
