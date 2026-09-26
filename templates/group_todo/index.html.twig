@@ -3,48 +3,6 @@
 
 {% block title %}Tâches du groupe — {{ group.name }}{% endblock %}
 
-{# Pastille d'assignation (catégorie ou tâche) + menu des membres si l'utilisateur peut assigner. align : 'start' | 'end' #}
-{% macro assignee(node, members, assignUrl, canAssign, align) %}
-    {% import '_macros/ui.html.twig' as ui %}
-    {% set who = node.assignedTo %}
-    {% set inner %}
-        {% if who %}
-            {{ ui.avatar(who, 'xs') }}<span class="hidden max-w-24 truncate sm:inline">{{ who.username }}</span>
-        {% else %}
-            <span class="flex size-6 items-center justify-center rounded-pill border border-dashed border-line-strong text-muted">{{ ui.icon('user-plus', 'size-3.5') }}</span>
-            {% if canAssign %}<span class="hidden sm:inline">Assigner</span>{% endif %}
-        {% endif %}
-    {% endset %}
-    {% if canAssign %}
-        <div class="dropdown" x-data="{ open: false }" @keydown.escape="open = false">
-            <button type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="true"
-                    class="flex min-h-8 items-center gap-1.5 rounded-pill py-0.5 pr-2 pl-0.5 text-caption font-medium text-fg-secondary hover:bg-surface-raised hover:text-fg pointer-coarse:min-h-11"
-                    title="{{ who ? 'Assigné à ' ~ who.username : 'Non assigné' }}"
-                    aria-label="{{ who ? 'Assigné à ' ~ who.username ~ ' — changer' : 'Assigner à un membre' }}">
-                {{ inner }}
-            </button>
-            <div x-show="open" x-cloak @click.outside="open = false" x-transition.opacity.duration.150ms
-                 class="menu {{ align == 'start' ? 'menu-start' : '' }} max-h-72 min-w-48 overflow-y-auto">
-                <p class="menu-label eyebrow">Assigner à</p>
-                <button type="button" class="menu-item" {{ stimulus_action('todo', 'assign', 'click', {url: assignUrl, user: ''}) }}>
-                    {{ ui.icon('x', 'size-4') }}Personne
-                </button>
-                {% for member in members %}
-                    <button type="button" class="menu-item" {% if who and who.id == member.user.id %}aria-current="true"{% endif %}
-                            {{ stimulus_action('todo', 'assign', 'click', {url: assignUrl, user: member.user.id}) }}>
-                        {{ ui.avatar(member.user, 'xs') }}<span class="flex-1 truncate">{{ member.user.username }}</span>
-                        {% if who and who.id == member.user.id %}{{ ui.icon('check', 'size-4 text-primary-text') }}{% endif %}
-                    </button>
-                {% endfor %}
-            </div>
-        </div>
-    {% else %}
-        <span class="flex min-h-8 items-center gap-1.5 py-0.5 pr-2 pl-0.5 text-caption text-fg-secondary" title="{{ who ? 'Assigné à ' ~ who.username : 'Non assigné' }}">
-            {{ inner }}<span class="sr-only">{{ who ? 'Assigné à ' ~ who.username : 'Non assigné' }}</span>
-        </span>
-    {% endif %}
-{% endmacro %}
-
 {# Bouton crayon : même action que le double-clic (todo#rename), cible = id de l'élément renommable #}
 {% macro rename_button(url, targetId, label) %}
     {% import '_macros/ui.html.twig' as ui %}
@@ -54,7 +12,9 @@
 {% endmacro %}
 
 {% block body %}
-{# Droits calculés par les voters : rédacteurs (rôle >= réglage du groupe) = tout ; membre assigné à une catégorie = voit/fait progresser ses tâches et en ajoute ; assigné à une tâche = la voit/fait progresser #}
+{# Droits calculés par les voters : rédacteurs (rôle >= réglage du groupe) = tout ; membre assigné à une tâche = la voit et la fait progresser ;
+   assignations gérées par TodoAssignmentManager (demande, validation, mode libre). Les listes sont repliées par défaut,
+   sauf celle visée par l'ancre de l'adresse (#list-…, #item-…). #}
 <div {{ stimulus_controller('todo', {token: csrf_token('todo')}) }}>
 
     <header class="page-header">
@@ -66,10 +26,11 @@
             <p class="page-header-subtitle">
                 {% if is_granted('TODO_WRITE', group) %}
                     Une liste par projet, des catégories, puis des tâches à assigner et à faire avancer par paliers de 25 %.
+                    La progression des catégories et des listes se calcule à partir des tâches.
                 {% elseif is_granted('TODO_VIEW_ALL', group) %}
                     Suivez l'avancement des projets du groupe.
                 {% else %}
-                    Les catégories et tâches qui vous sont assignées.
+                    Les tâches qui vous sont assignées.
                 {% endif %}
             </p>
             <div class="mt-2">
@@ -112,7 +73,9 @@
 
             {% set projectProgress = totalTasks > 0 ? (totalProgressSum / totalTasks)|round : 0 %}
 
-            <section class="card" id="list-{{ list.id }}" x-data="{ open: true }" aria-labelledby="list-title-{{ list.id }}">
+            <section class="card" id="list-{{ list.id }}" x-data="{ open: false }"
+                     x-init="open = location.hash.length > 1 && ($el.id === location.hash.slice(1) || $el.querySelector('#' + CSS.escape(location.hash.slice(1))) !== null)"
+                     aria-labelledby="list-title-{{ list.id }}">
 
                 {# EN-TÊTE DE LA LISTE (clic : déplier / replier) #}
                 <div class="px-4 py-4 sm:px-5">
@@ -173,11 +136,12 @@
                             {% endif %}
                         {% endfor %}
                         {% if is_granted('TODO_VIEW', category) %}
+                        {% set categoryProgress = category.computedProgress %}
                         <div class="card-inset flex flex-col" id="category-{{ category.id }}">
 
-                            {# EN-TÊTE CATÉGORIE #}
-                            <div class="group flex items-center gap-2 border-b border-line py-1.5 pr-1.5 pl-3">
-                                {{ ui.icon('folder', 'size-4 shrink-0 text-muted') }}
+                            {# EN-TÊTE CATÉGORIE : titre, membres assignés à ses tâches, progression calculée #}
+                            <div class="border-b border-line">
+                            <div class="group flex items-center gap-2 py-1.5 pr-1.5 pl-3">
                                 <h3 class="flex min-w-0 flex-1 items-center gap-1 text-small font-semibold text-fg">
                                     {% if is_granted('TODO_EDIT', category) %}
                                         <span id="rename-category-{{ category.id }}" class="truncate cursor-text"
@@ -189,8 +153,7 @@
                                     <span class="shrink-0 text-caption font-normal text-muted tabular-nums">· {{ visibleItems|length }}</span>
                                 </h3>
 
-                                {# ASSIGNATION CATÉGORIE #}
-                                {{ _self.assignee(category, members, path('app_group_todo_assign', {slug: group.slug, id: category.id}), is_granted('TODO_ASSIGN', category), 'end') }}
+                                {{ include('group_todo/_category_assignees.html.twig', {category: category}) }}
 
                                 {% if is_granted('TODO_DELETE', category) %}
                                     <form method="post" action="{{ path('app_group_todo_delete', {slug: group.slug, id: category.id}) }}"
@@ -200,6 +163,15 @@
                                                 aria-label="Supprimer la catégorie « {{ category.title }} »" title="Supprimer la catégorie">{{ ui.icon('trash') }}</button>
                                     </form>
                                 {% endif %}
+                            </div>
+                            <div class="flex items-center gap-2 px-3 pb-2" title="Progression calculée à partir des tâches">
+                                <div class="progress progress-sm flex-1" aria-hidden="true">
+                                    <div class="progress-bar" id="category-progress-bar-{{ category.id }}" style="width: {{ categoryProgress }}%"></div>
+                                </div>
+                                <span class="w-10 shrink-0 text-right text-caption font-semibold tabular-nums text-fg-secondary">
+                                    <span class="sr-only">Progression de la catégorie : </span><span id="category-progress-text-{{ category.id }}">{{ categoryProgress }}%</span>
+                                </span>
+                            </div>
                             </div>
 
                             {# TÂCHES #}
@@ -211,6 +183,7 @@
                                     <li class="group rounded-control border border-line px-3 py-2.5 transition-colors hover:border-line-strong {{ isItemDone ? 'bg-canvas' : 'bg-surface' }}"
                                         id="item-{{ item.id }}"
                                         data-project-id="{{ list.id }}"
+                                        data-category-id="{{ category.id }}"
                                         data-progress="{{ itemProgress }}"
                                         data-is-done="{{ isItemDone ? '1' : '0' }}">
 
@@ -238,13 +211,13 @@
                                             {% if is_granted('TODO_PROGRESS', item) %}
                                                 <div class="btn-group" role="group" aria-label="Progression de « {{ item.title }} »">
                                                     <button type="button" class="btn btn-secondary btn-sm btn-icon"
-                                                            {{ stimulus_action('todo', 'progress', 'click', {url: path('app_group_todo_progress_down', {slug: group.slug, id: item.id}), item: item.id, project: list.id}) }}
+                                                            {{ stimulus_action('todo', 'progress', 'click', {url: path('app_group_todo_progress_down', {slug: group.slug, id: item.id}), item: item.id, project: list.id, category: category.id}) }}
                                                             aria-label="Diminuer la progression de 25 %" title="−25 %"><span aria-hidden="true" class="text-base leading-none">−</span></button>
                                                     <button type="button" class="btn btn-secondary btn-sm btn-icon"
-                                                            {{ stimulus_action('todo', 'progress', 'click', {url: path('app_group_todo_progress_up', {slug: group.slug, id: item.id}), item: item.id, project: list.id}) }}
+                                                            {{ stimulus_action('todo', 'progress', 'click', {url: path('app_group_todo_progress_up', {slug: group.slug, id: item.id}), item: item.id, project: list.id, category: category.id}) }}
                                                             aria-label="Augmenter la progression de 25 %" title="+25 %">{{ ui.icon('plus') }}</button>
                                                     <button type="button" class="btn btn-secondary btn-sm"
-                                                            {{ stimulus_action('todo', 'progress', 'click', {url: path('app_group_todo_progress_validate', {slug: group.slug, id: item.id}), item: item.id, project: list.id}) }}
+                                                            {{ stimulus_action('todo', 'progress', 'click', {url: path('app_group_todo_progress_validate', {slug: group.slug, id: item.id}), item: item.id, project: list.id, category: category.id}) }}
                                                             title="Valider la tâche (100 %)">{{ ui.icon('check', 'size-4 text-success-text') }}Valider</button>
                                                 </div>
                                             {% else %}
@@ -252,7 +225,7 @@
                                             {% endif %}
 
                                             <div class="ml-auto flex items-center gap-1">
-                                                {{ _self.assignee(item, members, path('app_group_todo_assign', {slug: group.slug, id: item.id}), is_granted('TODO_ASSIGN', item), 'end') }}
+                                                {{ include('group_todo/_task_assignees.html.twig', {item: item, group: group}) }}
                                                 {% if is_granted('TODO_DELETE', item) %}
                                                     <form method="post" action="{{ path('app_group_todo_delete', {slug: group.slug, id: item.id}) }}" class="m-0">
                                                         <input type="hidden" name="_token" value="{{ csrf_token('todo') }}">
@@ -314,7 +287,7 @@
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'clipboard-list',
                     title: 'Aucune tâche ne vous est assignée',
-                    text: 'Les tâches et catégories qu\'on vous assigne apparaîtront ici. En attendant, passez discuter avec le groupe.',
+                    text: 'Les tâches qu\'on vous assigne apparaîtront ici. En attendant, passez discuter avec le groupe.',
                     cta: {label: 'Retour au groupe', url: path('app_group_show', {slug: group.slug}), icon: 'message-circle'},
                 }) }}
             {% else %}
@@ -345,6 +318,23 @@
         {% endif %}
 
     </div>
+
+    {# Decision on an assignment (manager): accept or refuse a request, remove an assignee #}
+    <dialog class="modal" id="assignment-dialog" aria-labelledby="assignment-dialog-title" data-todo-target="assignmentDialog" data-action="click->todo#closeAssignmentOnBackdrop">
+        <div class="modal-header">
+            <p class="modal-title" id="assignment-dialog-title">Assignation</p>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="todo#closeAssignment" aria-label="Fermer">{{ ui.icon('x') }}</button>
+        </div>
+        <div class="modal-body">
+            <p class="text-fg-secondary" data-todo-target="assignmentText"></p>
+            <p class="mt-2 text-small text-danger-text" data-todo-target="assignmentError" hidden></p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-danger" data-todo-target="removeButton" data-action="todo#decideAssignment">{{ ui.icon('user-minus') }}Retirer de la tâche</button>
+            <button type="button" class="btn btn-secondary" data-todo-target="refuseButton" data-action="todo#decideAssignment">{{ ui.icon('x') }}Refuser</button>
+            <button type="button" class="btn btn-primary" data-todo-target="acceptButton" data-action="todo#decideAssignment">{{ ui.icon('check') }}Accepter</button>
+        </div>
+    </dialog>
 </div>
 
 {% endblock %}

@@ -63,9 +63,14 @@ class TodoNode
     #[ORM\OrderBy(['position' => 'ASC'])]
     private Collection $children;
 
-    #[ORM\ManyToOne(inversedBy: 'assignedTodos')]
-    #[ORM\JoinColumn(onDelete: 'SET NULL')]
-    private ?User $assignedTo = null;
+    /**
+     * Members assigned to a task of a group (accepted) or asking to be (pending).
+     *
+     * @var Collection<int, TodoAssignment>
+     */
+    #[ORM\OneToMany(targetEntity: TodoAssignment::class, mappedBy: 'node', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'ASC'])]
+    private Collection $assignments;
 
     #[ORM\ManyToOne(inversedBy: 'todoNodes')]
     #[ORM\JoinColumn(onDelete: 'CASCADE')]
@@ -77,6 +82,7 @@ class TodoNode
         $this->isDone = false;
         $this->position = 0;
         $this->children = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->assignments = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -225,16 +231,77 @@ class TodoNode
         return $this;
     }
 
-    public function getAssignedTo(): ?User
+    /**
+     * @return Collection<int, TodoAssignment>
+     */
+    public function getAssignments(): Collection
     {
-        return $this->assignedTo;
+        return $this->assignments;
     }
 
-    public function setAssignedTo(?User $assignedTo): static
+    /** @return TodoAssignment[] accepted assignments, oldest first */
+    public function getAcceptedAssignments(): array
     {
-        $this->assignedTo = $assignedTo;
+        return array_values($this->assignments->filter(static fn (TodoAssignment $assignment): bool => $assignment->isAccepted())->toArray());
+    }
 
-        return $this;
+    /** @return TodoAssignment[] pending requests, oldest first */
+    public function getPendingAssignments(): array
+    {
+        return array_values($this->assignments->filter(static fn (TodoAssignment $assignment): bool => $assignment->isPending())->toArray());
+    }
+
+    public function assignmentOf(User $user): ?TodoAssignment
+    {
+        foreach ($this->assignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
+                return $assignment;
+            }
+        }
+        return null;
+    }
+
+    /** True when the member is assigned to this node (accepted assignment). */
+    public function isAssignedTo(User $user): bool
+    {
+        return (bool) $this->assignmentOf($user)?->isAccepted();
+    }
+
+    /** Root list containing this node (itself for a list); its anchor "list-<id>" opens it on the to-do pages. */
+    public function getRootList(): self
+    {
+        $root = $this;
+        while ($root->parent !== null) {
+            $root = $root->parent;
+        }
+        return $root;
+    }
+
+    /** Average progress of the tasks of a category or a list (0 to 100), computed from their completion. */
+    public function getComputedProgress(): int
+    {
+        $tasks = $this->collectTasks();
+        if ($tasks === []) {
+            return 0;
+        }
+        $sum = 0;
+        foreach ($tasks as $task) {
+            $sum += $task->getProgress() ?? ($task->isDone() ? 100 : 0);
+        }
+        return (int) round($sum / count($tasks));
+    }
+
+    /** @return self[] tasks under this node (itself for a task) */
+    public function collectTasks(): array
+    {
+        if ($this->type === self::TYPE_ITEM) {
+            return [$this];
+        }
+        $tasks = [];
+        foreach ($this->children as $child) {
+            array_push($tasks, ...$child->collectTasks());
+        }
+        return $tasks;
     }
 
     public function getUsergroup(): ?Group

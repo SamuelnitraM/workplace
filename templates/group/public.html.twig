@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Groupes publics — SprueHub{% endblock %}
+
+{% block body %}
+    <header class="page-header">
+        <div>
+            {% if app.user %}<p class="page-header-eyebrow"><a class="link" href="{{ path('app_group_index') }}">Mes groupes</a>{{ ui.icon('chevron-right', 'size-4') }}Groupes publics</p>{% endif %}
+            <h1 class="page-header-title">Groupes publics</h1>
+            <p class="page-header-subtitle">Les groupes ouverts à toute la communauté{{ app.user ? ' dont vous ne faites pas encore partie' }}.</p>
+        </div>
+        {% if app.user %}
+            <div class="page-header-actions">
+                <a href="{{ path('app_group_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Créer un groupe</a>
+            </div>
+        {% endif %}
+    </header>
+    {% if publicGroups is empty %}
+        {{ include('_partials/_empty_state.html.twig', {
+            icon: 'globe',
+            title: 'Aucun groupe public pour le moment',
+            text: app.user ? 'Lancez le premier : les groupes publics sont visibles par toute la communauté.' : 'Inscrivez-vous pour créer le premier groupe public de la communauté.',
+            cta: app.user ? {label: 'Créer un groupe public', url: path('app_group_new'), icon: 'plus'} : {label: 'Créer mon compte', url: path('app_register')},
+        }) }}
+    {% else %}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for group in publicGroups %}
+                {{ include('group/_card.html.twig', {group: group}) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

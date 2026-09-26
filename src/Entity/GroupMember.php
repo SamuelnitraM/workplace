@@ -27,6 +27,14 @@ class GroupMember
     #[ORM\JoinColumn(nullable: false)]
     private ?Group $usergroup = null;
 
+    /** Place of the group in the member's own ordering of their groups (custom order of the groups page). */
+    #[ORM\Column(nullable: true)]
+    private ?int $position = null;
+
+    /** Muted group: no notification for its messages, except when the member is mentioned. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $muted = false;
+
     public function __construct()
     {
         $this->joinedAt = new \DateTimeImmutable();
@@ -79,6 +87,30 @@ class GroupMember
     public function setUser(?User $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    public function getPosition(): ?int
+    {
+        return $this->position;
+    }
+
+    public function setPosition(?int $position): static
+    {
+        $this->position = $position;
+
+        return $this;
+    }
+
+    public function isMuted(): bool
+    {
+        return $this->muted;
+    }
+
+    public function setMuted(bool $muted): static
+    {
+        $this->muted = $muted;
 
         return $this;
     }

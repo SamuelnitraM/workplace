@@ -31,6 +31,9 @@ class Notification
     public const TYPE_FORUM_MENTION = 'forum_mention';
     public const TYPE_FORUM_SOLUTION = 'forum_solution';
     public const TYPE_MODERATION_NOTICE = 'moderation_notice';
+    public const TYPE_GROUP_MENTION = 'group_mention';
+    /** Task assignment of a group: request to approve, request accepted or refused, assignment by a manager. */
+    public const TYPE_TODO_ASSIGNMENT = 'todo_assignment';
 
     public const TYPES = [
         self::TYPE_FORUM_MENTION,
@@ -46,6 +49,8 @@ class Notification
         self::TYPE_BADGE_EARNED,
         self::TYPE_LEVEL_UP,
         self::TYPE_MODERATION_NOTICE,
+        self::TYPE_GROUP_MENTION,
+        self::TYPE_TODO_ASSIGNMENT,
     ];
 
     /** Types dont le compteur représente des personnes distinctes (« X et 3 autres ont aimé… »). */

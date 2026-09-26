@@ -23,7 +23,7 @@ final class GroupVoter extends Voter
     public const MANAGE = 'GROUP_MANAGE';
     /** Owner uniquement : supprimer le groupe, exclure, changer les rôles, créer/supprimer un channel. */
     public const OWNER = 'GROUP_OWNER';
-    /** Inviter quelqu'un : tout membre du groupe. */
+    /** Inviter quelqu'un : membre avec au moins Group::inviteRole, ou tout membre d'un groupe en accès libre. */
     public const INVITE = 'GROUP_INVITE';
     /** Rejoindre librement : connecté, pas encore membre, groupe public ET ouvert aux demandes. */
     public const JOIN = 'GROUP_JOIN';
@@ -74,7 +74,8 @@ final class GroupVoter extends Voter
         $member = $this->membership->getMember($user, $subject);
 
         return match ($attribute) {
-            self::VIEW, self::MEMBER, self::INVITE => $member !== null,
+            self::VIEW, self::MEMBER => $member !== null,
+            self::INVITE => $member !== null && ($subject->isOpenAccess() || $member->hasAtLeastRole($subject->getInviteRole())),
             self::MANAGE => $member !== null && $member->hasAtLeastRole('admin'),
             self::OWNER => $member !== null && $member->getRole() === 'owner',
             self::JOIN => $member === null && $subject->isPublic() && $subject->isJoinable(),

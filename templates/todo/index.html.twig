@@ -44,7 +44,10 @@
 
             {% set projectProgress = totalTasks > 0 ? (totalProgressSum / totalTasks)|round : 0 %}
 
-            <section class="card" id="list-{{ list.id }}" x-data="{ open: true }" aria-labelledby="list-title-{{ list.id }}">
+            {# Collapsed by default, except the list targeted by the address anchor (#list-…, #item-…) #}
+            <section class="card" id="list-{{ list.id }}" x-data="{ open: false }"
+                     x-init="open = location.hash.length > 1 && ($el.id === location.hash.slice(1) || $el.querySelector('#' + CSS.escape(location.hash.slice(1))) !== null)"
+                     aria-labelledby="list-title-{{ list.id }}">
 
                 {# EN-TÊTE DU PROJET (clic : déplier / replier) #}
                 <div class="px-4 py-4 sm:px-5">

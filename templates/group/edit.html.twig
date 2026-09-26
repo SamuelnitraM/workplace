@@ -88,6 +88,15 @@
                                 </span>
                             </label>
                         </fieldset>
+                        <div class="field sm:max-w-sm">
+                            <label class="label" for="invite-role">Qui peut inviter des membres</label>
+                            <select id="invite-role" name="invite_role" class="select" aria-describedby="invite-role-help">
+                                {% for role, label in roleLabels %}
+                                    <option value="{{ role }}" {{ group.inviteRole == role ? 'selected' : '' }}>{{ label }}{{ role != 'owner' ? ' et plus' : '' }}</option>
+                                {% endfor %}
+                            </select>
+                            <p id="invite-role-help" class="help">Dans un groupe en accès libre (public et ouvert aux demandes), tous les membres peuvent inviter.</p>
+                        </div>
                     </div>
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Enregistrer</button>
@@ -160,7 +169,7 @@
                 {% if group.channels is empty %}
                     <p class="px-4 py-5 text-small text-muted sm:px-5">Aucun salon pour le moment.{{ isOwner ? ' Créez-en un ci-dessous pour ouvrir la discussion.' : '' }}</p>
                 {% else %}
-                    <ul role="list">
+                    <ul role="list" class="group-settings-channels">
                         {% for channel in group.channels %}
                             <li class="list-row flex-wrap">
                                 <span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised font-semibold text-muted" aria-hidden="true">#</span>
@@ -245,9 +254,9 @@
                 {{ _self.section_header('taches', 'list-checks', 'Tâches du groupe', null) }}
                 <div class="card-body space-y-4">
                     <ul class="space-y-1.5 text-small text-fg-secondary" role="list">
-                        <li class="flex gap-2">{{ ui.icon('pencil', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Rédacteurs</strong> : créent listes, catégories et tâches, renomment, assignent, suppriment et font progresser toutes les tâches.</span></li>
-                        <li class="flex gap-2">{{ ui.icon('eye', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Lecteurs</strong> : voient toutes les tâches sans pouvoir les modifier. Les autres membres ne voient que ce qui leur est assigné.</span></li>
-                        <li class="flex gap-2">{{ ui.icon('user-check', 'size-4 mt-0.5 shrink-0 text-muted') }}<span>Un membre assigné à une catégorie fait progresser toutes ses tâches et peut y en ajouter ; un membre assigné à une tâche la fait progresser.</span></li>
+                        <li class="flex gap-2">{{ ui.icon('pencil', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Rédacteurs</strong> : créent listes, catégories et tâches, renomment, suppriment et font progresser toutes les tâches.</span></li>
+                        <li class="flex gap-2">{{ ui.icon('eye', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Lecteurs</strong> : voient toutes les tâches et peuvent demander à y être assignés. Les autres membres ne voient que ce qui leur est assigné.</span></li>
+                        <li class="flex gap-2">{{ ui.icon('user-check', 'size-4 mt-0.5 shrink-0 text-muted') }}<span><strong class="font-semibold text-fg">Assignations</strong> : un membre assigné à une tâche la fait progresser. Sa demande attend la validation d'un gestionnaire (sa photo apparaît grisée), sauf en mode libre où il s'assigne directement ; seuls les administrateurs et le propriétaire retirent un assigné.</span></li>
                     </ul>
                     {% if isOwner %}
                         <form method="post" class="space-y-4">
@@ -271,6 +280,23 @@
                                     </select>
                                     <p id="todo_view_role_help" class="help">Les rédacteurs voient toujours toutes les tâches.</p>
                                 </div>
+                                <div class="field">
+                                    <label for="assignment_role" class="label">Gestion des assignations</label>
+                                    <select id="assignment_role" name="assignment_role" class="select" aria-describedby="assignment_role_help">
+                                        {% for role, label in {owner: 'Propriétaire', admin: 'Admins et propriétaire', member: 'Libre'} %}
+                                            <option value="{{ role }}" {{ group.assignmentRole == role ? 'selected' : '' }}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <p id="assignment_role_help" class="help">Qui valide les demandes et assigne les membres. En mode libre, chacun s'assigne sans validation.</p>
+                                </div>
+                                <div class="field">
+                                    <label for="max_assignees" class="label">Membres par tâche</label>
+                                    <select id="max_assignees" name="max_assignees" class="select">
+                                        {% for count in 1..constant('App\\Entity\\Group::MAX_ASSIGNEES_LIMIT') %}
+                                            <option value="{{ count }}" {{ group.maxAssigneesPerTask == count ? 'selected' : '' }}>{{ count }} au maximum</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                             </div>
                             <div class="flex justify-end">
                                 <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Enregistrer</button>
@@ -285,6 +311,14 @@
                             <div class="card-inset px-4 py-3">
                                 <dt class="text-caption text-muted">Qui peut voir toutes les tâches</dt>
                                 <dd class="font-semibold text-fg">{{ roleLabels[group.todoViewRole] ?? group.todoViewRole }}{{ group.todoViewRole != 'owner' ? ' et plus' : '' }}</dd>
+                            </div>
+                            <div class="card-inset px-4 py-3">
+                                <dt class="text-caption text-muted">Gestion des assignations</dt>
+                                <dd class="font-semibold text-fg">{{ {owner: 'Propriétaire', admin: 'Admins et propriétaire', member: 'Libre'}[group.assignmentRole] }}</dd>
+                            </div>
+                            <div class="card-inset px-4 py-3">
+                                <dt class="text-caption text-muted">Membres par tâche</dt>
+                                <dd class="font-semibold text-fg">{{ group.maxAssigneesPerTask }} au maximum</dd>
                             </div>
                         </dl>
                         <p class="help flex items-center gap-1.5">{{ ui.icon('lock', 'size-3.5') }}Modifiable par le propriétaire.</p>

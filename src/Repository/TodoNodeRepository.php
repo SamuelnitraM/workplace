@@ -19,22 +19,22 @@ class TodoNodeRepository extends ServiceEntityRepository
     }
 
     /**
-     * Listes racines du groupe, avec leurs catégories, tâches et utilisateurs assignés chargés en une requête
+     * Listes racines du groupe, avec leurs catégories, tâches et assignations (membres compris) chargées en une requête
      * (le template et TodoNodeVoter parcourent ces noeuds sans requête supplémentaire).
      *
-     * $visibleTo non null (membre non rédacteur) : seulement les listes contenant une catégorie ou une tâche
-     * qui lui est assignée ; le filtrage fin des catégories/tâches affichées se fait via TODO_VIEW.
+     * $visibleTo non null (membre ni rédacteur ni lecteur) : seulement les listes contenant une tâche où il est assigné
+     * ou a demandé à l'être ; le filtrage fin des catégories/tâches affichées se fait via TODO_VIEW.
      *
      * @return TodoNode[]
      */
     public function findGroupLists(Group $group, ?User $visibleTo = null): array
     {
         $qb = $this->createQueryBuilder('n')
-            ->addSelect('c', 'ca', 'i', 'ia')
+            ->addSelect('c', 'i', 'ia', 'iau')
             ->leftJoin('n.children', 'c')
-            ->leftJoin('c.assignedTo', 'ca')
             ->leftJoin('c.children', 'i')
-            ->leftJoin('i.assignedTo', 'ia')
+            ->leftJoin('i.assignments', 'ia')
+            ->leftJoin('ia.user', 'iau')
             ->where('n.usergroup = :group')
             ->andWhere('n.type = :type')
             ->andWhere('n.parent IS NULL')
@@ -45,13 +45,12 @@ class TodoNodeRepository extends ServiceEntityRepository
             ->addOrderBy('i.position', 'ASC');
 
         if ($visibleTo !== null) {
-            // Catégorie assignée ou tâche assignée directement sous la liste (x.parent = n),
-            // ou tâche assignée sous une catégorie de la liste (p.parent = n)
+            // Tâche d'une catégorie de la liste où le membre est assigné (ou a demandé à l'être)
             $qb->andWhere(
-                'EXISTS (SELECT x.id FROM App\Entity\TodoNode x
-                LEFT JOIN x.parent p
-                WHERE x.assignedTo = :user
-                AND (x.parent = n OR p.parent = n))'
+                'EXISTS (SELECT assignment.id FROM App\Entity\TodoAssignment assignment
+                INNER JOIN assignment.node task
+                INNER JOIN task.parent category
+                WHERE assignment.user = :user AND category.parent = n)'
             )->setParameter('user', $visibleTo);
         }
 

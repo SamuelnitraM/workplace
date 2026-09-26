@@ -1704,6 +1704,77 @@
     .site-search-results { max-height: min(28rem, calc(100dvh - var(--header-h) - 2rem)); overflow-y: auto; overscroll-behavior: contain; }
     .site-search-section ~ .site-search-section { margin-top: 0.375rem; padding-top: 0.375rem; border-top: 1px solid var(--color-line); }
 
+    /* Groups page: invitations, my groups, suggestions (three columns on large screens, my groups first on mobile) */
+    .groups-layout { display: grid; gap: 1.5rem; align-items: start; }
+    .groups-layout > :nth-child(2) { order: -1; }
+    @media (min-width: 1024px) {
+        .groups-layout { grid-template-columns: 17rem minmax(0, 1fr) 17rem; }
+        .groups-layout > :nth-child(2) { order: 0; }
+    }
+    .groups-column { min-width: 0; }
+    .group-owner-crown { display: inline-flex; flex-shrink: 0; color: var(--color-accent-text); }
+
+    /* Overlapping avatars (members of a suggested group) */
+    .avatar-stack { display: inline-flex; }
+    .avatar-stack > .avatar + .avatar { margin-left: -0.375rem; }
+    .avatar-stack > .avatar { box-shadow: 0 0 0 2px var(--color-surface); }
+
+    /* Switch: <button role="switch" aria-checked="true|false" class="switch"><span class="switch-thumb"></span></button> */
+    .switch {
+        position: relative;
+        display: inline-flex;
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 1.5rem;
+        border: 1px solid var(--color-line-strong);
+        border-radius: var(--radius-pill);
+        background: var(--color-surface-raised);
+        transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+    }
+    .switch-thumb {
+        position: absolute;
+        top: 0.1875rem;
+        left: 0.1875rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: var(--radius-pill);
+        background: var(--color-fg-secondary);
+        transition: transform var(--duration-fast) ease, background-color var(--duration-fast) ease;
+    }
+    .switch[aria-checked="true"] { border-color: var(--color-primary); background: var(--color-primary); }
+    .switch[aria-checked="true"] .switch-thumb { transform: translateX(1rem); background: var(--color-primary-fg); }
+
+    /* Rearranged list (assets/controllers/sortable_controller.js) */
+    .sortable-handle { display: inline-flex; flex-shrink: 0; color: var(--color-muted); cursor: grab; }
+    [data-sortable-target="item"].is-dragging { opacity: 0.45; }
+
+    /* Invitation window of a group: the friend list scrolls, the header, search and button stay in place */
+    .group-invite-dialog { width: min(28rem, calc(100vw - 2rem)); }
+    .group-invite-form { display: flex; flex-direction: column; max-height: min(36rem, calc(100dvh - 4rem)); }
+    .group-invite-list { flex: 1; min-height: 8rem; overflow-y: auto; overscroll-behavior: contain; }
+    .group-invite-option { width: 100%; gap: 0.75rem; padding: 0.375rem 0.5rem; border-radius: var(--radius-control); }
+    .group-invite-option:hover, .group-invite-option:has(:checked) { background: var(--color-primary-soft); }
+
+    /* To-do progress column of a group page */
+    .todo-summary { display: flex; flex-direction: column; }
+    .todo-summary-list { padding: 0.75rem 1rem; border-top: 1px solid var(--color-line); }
+    .todo-summary-list:first-child { border-top: 0; }
+    .todo-summary-row { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.25rem; }
+
+    /* Channel list of the group settings: scrolls on its own beyond a few channels */
+    .group-settings-channels { max-height: 26rem; overflow-y: auto; overscroll-behavior: contain; }
+
+    /* Assignees of a group task (templates/group_todo/_task_assignees.html.twig): pending requests are greyed */
+    .task-assignees { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+    .task-assignee { display: inline-flex; border-radius: var(--radius-pill); }
+    :where(button).task-assignee:hover { box-shadow: 0 0 0 2px var(--color-primary-text); }
+    .task-assignee.is-pending { filter: grayscale(1); opacity: 0.55; outline: 1px dashed var(--color-line-strong); outline-offset: 1px; }
+    .task-assign-menu { max-height: 16rem; min-width: 13rem; overflow-y: auto; overscroll-behavior: contain; }
+    /* Members assigned to the tasks of a category, with their number of tasks */
+    .category-assignees { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; }
+    .category-assignee { display: inline-flex; align-items: center; gap: 0.125rem; }
+    .category-assignee-count { font-size: 0.6875rem; font-weight: 600; color: var(--color-fg-secondary); font-variant-numeric: tabular-nums; }
+
     /* Forum category page: subcategories in a left column, threads in the centre */
     .forum-category-layout { display: grid; gap: 1.5rem; align-items: start; }
     @media (min-width: 1024px) { .forum-category-layout { grid-template-columns: 15rem minmax(0, 1fr); } }

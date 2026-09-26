@@ -1,0 +1,22 @@
+{#
+    Members assigned to the tasks of a category, each with their number of tasks (accepted assignments only).
+    Parameter: category.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set counts = {} %}
+{% set users = {} %}
+{% for item in category.children %}
+    {% for assignment in item.acceptedAssignments %}
+        {% set key = 'u' ~ assignment.user.id %}
+        {% set counts = counts|merge({(key): (counts[key] ?? 0) + 1}) %}
+        {% set users = users|merge({(key): assignment.user}) %}
+    {% endfor %}
+{% endfor %}
+<div id="category-assignees-{{ category.id }}" class="category-assignees">
+    {% for key, assignee in users %}
+        <span class="category-assignee" title="{{ assignee.username }} : {{ counts[key] }} tâche{{ counts[key] > 1 ? 's' }}">
+            {{- ui.avatar(assignee, 'xs') -}}<span class="category-assignee-count">{{ counts[key] }}</span>
+            <span class="sr-only">{{ assignee.username }} : {{ counts[key] }} tâche{{ counts[key] > 1 ? 's' }}</span>
+        </span>
+    {% endfor %}
+</div>

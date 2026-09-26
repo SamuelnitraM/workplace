@@ -1,0 +1,40 @@
+{#
+    Right column of a group page: progress of the to-do lists and of their categories, computed from the tasks.
+    Parameters: group, todoLists (lists the member can see, TodoNodeRepository::findGroupLists).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+<section class="card" aria-labelledby="todo-summary-title">
+    <div class="card-header flex items-center justify-between gap-2">
+        <h2 id="todo-summary-title" class="flex items-center gap-2 text-h3">{{ ui.icon('list-checks', 'size-5 text-muted') }}Avancement</h2>
+        <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}" class="btn btn-link btn-sm">Tâches{{ ui.icon('arrow-right', 'size-4') }}</a>
+    </div>
+    {% if todoLists is empty %}
+        <p class="card-body text-small text-muted">Aucun projet {{ is_granted('TODO_VIEW_ALL', group) ? 'pour le moment' : 'qui vous concerne' }}.</p>
+    {% else %}
+        <ul role="list" class="todo-summary">
+            {% for list in todoLists %}
+                {% set list_progress = list.computedProgress %}
+                <li class="todo-summary-list">
+                    <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}#list-{{ list.id }}" class="todo-summary-row font-semibold text-fg hover:text-primary-text">
+                        <span class="min-w-0 flex-1 truncate">{{ list.title }}</span><span class="tabular-nums">{{ list_progress }}%</span>
+                    </a>
+                    <div class="progress progress-sm" aria-hidden="true"><div class="progress-bar" style="width: {{ list_progress }}%"></div></div>
+                    {% set categories = list.children|filter(category => is_granted('TODO_VIEW', category)) %}
+                    {% if categories is not empty %}
+                        <ul role="list" class="mt-2 space-y-1.5">
+                            {% for category in categories %}
+                                {% set category_progress = category.computedProgress %}
+                                <li>
+                                    <p class="todo-summary-row text-caption text-fg-secondary"><span class="min-w-0 flex-1 truncate">{{ category.title }}</span><span class="tabular-nums">{{ category_progress }}%</span></p>
+                                    <div class="progress progress-sm progress-success" role="progressbar" aria-label="{{ category.title }}" aria-valuenow="{{ category_progress }}" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar" style="width: {{ category_progress }}%"></div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>

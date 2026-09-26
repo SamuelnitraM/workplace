@@ -25,6 +25,7 @@ export default class extends Controller {
         readCsrf: { type: String, default: 'private-message' },
         notificationKey: String,  // clé des notifications correspondant au contenu affiché
         reloadAfterFirstMessage: { type: Boolean, default: false },
+        reportUrl: String,        // signalement d'un message des autres membres (« __ID__ » remplacé par l'id du message)
     };
 
     connect() {
@@ -151,6 +152,7 @@ export default class extends Controller {
             if (title) label.append(title);
             label.append(` — ${data.createdAt ?? ''}`);
             meta.appendChild(label);
+            if (!isCurrentUser && this.reportUrlValue) meta.appendChild(this.buildReportLink(data.id));
         } else {
             // createdAt = « jj/mm HH:ii » : l'heure suffit sous le séparateur de jour
             meta.textContent = String(data.createdAt ?? '').split(' ').pop();
@@ -199,6 +201,18 @@ export default class extends Controller {
         label.textContent = 'Aujourd\'hui';
         separator.appendChild(label);
         stream.appendChild(separator);
+    }
+
+    /** Lien « Signaler ce message » (même rendu que le gabarit du salon). */
+    buildReportLink(messageId) {
+        const link = document.createElement('a');
+        link.href = this.reportUrlValue.replace('__ID__', String(Number(messageId)));
+        link.rel = 'nofollow';
+        link.className = 'reveal-on-hover inline-flex text-muted hover:text-danger-text';
+        link.setAttribute('aria-label', 'Signaler ce message');
+        link.title = 'Signaler ce message';
+        link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3.5" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>';
+        return link;
     }
 
     /** Titre de l'auteur ({name, tier, icon}), même rendu que templates/gamification/_user_title.html.twig. */

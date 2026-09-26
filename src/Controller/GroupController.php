@@ -9,6 +9,11 @@ use App\Entity\GroupMessage;
 use App\Entity\Notification;
 use App\Entity\User;
 use App\Gamification\UserTitleManager;
+use App\Group\GroupDirectory;
+use App\Repository\FriendshipRepository;
+use App\Repository\GroupInvitationRepository;
+use App\Repository\TodoNodeRepository;
+use App\Text\MentionResolver;
 use App\Repository\GroupChannelRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupMessageRepository;
@@ -44,36 +49,75 @@ class GroupController extends AbstractController
         private NotificationRepository $notificationRepository,
     ) {}
 
-    // Liste des groupes publics
+    /**
+     * Groups page. Member: received invitations (left), their groups ordered by activity or by their own order
+     * (centre), suggestions (right). Visitor: the public groups.
+     */
     #[Route('/', name: 'index')]
-    public function index(): Response
+    public function index(GroupDirectory $directory, GroupInvitationRepository $invitationRepository): Response
     {
-        $myGroups = [];
-        $myGroupIds = [];
-
-        if ($this->getUser()) {
-            $myGroups = $this->groupRepository->findGroupsByMember($this->currentUser());
-            $myGroupIds = array_map(fn($g) => $g->getId(), $myGroups);
+        if (!$this->getUser()) {
+            return $this->render('group/index.html.twig', [
+                'publicGroups' => $this->groupRepository->findPublicGroupsNotMember(),
+            ]);
         }
+        $user = $this->currentUser();
+        // The pending invitations are shown on this page: their notifications are read
+        $this->notificationRepository->markReadByTypes($user, [Notification::TYPE_GROUP_INVITATION]);
+        return $this->render('group/index.html.twig', [
+            'myGroups' => $directory->groupsOf($user),
+            'invitations' => $invitationRepository->findPendingFor($user),
+            'suggestions' => $directory->suggestionsFor($user),
+            'unreadGroupCounts' => $this->unreadGroupCounts($user),
+            'sortMode' => $user->getGroupSortMode(),
+        ]);
+    }
 
-        $publicGroups = $this->groupRepository->findPublicGroupsNotMember($myGroupIds);
+    /** Every public group (discovery beyond the suggestions). */
+    #[Route('/publics', name: 'public', methods: ['GET'])]
+    public function publicGroups(): Response
+    {
+        $myGroupIds = $this->getUser() ? array_map(static fn (Group $group) => $group->getId(), $this->groupRepository->findGroupsByMember($this->currentUser())) : [];
+        return $this->render('group/public.html.twig', [
+            'publicGroups' => $this->groupRepository->findPublicGroupsNotMember($myGroupIds),
+        ]);
+    }
 
-        // Messages non lus par groupe (notifications serveur « group_message » non lues)
+    /** Switch of the groups page order: most recent activity, or the member's own order. */
+    #[Route('/tri', name: 'sort_mode', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function sortMode(Request $request, EntityManagerInterface $em): Response
+    {
+        $this->denyUnlessCsrfValid($request);
+        $this->currentUser()->setGroupSortMode($request->request->getString('mode'));
+        $em->flush();
+        return $this->redirectToRoute('app_group_index');
+    }
+
+    /** Member's own order of their groups (drag and drop of the groups page), as a list of group ids. */
+    #[Route('/ordre', name: 'order', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function order(Request $request, GroupDirectory $directory): JsonResponse
+    {
+        $this->denyUnlessCsrfValid($request);
+        $directory->saveOrder($this->currentUser(), array_map('intval', (array) $request->request->all('ids')));
+        return new JsonResponse(['saved' => true]);
+    }
+
+    /**
+     * Unread messages of each group (unread "group_message" notifications).
+     *
+     * @return array<int, int>
+     */
+    private function unreadGroupCounts(User $user): array
+    {
         $unreadGroupCounts = [];
-        if ($this->getUser()) {
-            $counts = $this->notificationRepository->sumUnreadCountsByGroupKey($this->currentUser(), Notification::TYPE_GROUP_MESSAGE, 'group:');
-            foreach ($counts as $groupKey => $count) {
-                if (preg_match('/^group:(\d+):/', $groupKey, $m)) {
-                    $unreadGroupCounts[(int) $m[1]] = ($unreadGroupCounts[(int) $m[1]] ?? 0) + $count;
-                }
+        foreach ($this->notificationRepository->sumUnreadCountsByGroupKey($user, Notification::TYPE_GROUP_MESSAGE, 'group:') as $groupKey => $count) {
+            if (preg_match('/^group:(\d+):/', $groupKey, $matches)) {
+                $unreadGroupCounts[(int) $matches[1]] = ($unreadGroupCounts[(int) $matches[1]] ?? 0) + $count;
             }
         }
-
-        return $this->render('group/index.html.twig', [
-            'publicGroups' => $publicGroups,
-            'myGroups' => $myGroups,
-            'unreadGroupCounts' => $unreadGroupCounts,
-        ]);
+        return $unreadGroupCounts;
     }
 
     // Créer un groupe
@@ -133,6 +177,9 @@ class GroupController extends AbstractController
         Request $request,
         GroupChannelRepository $groupChannelRepository,
         GroupMessageRepository $groupMessageRepository,
+        FriendshipRepository $friendshipRepository,
+        GroupInvitationRepository $invitationRepository,
+        TodoNodeRepository $todoNodeRepository,
     ): Response {
         $group = $this->findGroup($slug);
 
@@ -186,6 +233,7 @@ class GroupController extends AbstractController
         }
 
         $pinnedMessages = $activeChannel ? $groupMessageRepository->findPinnedByChannel($activeChannel) : [];
+        $user = $this->getUser() instanceof User ? $this->currentUser() : null;
 
         return $this->render('group/show.html.twig', [
             'group' => $group,
@@ -200,6 +248,10 @@ class GroupController extends AbstractController
             'pinnedMessages' => $pinnedMessages,
             'pinnedData' => array_map(fn (GroupMessage $m) => $this->serializePinnedMessage($m), $pinnedMessages),
             'canPin' => $activeChannel && $this->isGranted(GroupMessageVoter::PIN, $activeChannel),
+            // Invitation window: friends who are neither members nor already invited
+            'inviteCandidates' => $user !== null && $this->isGranted(GroupVoter::INVITE, $group) ? $this->inviteCandidates($group, $user, $friendshipRepository, $invitationRepository) : [],
+            // Right column: progress of the to-do lists the member can see
+            'todoLists' => $currentMember ? $todoNodeRepository->findGroupLists($group, $this->isGranted(GroupVoter::TODO_VIEW_ALL, $group) ? null : $user) : [],
         ]);
     }
 
@@ -278,6 +330,7 @@ class GroupController extends AbstractController
         EntityManagerInterface $em,
         PusherService $pusher,
         NotificationService $notifications,
+        MentionResolver $mentionResolver,
     ): Response {
         $this->denyUnlessCsrfValid($request);
         $user = $this->currentUser();
@@ -315,6 +368,8 @@ class GroupController extends AbstractController
         $payload = [
             'id' => $message->getId(),
             'content' => $message->getContent(),
+            // Escaped content, @pseudo of existing members as profile links (chat_controller.js)
+            'contentHtml' => $mentionResolver->linkify($content),
             'author' => $user->getUsername(),
             'authorId' => $user->getId(),
             'avatar' => $user->getAvatar(),
@@ -326,13 +381,30 @@ class GroupController extends AbstractController
         // Temps réel dans le channel (canal privé : abonnement autorisé via /pusher/auth)
         $pusher->sendMessage(PusherService::groupChannel($channel->getId()), 'new-message', $payload);
 
-        // Notification (agrégée par channel) des autres membres qui peuvent lire ce channel
+        // Mentioned members who can read the channel get a mention notification, even when they muted the group;
+        // the other readers get the message notification (aggregated per channel), unless they muted the group
+        $mentioned = array_map('mb_strtolower', MentionResolver::extract($content));
+        $mentionRecipients = [];
         $recipients = [];
         foreach ($group->getMembers() as $member) {
-            if ($member->getUser() !== $user && $member->hasAtLeastRole($channel->getCanRead())) {
+            if ($member->getUser() === $user || !$member->hasAtLeastRole($channel->getCanRead())) {
+                continue;
+            }
+            if (in_array(mb_strtolower((string) $member->getUser()->getUsername()), $mentioned, true)) {
+                $mentionRecipients[] = $member->getUser();
+            } elseif (!$member->isMuted()) {
                 $recipients[] = $member->getUser();
             }
         }
+        $channelUrl = $this->generateUrl('app_group_show', ['slug' => $group->getSlug(), 'channel' => $channel->getId()]);
+        $notifications->notifyMany(
+            $mentionRecipients,
+            Notification::TYPE_GROUP_MENTION,
+            $user,
+            ['group' => $group->getName(), 'groupId' => $group->getId(), 'channel' => $channel->getName(), 'channelId' => $channel->getId()],
+            $channelUrl . '#msg-' . $message->getId(),
+            'group_mention:' . $channel->getId(),
+        );
         $notifications->notifyMany(
             $recipients,
             Notification::TYPE_GROUP_MESSAGE,
@@ -352,6 +424,22 @@ class GroupController extends AbstractController
         }
 
         return $redirect;
+    }
+
+    /** Mutes the group for the current member (no message notification, mentions excepted), or unmutes it. */
+    #[Route('/{slug}/sourdine', name: 'mute', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function mute(string $slug, Request $request, EntityManagerInterface $em): Response
+    {
+        $this->denyUnlessCsrfValid($request);
+        $group = $this->findGroup($slug);
+        $member = $this->findMember($group) ?? throw $this->createAccessDeniedException();
+        $member->setMuted($request->request->getBoolean('muted'));
+        $em->flush();
+        $this->addFlash('success', $member->isMuted()
+            ? 'Groupe en sourdine : vous ne serez notifié que si l\'on vous mentionne.'
+            : 'Les notifications du groupe sont réactivées.');
+        return $this->redirectToRoute('app_group_show', ['slug' => $slug, 'channel' => $request->request->getInt('channel') ?: null]);
     }
 
     // Épingler un message d'un channel
@@ -418,6 +506,10 @@ class GroupController extends AbstractController
             $group->setDescription(trim($request->request->getString('description')) ?: null);
             $group->setIsPublic($request->request->get('isPublic') === '1');
             $group->setIsJoinable($request->request->get('isJoinable') === '1');
+            $inviteRole = $request->request->getString('invite_role', $group->getInviteRole());
+            if ($this->isValidRole($inviteRole)) {
+                $group->setInviteRole($inviteRole);
+            }
             $em->flush();
 
             $this->addFlash('success', 'Paramètres mis à jour !');
@@ -494,13 +586,16 @@ class GroupController extends AbstractController
         if ($action === 'update_todo_settings' && $isOwner) {
             $todoWriteRole = $request->request->getString('todo_write_role');
             $todoViewRole = $request->request->getString('todo_view_role');
-            if (!$this->isValidRole($todoWriteRole) || !$this->isValidRole($todoViewRole)) {
+            $assignmentRole = $request->request->getString('assignment_role', $group->getAssignmentRole());
+            if (!$this->isValidRole($todoWriteRole) || !$this->isValidRole($todoViewRole) || !$this->isValidRole($assignmentRole)) {
                 $this->addFlash('error', 'Rôle invalide.');
                 return $redirect;
             }
 
             $group->setTodoWriteRole($todoWriteRole);
             $group->setTodoViewRole($todoViewRole);
+            $group->setAssignmentRole($assignmentRole);
+            $group->setMaxAssigneesPerTask($request->request->getInt('max_assignees', $group->getMaxAssigneesPerTask()));
             $em->flush();
             $this->addFlash('success', 'Paramètres des tâches mis à jour !');
 
@@ -654,6 +749,24 @@ class GroupController extends AbstractController
 
         $this->addFlash('success', $message->isPinned() ? 'Message épinglé.' : 'Message désépinglé.');
         return $redirect;
+    }
+
+    /**
+     * Friends of the member who can be invited: not members of the group, not already invited.
+     *
+     * @return User[]
+     */
+    private function inviteCandidates(Group $group, User $user, FriendshipRepository $friendshipRepository, GroupInvitationRepository $invitationRepository): array
+    {
+        $memberIds = array_map(static fn (GroupMember $member) => $member->getUser()->getId(), $group->getMembers()->toArray());
+        $invitedIds = array_map(
+            static fn ($invitation) => $invitation->getInvitedUser()->getId(),
+            $invitationRepository->findBy(['usergroup' => $group, 'status' => 'pending'])
+        );
+        return array_values(array_filter(
+            $friendshipRepository->findFriendsOf($user),
+            static fn (User $friend) => !in_array($friend->getId(), [...$memberIds, ...$invitedIds], true),
+        ));
     }
 
     /** Données d'un message épinglé pour le client (barre des messages épinglés, temps réel). */

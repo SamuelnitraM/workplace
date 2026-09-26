@@ -67,6 +67,12 @@ class NotificationRenderer
 
             Notification::TYPE_MODERATION_NOTICE => $this->str($data, 'message'),
 
+            Notification::TYPE_GROUP_MENTION => $count > 1
+                ? sprintf('%d mentions de votre pseudo dans le salon #%s de %s', $count, $this->str($data, 'channel'), $this->str($data, 'group'))
+                : sprintf('%s vous a mentionné dans le salon #%s de %s', $actor, $this->str($data, 'channel'), $this->str($data, 'group')),
+
+            Notification::TYPE_TODO_ASSIGNMENT => $this->todoAssignment($data, $actor, $count),
+
             default => 'Nouvelle notification',
         };
     }
@@ -86,7 +92,24 @@ class NotificationRenderer
             Notification::TYPE_FORUM_MENTION => '📣',
             Notification::TYPE_FORUM_SOLUTION => '✅',
             Notification::TYPE_MODERATION_NOTICE => '🛡️',
+            Notification::TYPE_GROUP_MENTION => '📣',
+            Notification::TYPE_TODO_ASSIGNMENT => '📋',
             default => '🔔',
+        };
+    }
+
+    /** Task assignment: "outcome" is requested, accepted, refused or assigned. */
+    private function todoAssignment(array $data, string $actor, int $count): string
+    {
+        $task = $this->str($data, 'task');
+        $group = $this->str($data, 'group');
+        return match ($data['outcome'] ?? '') {
+            'requested' => $count > 1
+                ? sprintf('%d demandes d\'assignation à valider dans les tâches de %s', $count, $group)
+                : sprintf('%s demande à être assigné à « %s » (%s)', $actor, $task, $group),
+            'accepted' => sprintf('%s a accepté votre demande : vous êtes assigné à « %s » (%s)', $actor, $task, $group),
+            'refused' => sprintf('%s a refusé votre demande d\'assignation à « %s » (%s)', $actor, $task, $group),
+            default => sprintf('%s vous a assigné à « %s » (%s)', $actor, $task, $group),
         };
     }
 

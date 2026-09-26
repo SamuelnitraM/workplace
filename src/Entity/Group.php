@@ -47,6 +47,26 @@ class Group
     #[ORM\Column(length: 20, options: ['default' => 'admin'])]
     private string $pinRole = 'admin';
 
+    /**
+     * Minimum role to invite members ('member', 'admin' or 'owner'); in a group with free access
+     * (public and joinable), every member may invite.
+     */
+    #[ORM\Column(length: 10, options: ['default' => 'member'])]
+    private string $inviteRole = 'member';
+
+    /**
+     * Management of the task assignments: 'owner' or 'admin' (a member's request waits for their approval),
+     * or 'member' (free: members assign themselves directly; only administrators and the owner remove an assignee).
+     */
+    #[ORM\Column(length: 10, options: ['default' => 'admin'])]
+    private string $assignmentRole = 'admin';
+
+    /** Maximum number of members assigned to one task (1 to MAX_ASSIGNEES_LIMIT). */
+    #[ORM\Column(type: Types::SMALLINT, options: ['default' => 3])]
+    private int $maxAssigneesPerTask = 3;
+
+    public const MAX_ASSIGNEES_LIMIT = 3;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -208,6 +228,60 @@ class Group
             throw new \InvalidArgumentException(sprintf('Rôle d\'épinglage invalide : "%s".', $pinRole));
         }
         $this->pinRole = $pinRole;
+
+        return $this;
+    }
+
+    public function getInviteRole(): string
+    {
+        return $this->inviteRole;
+    }
+
+    public function setInviteRole(string $inviteRole): static
+    {
+        $this->inviteRole = $inviteRole;
+
+        return $this;
+    }
+
+    /** Free access: public and open to join requests (every member may then invite). */
+    public function isOpenAccess(): bool
+    {
+        return (bool) $this->isPublic && (bool) $this->isJoinable;
+    }
+
+    public function getAssignmentRole(): string
+    {
+        return $this->assignmentRole;
+    }
+
+    public function setAssignmentRole(string $assignmentRole): static
+    {
+        $this->assignmentRole = $assignmentRole;
+
+        return $this;
+    }
+
+    /** Free assignment: members assign themselves without approval. */
+    public function isFreeAssignment(): bool
+    {
+        return $this->assignmentRole === 'member';
+    }
+
+    /** Minimum role that approves requests, assigns other members and removes assignees. */
+    public function getAssignmentManagerRole(): string
+    {
+        return $this->assignmentRole === 'owner' ? 'owner' : 'admin';
+    }
+
+    public function getMaxAssigneesPerTask(): int
+    {
+        return $this->maxAssigneesPerTask;
+    }
+
+    public function setMaxAssigneesPerTask(int $maxAssigneesPerTask): static
+    {
+        $this->maxAssigneesPerTask = max(1, min(self::MAX_ASSIGNEES_LIMIT, $maxAssigneesPerTask));
 
         return $this;
     }

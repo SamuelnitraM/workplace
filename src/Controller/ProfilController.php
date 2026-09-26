@@ -13,6 +13,7 @@ use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Repository\UserRepository;
 use App\Security\Voter\GalleryPhotoVoter;
+use App\Security\Voter\GroupVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -106,31 +107,12 @@ public function show(
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
 
-        // Récupérer tous mes groupes où j'ai le droit d'inviter
-        $allMyGroups = $groupRepository->findGroupsByMember($currentUser);
-
-        // Filtrer : garder uniquement les groupes où
-        // 1. J'ai le rôle owner ou admin
-        // 2. L'utilisateur cible n'est pas déjà membre
-        $myGroups = array_filter($allMyGroups, function($group) use ($currentUser, $user, $groupMemberRepository) {
-            // Vérifier mon rôle dans ce groupe
-            $myMembership = $groupMemberRepository->findOneBy([
-                'user' => $currentUser,
-                'usergroup' => $group,
-            ]);
-
-            if (!$myMembership || !in_array($myMembership->getRole(), ['owner', 'admin', 'member'])) {
-                return false;
-            }
-
-            // Vérifier que l'utilisateur cible n'est pas déjà membre
-            $targetMembership = $groupMemberRepository->findOneBy([
-                'user' => $user,
-                'usergroup' => $group,
-            ]);
-
-            return $targetMembership === null;
-        });
+        // Groupes où je peux inviter (GroupVoter::INVITE) et dont le membre affiché ne fait pas encore partie
+        $myGroups = array_filter(
+            $groupRepository->findGroupsByMember($currentUser),
+            fn ($group) => $this->isGranted(GroupVoter::INVITE, $group)
+                && $groupMemberRepository->findOneBy(['user' => $user, 'usergroup' => $group]) === null,
+        );
     }
 
     return $this->render('profil/index.html.twig', [

@@ -11,15 +11,19 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 /**
  * Droits sur un noeud de todo (liste > catégorie > tâche).
  *
- * - Noeud personnel (usergroup null) : son propriétaire a tous les droits.
+ * - Noeud personnel (usergroup null) : son propriétaire a tous les droits (hors assignations, propres aux groupes).
  * - Noeud de groupe :
- *   - « rédacteur » (membre dont le rôle >= Group::todoWriteRole, cf. GroupVoter::TODO_WRITE) : tous les droits ;
- *   - membre assigné à une CATÉGORIE : la voit avec toutes ses tâches, fait progresser chacune d'elles
- *     et peut y créer des tâches (ni renommage, ni suppression, ni assignation) ;
- *   - membre assigné à une TÂCHE : la voit (dans sa catégorie/liste) et la fait progresser ;
- *   - « lecteur » (rôle >= Group::todoViewRole, cf. GroupVoter::TODO_VIEW_ALL) : voit toute la todo
- *     en lecture seule, en plus des droits liés à ses éventuelles assignations ;
- *   - autres membres : ne voient rien d'autre de la todo.
+ *   - « rédacteur » (membre dont le rôle >= Group::todoWriteRole, cf. GroupVoter::TODO_WRITE) : crée, renomme,
+ *     supprime, fait progresser toute tâche et voit tout ;
+ *   - « lecteur » (rôle >= Group::todoViewRole, cf. GroupVoter::TODO_VIEW_ALL) : voit toute la todo ;
+ *   - membre assigné à une tâche (assignation acceptée) : la voit et la fait progresser ;
+ *     une demande en attente lui laisse voir la tâche ;
+ *   - assignations (tâches seulement, App\Todo\TodoAssignmentManager) :
+ *     - ASSIGN : gérer les assignés d'une tâche (assigner un membre, accepter ou refuser une demande, retirer un assigné) :
+ *       rôle >= Group::getAssignmentManagerRole() (propriétaire, ou administrateurs et propriétaire) ;
+ *     - REQUEST_ASSIGNMENT : demander à être assigné (ou s'assigner directement en mode libre) : membre qui voit la tâche
+ *       et n'y est pas encore assigné ni en attente ;
+ *     - WITHDRAW_REQUEST : annuler sa propre demande en attente.
  * - PROGRESS ne concerne que les tâches ; CREATE_CHILD que les listes (→ catégorie) et catégories (→ tâche).
  *
  * Aucune requête SQL ici hormis l'adhésion (mise en cache par GroupMembershipResolver) :
@@ -35,12 +39,17 @@ final class TodoNodeVoter extends Voter
     public const DELETE = 'TODO_DELETE';
     /** Faire avancer / reculer / valider la progression d'une tâche. */
     public const PROGRESS = 'TODO_PROGRESS';
-    /** Changer l'utilisateur assigné. */
+    /** Gérer les assignés d'une tâche. */
     public const ASSIGN = 'TODO_ASSIGN';
+    /** Demander à être assigné à une tâche. */
+    public const REQUEST_ASSIGNMENT = 'TODO_REQUEST_ASSIGNMENT';
+    /** Annuler sa demande d'assignation en attente. */
+    public const WITHDRAW_REQUEST = 'TODO_WITHDRAW_REQUEST';
     /** Ajouter un enfant à ce noeud (catégorie dans une liste, tâche dans une catégorie). */
     public const CREATE_CHILD = 'TODO_CREATE_CHILD';
 
-    private const ATTRIBUTES = [self::VIEW, self::EDIT, self::DELETE, self::PROGRESS, self::ASSIGN, self::CREATE_CHILD];
+    private const ATTRIBUTES = [self::VIEW, self::EDIT, self::DELETE, self::PROGRESS, self::ASSIGN, self::REQUEST_ASSIGNMENT, self::WITHDRAW_REQUEST, self::CREATE_CHILD];
+    private const ASSIGNMENT_ATTRIBUTES = [self::ASSIGN, self::REQUEST_ASSIGNMENT, self::WITHDRAW_REQUEST];
 
     public function __construct(private GroupMembershipResolver $membership) {}
 
@@ -66,83 +75,48 @@ final class TodoNodeVoter extends Voter
         if (!$user instanceof User) {
             return false;
         }
-
         $type = $subject->getType();
-        if ($attribute === self::PROGRESS && $type !== TodoNode::TYPE_ITEM) {
+        if (in_array($attribute, [self::PROGRESS, ...self::ASSIGNMENT_ATTRIBUTES], true) && $type !== TodoNode::TYPE_ITEM) {
             return false;
         }
         if ($attribute === self::CREATE_CHILD && $type === TodoNode::TYPE_ITEM) {
             return false;
         }
-
         $group = $subject->getUsergroup();
-
         // Todo personnelle
         if ($group === null) {
-            return $subject->getOwner() === $user;
+            return !in_array($attribute, self::ASSIGNMENT_ATTRIBUTES, true) && $subject->getOwner() === $user;
         }
-
         // Todo de groupe
         $member = $this->membership->getMember($user, $group);
         if (!$member) {
             return false;
         }
-        if ($member->hasAtLeastRole($group->getTodoWriteRole())) {
-            return true;
-        }
-
+        $isWriter = $member->hasAtLeastRole($group->getTodoWriteRole());
+        $ownAssignment = $type === TodoNode::TYPE_ITEM ? $subject->assignmentOf($user) : null;
         return match ($attribute) {
-            // Lecteur (rôle >= Group::todoViewRole) : voit tout, sans autre droit que ceux de ses assignations
-            self::VIEW => $member->hasAtLeastRole($group->getTodoViewRole()) || $this->canView($subject, $user),
-            self::PROGRESS => $this->isAssignedToItemOrCategory($subject, $user),
-            self::CREATE_CHILD => $type === TodoNode::TYPE_CATEGORY && $subject->getAssignedTo() === $user,
-            default => false, // EDIT, DELETE, ASSIGN : rédacteurs uniquement
-        };
-    }
-
-    // Non-rédacteur : voit ce qui lui est assigné et le contexte (catégorie/liste) qui le contient
-    private function canView(TodoNode $node, User $user): bool
-    {
-        return match ($node->getType()) {
-            TodoNode::TYPE_ITEM => $this->isAssignedToItemOrCategory($node, $user),
-            TodoNode::TYPE_CATEGORY => $node->getAssignedTo() === $user || $this->hasAssignedChild($node, $user),
-            TodoNode::TYPE_LIST => $this->hasVisibleChild($node, $user),
+            self::VIEW => $isWriter || $member->hasAtLeastRole($group->getTodoViewRole()) || $this->concernsMember($subject, $user),
+            self::EDIT, self::DELETE, self::CREATE_CHILD => $isWriter,
+            self::PROGRESS => $isWriter || $subject->isAssignedTo($user),
+            self::ASSIGN => $member->hasAtLeastRole($group->getAssignmentManagerRole()),
+            self::REQUEST_ASSIGNMENT => $ownAssignment === null
+                && ($isWriter || $member->hasAtLeastRole($group->getTodoViewRole())),
+            self::WITHDRAW_REQUEST => $ownAssignment !== null && $ownAssignment->isPending(),
             default => false,
         };
     }
 
-    // Tâche assignée à l'utilisateur, ou dont la catégorie lui est assignée
-    private function isAssignedToItemOrCategory(TodoNode $item, User $user): bool
+    // Membre ni rédacteur ni lecteur : voit les tâches où il est assigné (ou en attente) et le contexte qui les contient
+    private function concernsMember(TodoNode $node, User $user): bool
     {
-        if ($item->getAssignedTo() === $user) {
-            return true;
+        if ($node->getType() === TodoNode::TYPE_ITEM) {
+            return $node->assignmentOf($user) !== null;
         }
-        $parent = $item->getParent();
-
-        return $parent !== null && $parent->getType() === TodoNode::TYPE_CATEGORY && $parent->getAssignedTo() === $user;
-    }
-
-    private function hasAssignedChild(TodoNode $node, User $user): bool
-    {
         foreach ($node->getChildren() as $child) {
-            if ($child->getAssignedTo() === $user) {
+            if ($this->concernsMember($child, $user)) {
                 return true;
             }
         }
-
-        return false;
-    }
-
-    // Liste : au moins une catégorie assignée, ou une tâche assignée (sous une catégorie ou directement sous la liste)
-    private function hasVisibleChild(TodoNode $list, User $user): bool
-    {
-        foreach ($list->getChildren() as $child) {
-            if ($child->getAssignedTo() === $user
-                || ($child->getType() === TodoNode::TYPE_CATEGORY && $this->hasAssignedChild($child, $user))) {
-                return true;
-            }
-        }
-
         return false;
     }
 }

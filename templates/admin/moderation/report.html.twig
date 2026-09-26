@@ -88,7 +88,7 @@
                             <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" id="delete-confirm" required>
-                                <label class="form-check-label" for="delete-confirm">Je confirme la suppression définitive{{ type.value in ['sujet', 'reponse'] ? ' (un message d\'ouverture supprime tout le sujet)' }}</label>
+                                <label class="form-check-label" for="delete-confirm">Je confirme la suppression définitive{{ type.value in ['sujet', 'reponse'] ? ' (un message d\'ouverture supprime tout le sujet)' }}{{ type.value == 'groupe' ? ' (le groupe, ses salons, ses messages et ses tâches)' }}</label>
                             </div>
                             <button type="submit" name="decision" value="delete" class="btn btn-danger"><i class="fa fa-trash"></i> Supprimer</button>
                         </form>

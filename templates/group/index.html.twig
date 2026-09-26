@@ -3,149 +3,168 @@
 
 {% block title %}Groupes — SprueHub{% endblock %}
 
-{# Carte d'un groupe (grille des onglets). role : 'owner' | 'admin' | 'member' | null (groupe public non rejoint) #}
-{% macro group_card(group, unread, role) %}
-    {% import '_macros/ui.html.twig' as ui %}
-    {% set roleChips = {
-        owner: {label: 'Propriétaire', class: 'chip-accent', icon: 'crown'},
-        admin: {label: 'Admin', class: 'chip-info', icon: 'shield'},
-        member: {label: 'Membre', class: '', icon: 'user'},
-    } %}
-    <a href="{{ path('app_group_show', {slug: group.slug}) }}"
-       class="card card-interactive group flex h-full flex-col gap-3 p-4 sm:p-5">
-        <div class="flex items-start gap-3">
-            <span class="avatar avatar-md rounded-card" style="background: hsl({{ (group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ group.name|first|upper }}</span>
-            <div class="min-w-0 flex-1">
-                <h3 class="text-h3 truncate text-fg group-hover:text-primary-text">{{ group.name }}</h3>
-                <p class="text-caption text-muted truncate">
-                    {{ role == 'owner' ? 'Créé par vous' : 'Par ' ~ group.creator.username }}
-                </p>
-            </div>
-            {% if unread > 0 %}
-                <span class="count-badge mt-1 shrink-0" title="{{ unread }} message(s) non lu(s)">
-                    {{ unread > 99 ? '99+' : unread }}<span class="sr-only"> message(s) non lu(s)</span>
-                </span>
-            {% endif %}
-        </div>
-
-        <p class="line-clamp-2 text-small {{ group.description ? 'text-fg-secondary' : 'text-muted italic' }}">
-            {{ group.description ?: 'Pas encore de description.' }}
-        </p>
-
-        <div class="mt-auto flex flex-wrap items-center gap-2 pt-1">
-            {% if group.isPublic %}
-                <span class="chip chip-success">{{ ui.icon('globe', 'size-4') }}Public</span>
-            {% else %}
-                <span class="chip">{{ ui.icon('lock', 'size-4') }}Privé</span>
-            {% endif %}
-            <span class="chip">{{ ui.icon('users', 'size-4') }}{{ group.members|length }} membre{{ group.members|length > 1 ? 's' : '' }}</span>
-            {% if role and roleChips[role] is defined %}
-                <span class="chip {{ roleChips[role].class }}">{{ ui.icon(roleChips[role].icon, 'size-4') }}{{ roleChips[role].label }}</span>
-            {% endif %}
-        </div>
-    </a>
-{% endmacro %}
-
+{#
+    Groups page.
+    - Member: three columns: received invitations (left, anchor #invitations), their groups (centre, ordered by
+      most recent activity or by their own order, rearranged by drag and drop), suggestions (right).
+    - Visitor: the public groups.
+#}
 {% block body %}
     <header class="page-header">
         <div>
             <h1 class="page-header-title">Groupes</h1>
             <p class="page-header-subtitle">Votre club, votre table de jeu ou votre projet d'armée : discutez dans des salons et suivez vos tâches ensemble.</p>
         </div>
-        {% if app.user %}
-            <div class="page-header-actions">
-                <a href="{{ path('app_group_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Créer un groupe</a>
-            </div>
-        {% endif %}
+        <div class="page-header-actions">
+            <a href="{{ path('app_group_public') }}" class="btn btn-ghost">{{ ui.icon('globe') }}Groupes publics</a>
+            {% if app.user %}<a href="{{ path('app_group_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Créer un groupe</a>{% endif %}
+        </div>
     </header>
 
-    <div data-controller="tabs">
+    {% if not app.user %}
+        {% if publicGroups is empty %}
+            {{ include('_partials/_empty_state.html.twig', {
+                icon: 'users',
+                title: 'Rejoignez la communauté',
+                text: 'Inscrivez-vous pour créer le premier groupe de la communauté.',
+                cta: {label: 'Créer mon compte', url: path('app_register')},
+                secondary: {label: 'Se connecter', url: path('app_login')},
+            }) }}
+        {% else %}
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {% for group in publicGroups %}{{ include('group/_card.html.twig', {group: group}) }}{% endfor %}
+            </div>
+        {% endif %}
+    {% else %}
+    <div class="groups-layout">
 
-        {# ONGLETS (état actif : aria-selected, géré par tabs_controller) #}
-        <div class="tabs mb-6" role="tablist" aria-label="Groupes">
-            <button type="button" role="tab" class="tab" id="tab-mygroups" aria-selected="true" aria-controls="panel-mygroups"
-                    data-tabs-target="tab" data-tab="mygroups" data-action="tabs#select">
-                {{ ui.icon('users') }}Mes groupes
-                <span class="rounded-pill bg-overlay px-2 py-0.5 text-caption font-semibold text-fg-secondary tabular-nums">{{ myGroups|length }}</span>
-            </button>
-            <button type="button" role="tab" class="tab" id="tab-public" aria-selected="false" aria-controls="panel-public"
-                    data-tabs-target="tab" data-tab="public" data-action="tabs#select">
-                {{ ui.icon('globe') }}Groupes publics
-                <span class="rounded-pill bg-overlay px-2 py-0.5 text-caption font-semibold text-fg-secondary tabular-nums">{{ publicGroups|length }}</span>
-            </button>
-        </div>
+        {# INVITATIONS REÇUES #}
+        <section id="invitations" class="groups-column scroll-mt-24" aria-labelledby="invitations-title">
+            <h2 id="invitations-title" class="section-title">{{ ui.icon('mail') }}Invitations{% if invitations is not empty %}<span class="count-badge">{{ invitations|length }}</span>{% endif %}</h2>
+            {% if invitations is empty %}
+                <p class="card card-body text-small text-muted">Aucune invitation en attente.</p>
+            {% else %}
+                <ul role="list" class="space-y-3">
+                    {% for invitation in invitations %}
+                        {% set invited_group = invitation.usergroup %}
+                        <li class="card card-body space-y-3">
+                            <div class="flex items-start gap-3">
+                                <span class="avatar avatar-sm rounded-control" style="background: hsl({{ (invited_group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ invited_group.name|first|upper }}</span>
+                                <div class="min-w-0">
+                                    <p class="truncate font-semibold text-fg">
+                                        {% if is_granted('GROUP_VIEW', invited_group) %}<a href="{{ path('app_group_show', {slug: invited_group.slug}) }}" class="hover:text-primary-text">{{ invited_group.name }}</a>{% else %}{{ invited_group.name }}{% endif %}
+                                    </p>
+                                    <p class="text-caption text-muted">
+                                        {{- invitation.invitedBy ? 'Invité par ' ~ invitation.invitedBy.username : 'Invitation' }} · <time datetime="{{ invitation.createdAt|date('c') }}">{{ invitation.createdAt|time_ago }}</time>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <form method="post" action="{{ path('app_group_invitation_accept', {id: invitation.id}) }}" class="flex-1">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('group_invite') }}">
+                                    <button type="submit" class="btn btn-primary btn-sm w-full">{{ ui.icon('check') }}Accepter</button>
+                                </form>
+                                <form method="post" action="{{ path('app_group_invitation_refuse', {id: invitation.id}) }}" class="flex-1">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('group_invite') }}">
+                                    <button type="submit" class="btn btn-secondary btn-sm w-full">{{ ui.icon('x') }}Refuser</button>
+                                </form>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </section>
 
-        {# ONGLET MES GROUPES #}
-        <div id="panel-mygroups" role="tabpanel" aria-labelledby="tab-mygroups" data-tabs-target="panel" data-panel="mygroups">
-            {% if not app.user %}
-                {{ include('_partials/_empty_state.html.twig', {
-                    icon: 'users',
-                    title: 'Rejoignez la communauté',
-                    text: 'Connectez-vous pour retrouver vos groupes, discuter dans leurs salons et suivre leurs tâches.',
-                    cta: {label: 'Créer mon compte', url: path('app_register')},
-                    secondary: {label: 'Se connecter', url: path('app_login')},
-                }) }}
-            {% elseif myGroups is empty %}
+        {# MES GROUPES #}
+        <section class="groups-column" aria-labelledby="my-groups-title">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="my-groups-title" class="section-title mb-0">{{ ui.icon('users') }}Mes groupes<span class="text-caption font-normal text-muted tabular-nums">{{ myGroups|length }}</span></h2>
+                {% if myGroups|length > 1 %}
+                    {# Switch between the most recent activity and the member's own order #}
+                    <form method="post" action="{{ path('app_group_sort_mode') }}" class="flex items-center gap-2 text-small text-fg-secondary">
+                        <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
+                        <input type="hidden" name="mode" value="{{ sortMode == 'custom' ? 'activity' : 'custom' }}">
+                        <span id="group-sort-label">Ordre personnalisé</span>
+                        <button type="submit" role="switch" aria-checked="{{ sortMode == 'custom' ? 'true' : 'false' }}" aria-labelledby="group-sort-label" class="switch"
+                                title="{{ sortMode == 'custom' ? 'Trier par activité récente' : 'Ranger mes groupes moi-même' }}"><span class="switch-thumb"></span></button>
+                    </form>
+                {% endif %}
+            </div>
+            {% if myGroups is empty %}
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'users',
                     title: 'Vous n\'avez pas encore de groupe',
-                    text: 'Créez un groupe pour votre club, votre table de jeu ou votre projet de peinture, ou rejoignez un groupe public.',
+                    text: 'Créez un groupe pour votre club, votre table de jeu ou votre projet de peinture, ou rejoignez l\'un des groupes suggérés.',
                     cta: {label: 'Créer un groupe', url: path('app_group_new'), icon: 'plus'},
-                    secondary: publicGroups is not empty ? {label: 'Voir les groupes publics', tab: 'public'} : null,
+                    secondary: {label: 'Voir les groupes publics', url: path('app_group_public')},
+                    compact: true,
                 }) }}
             {% else %}
-                {# GROUPES CRÉÉS #}
-                {% set createdGroups = myGroups|filter(g => g.creator == app.user) %}
-                {% if createdGroups is not empty %}
-                    <section aria-labelledby="groups-created-title" class="mb-8">
-                        <h2 id="groups-created-title" class="eyebrow mb-3">Groupes créés</h2>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {% for group in createdGroups %}
-                                {{ _self.group_card(group, unreadGroupCounts[group.id] ?? 0, 'owner') }}
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-
-                {# GROUPES REJOINTS #}
-                {% set joinedGroups = myGroups|filter(g => g.creator != app.user) %}
-                {% if joinedGroups is not empty %}
-                    <section aria-labelledby="groups-joined-title">
-                        <h2 id="groups-joined-title" class="eyebrow mb-3">Groupes rejoints</h2>
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {% for group in joinedGroups %}
-                                {% set membership = group.members|filter(m => m.user == app.user)|first %}
-                                {{ _self.group_card(group, unreadGroupCounts[group.id] ?? 0, membership ? membership.role : 'member') }}
-                            {% endfor %}
-                        </div>
-                    </section>
-                {% endif %}
-            {% endif %}
-        </div>
-
-        {# ONGLET GROUPES PUBLICS #}
-        <div id="panel-public" role="tabpanel" aria-labelledby="tab-public" data-tabs-target="panel" data-panel="public" hidden>
-            {% if publicGroups is empty %}
-                {{ include('_partials/_empty_state.html.twig', {
-                    icon: 'globe',
-                    title: 'Aucun groupe public pour le moment',
-                    text: app.user
-                        ? 'Lancez le premier : les groupes publics sont visibles par toute la communauté.'
-                        : 'Inscrivez-vous pour créer le premier groupe public de la communauté.',
-                    cta: app.user
-                        ? {label: 'Créer un groupe public', url: path('app_group_new'), icon: 'plus'}
-                        : {label: 'Créer mon compte', url: path('app_register')},
-                    secondary: app.user ? null : {label: 'Se connecter', url: path('app_login')},
-                }) }}
-            {% else %}
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {% for group in publicGroups %}
-                        {% set membership = app.user ? group.members|filter(m => m.user == app.user)|first : null %}
-                        {{ _self.group_card(group, unreadGroupCounts[group.id] ?? 0, membership ? membership.role : null) }}
+                {% set custom_order = sortMode == 'custom' %}
+                {% if custom_order %}<p class="mb-2 text-caption text-muted">Glissez vos groupes (ou utilisez les flèches) pour les ranger.</p>{% endif %}
+                <ul role="list" class="card overflow-hidden"
+                    {% if custom_order %}{{ stimulus_controller('sortable', {url: path('app_group_order'), token: csrf_token('group')}) }}{% endif %}>
+                    {% for entry in myGroups %}
+                        {% set group = entry.group %}
+                        {% set unread = unreadGroupCounts[group.id] ?? 0 %}
+                        <li class="list-row list-row-interactive relative items-center" {% if custom_order %}data-sortable-target="item" data-id="{{ group.id }}" draggable="true"{% endif %}>
+                            {% if custom_order %}
+                                <span class="sortable-handle" aria-hidden="true">{{ ui.icon('grip-vertical', 'size-4') }}</span>
+                            {% endif %}
+                            <span class="avatar avatar-md rounded-card" style="background: hsl({{ (group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ group.name|first|upper }}</span>
+                            <div class="list-row-main">
+                                <p class="flex items-center gap-1.5 font-semibold text-fg">
+                                    <a href="{{ path('app_group_show', {slug: group.slug}) }}" class="truncate hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ group.name }}</a>
+                                    {% if entry.membership.role == 'owner' %}<span class="group-owner-crown" title="Vous êtes propriétaire">{{ ui.icon('crown', 'size-4') }}<span class="sr-only">Propriétaire</span></span>{% endif %}
+                                    {% if entry.membership.muted %}<span class="text-muted" title="Groupe en sourdine">{{ ui.icon('bell-off', 'size-4') }}<span class="sr-only">En sourdine</span></span>{% endif %}
+                                </p>
+                                <p class="text-caption text-muted">
+                                    {{ group.members|length }} membre{{ group.members|length > 1 ? 's' }} · activité <time datetime="{{ entry.lastActivity|date('c') }}">{{ entry.lastActivity|time_ago }}</time>
+                                </p>
+                            </div>
+                            {% if unread > 0 %}
+                                <span class="count-badge shrink-0" title="{{ unread }} message(s) non lu(s)">{{ unread > 99 ? '99+' : unread }}<span class="sr-only"> message(s) non lu(s)</span></span>
+                            {% endif %}
+                            {% if custom_order %}
+                                <span class="relative z-(--z-raised) flex shrink-0 flex-col">
+                                    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="sortable#moveUp" aria-label="Monter « {{ group.name }} »">{{ ui.icon('chevron-up', 'size-4') }}</button>
+                                    <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="sortable#moveDown" aria-label="Descendre « {{ group.name }} »">{{ ui.icon('chevron-down', 'size-4') }}</button>
+                                </span>
+                            {% endif %}
+                        </li>
                     {% endfor %}
-                </div>
+                </ul>
             {% endif %}
-        </div>
+        </section>
 
+        {# SUGGESTIONS #}
+        <aside class="groups-column" aria-labelledby="suggestions-title">
+            <h2 id="suggestions-title" class="section-title">{{ ui.icon('sparkles') }}Suggestions</h2>
+            {% if suggestions is empty %}
+                <p class="card card-body text-small text-muted">Aucune suggestion pour le moment. <a href="{{ path('app_group_public') }}" class="link">Parcourir les groupes publics</a></p>
+            {% else %}
+                <ul role="list" class="space-y-3">
+                    {% for suggestion in suggestions %}
+                        {% set group = suggestion.group %}
+                        <li class="card card-body relative space-y-2">
+                            <p class="flex items-center gap-2 font-semibold text-fg">
+                                <span class="avatar avatar-xs rounded-control" style="background: hsl({{ (group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ group.name|first|upper }}</span>
+                                <a href="{{ path('app_group_show', {slug: group.slug}) }}" class="truncate hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ group.name }}</a>
+                            </p>
+                            {% if suggestion.friendCount > 0 %}
+                                <p class="flex items-center gap-2 text-caption text-fg-secondary">
+                                    <span class="avatar-stack" aria-hidden="true">{% for friend in suggestion.friends %}{{ ui.avatar(friend, 'xs') }}{% endfor %}</span>
+                                    {{ suggestion.friendCount }} ami{{ suggestion.friendCount > 1 ? 's' }} {{ suggestion.friendCount > 1 ? 'sont' : 'est' }} dans ce groupe
+                                </p>
+                            {% else %}
+                                <p class="text-caption text-muted">{{ suggestion.memberCount }} membre{{ suggestion.memberCount > 1 ? 's' }}</p>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+                <a href="{{ path('app_group_public') }}" class="btn btn-link btn-sm mt-2">Tous les groupes publics{{ ui.icon('arrow-right') }}</a>
+            {% endif %}
+        </aside>
     </div>
+    {% endif %}
 {% endblock %}

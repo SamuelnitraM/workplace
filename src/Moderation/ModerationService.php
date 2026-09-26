@@ -89,7 +89,7 @@ class ModerationService
             ReportTargetType::Thread => $this->deleteThread($target),
             ReportTargetType::Post => $target->isFirst() ? $this->deleteThread($target->getThread()) : $this->deletePost($target),
             ReportTargetType::Photo => $this->galleryPhotoUploader->delete($target),
-            ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage => $this->em->remove($target),
+            ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage, ReportTargetType::GroupMessage, ReportTargetType::Group => $this->em->remove($target),
             ReportTargetType::Profile => throw new \LogicException('A profile cannot be deleted from a report.'),
         };
         $this->closeReportsOfTarget($report, ReportResolution::Deleted, $moderator, $note);

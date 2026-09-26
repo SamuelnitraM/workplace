@@ -100,6 +100,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 20, options: ['default' => 'auspex'])]
     private string $notificationSound = 'auspex';
 
+    /** Order of the groups page: 'activity' (most recent activity first) or 'custom' (order arranged by the member). */
+    #[ORM\Column(length: 10, options: ['default' => 'activity'])]
+    private string $groupSortMode = 'activity';
+
+    public const GROUP_SORT_ACTIVITY = 'activity';
+    public const GROUP_SORT_CUSTOM = 'custom';
+
     /** Start of the current moderation suspension (NULL: account in good standing). */
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $suspendedAt = null;
@@ -159,12 +166,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\OneToMany(targetEntity: GroupMessage::class, mappedBy: 'author')]
     private Collection $groupMessages;
-
-    /**
-     * @var Collection<int, TodoNode>
-     */
-    #[ORM\OneToMany(targetEntity: TodoNode::class, mappedBy: 'assignedTo')]
-    private Collection $assignedTodos;
 
     /**
      * @var Collection<int, GroupInvitation>
@@ -341,7 +342,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->CreatedGroups = new ArrayCollection();
         $this->groupMembers = new ArrayCollection();
         $this->groupMessages = new ArrayCollection();
-        $this->assignedTodos = new ArrayCollection();
         $this->sentGroupInvitations = new ArrayCollection();
         $this->receivedGroupInvitations = new ArrayCollection();
         $this->conversationAsParticipant1 = new ArrayCollection();
@@ -460,6 +460,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setTitleBadge(?Badge $titleBadge): static { $this->titleBadge = $titleBadge; return $this; }
     public function getNotificationSound(): string { return $this->notificationSound; }
     public function setNotificationSound(string $notificationSound): static { $this->notificationSound = $notificationSound; return $this; }
+    public function getGroupSortMode(): string { return $this->groupSortMode; }
+    public function setGroupSortMode(string $groupSortMode): static { $this->groupSortMode = $groupSortMode === self::GROUP_SORT_CUSTOM ? self::GROUP_SORT_CUSTOM : self::GROUP_SORT_ACTIVITY; return $this; }
 
     public function getSuspendedAt(): ?\DateTimeImmutable { return $this->suspendedAt; }
     public function getSuspendedUntil(): ?\DateTimeImmutable { return $this->suspendedUntil; }
@@ -735,36 +737,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             // set the owning side to null (unless already changed)
             if ($groupMessage->getAuthor() === $this) {
                 $groupMessage->setAuthor(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, TodoNode>
-     */
-    public function getAssignedTodos(): Collection
-    {
-        return $this->assignedTodos;
-    }
-
-    public function addAssignedTodo(TodoNode $assignedTodo): static
-    {
-        if (!$this->assignedTodos->contains($assignedTodo)) {
-            $this->assignedTodos->add($assignedTodo);
-            $assignedTodo->setAssignedTo($this);
-        }
-
-        return $this;
-    }
-
-    public function removeAssignedTodo(TodoNode $assignedTodo): static
-    {
-        if ($this->assignedTodos->removeElement($assignedTodo)) {
-            // set the owning side to null (unless already changed)
-            if ($assignedTodo->getAssignedTo() === $this) {
-                $assignedTodo->setAssignedTo(null);
             }
         }
 

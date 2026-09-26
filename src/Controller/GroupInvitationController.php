@@ -2,17 +2,15 @@
 
 namespace App\Controller;
 
-use App\Entity\GroupInvitation;
 use App\Entity\GroupMember;
 use App\Entity\Notification;
-use App\Entity\User;
+use App\Group\GroupInvitationSender;
+use App\Repository\FriendshipRepository;
 use App\Repository\GroupInvitationRepository;
-use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Repository\NotificationRepository;
 use App\Repository\UserRepository;
 use App\Security\Voter\GroupVoter;
-use App\Service\MemberBlocker;
 use App\Service\NotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,83 +30,61 @@ class GroupInvitationController extends AbstractController
         Request $request,
         UserRepository $userRepository,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
-        GroupInvitationRepository $groupInvitationRepository,
-        EntityManagerInterface $em,
-        NotificationService $notifications,
-        MemberBlocker $memberBlocker,
+        GroupInvitationSender $invitationSender,
     ): Response {
         $this->denyUnlessCsrfValid($request);
 
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
-
-        if (!$targetUser) {
-            throw $this->createNotFoundException('Utilisateur introuvable');
-        }
-
-        if ($memberBlocker->isBlockedEitherWay($currentUser, $targetUser)) {
-            $this->addFlash('error', 'Impossible d\'inviter ce membre.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
-        }
-
+        $targetUser = $userRepository->findOneBy(['username' => $username]) ?? throw $this->createNotFoundException('Utilisateur introuvable');
         $groupId = $request->request->getInt('group_id');
         $group = $groupId ? $groupRepository->find($groupId) : null;
+        $redirect = $this->redirectToRoute('app_profil_show', ['username' => $username]);
 
         if (!$group) {
             $this->addFlash('error', 'Groupe introuvable.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+            return $redirect;
         }
-
-        // Vérifier que l'inviteur est membre du groupe
         if (!$this->isGranted(GroupVoter::INVITE, $group)) {
-            $this->addFlash('error', 'Vous devez être membre du groupe pour inviter.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+            $this->addFlash('error', 'Vous n\'avez pas le droit d\'inviter dans ce groupe.');
+            return $redirect;
         }
+        $error = $invitationSender->invite($group, $currentUser, $targetUser);
+        $error !== null
+            ? $this->addFlash('error', $error)
+            : $this->addFlash('success', $targetUser->getUsername() . ' a été invité dans ' . $group->getName() . ' !');
+        return $redirect;
+    }
 
-        // Vérifier que le user n'est pas déjà membre
-        $alreadyMember = $groupMemberRepository->findOneBy([
-            'user' => $targetUser,
-            'usergroup' => $group,
-        ]);
-
-        if ($alreadyMember) {
-            $this->addFlash('error', $targetUser->getUsername() . ' est déjà membre de ce groupe.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+    /** Invitations sent from the group page: friends selected in the invitation window. */
+    #[Route('/group/{slug}', name: 'send_many', methods: ['POST'])]
+    public function sendMany(
+        string $slug,
+        Request $request,
+        GroupRepository $groupRepository,
+        FriendshipRepository $friendshipRepository,
+        GroupInvitationSender $invitationSender,
+    ): Response {
+        $this->denyUnlessCsrfValid($request);
+        $group = $groupRepository->findOneBy(['slug' => $slug]) ?? throw $this->createNotFoundException('Groupe introuvable');
+        $this->denyAccessUnlessGranted(GroupVoter::INVITE, $group);
+        /** @var \App\Entity\User $currentUser */
+        $currentUser = $this->getUser();
+        $selectedIds = array_map('intval', $request->request->all('user_ids'));
+        $invited = [];
+        foreach ($friendshipRepository->findFriendsOf($currentUser) as $friend) {
+            if (!in_array($friend->getId(), $selectedIds, true)) {
+                continue;
+            }
+            $error = $invitationSender->invite($group, $currentUser, $friend);
+            $error !== null ? $this->addFlash('error', $error) : $invited[] = $friend->getUsername();
         }
-
-        // Vérifier qu'une invitation n'existe pas déjà
-        $existing = $groupInvitationRepository->findOneBy([
-            'invitedUser' => $targetUser,
-            'usergroup' => $group,
-            'status' => 'pending',
-        ]);
-
-        if ($existing) {
-            $this->addFlash('error', 'Une invitation est déjà en attente pour ce groupe.');
-            return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+        if ($invited !== []) {
+            $this->addFlash('success', sprintf('Invitation envoyée à %s.', implode(', ', $invited)));
+        } elseif ($selectedIds === []) {
+            $this->addFlash('warning', 'Sélectionnez au moins un ami à inviter.');
         }
-
-        $invitation = new GroupInvitation();
-        $invitation->setInvitedBy($currentUser);
-        $invitation->setInvitedUser($targetUser);
-        $invitation->setUsergroup($group);
-
-        $em->persist($invitation);
-        $em->flush();
-
-        $notifications->notify(
-            $targetUser,
-            Notification::TYPE_GROUP_INVITATION,
-            $currentUser,
-            ['group' => $group->getName(), 'groupId' => $group->getId()],
-            $this->generateUrl('app_group_invitation_list'),
-            self::invitationKey($group->getId()),
-        );
-
-        $this->addFlash('success', $targetUser->getUsername() . ' a été invité dans ' . $group->getName() . ' !');
-        return $this->redirectToRoute('app_profil_show', ['username' => $username]);
+        return $this->redirectToRoute('app_group_show', ['slug' => $group->getSlug()]);
     }
 
     // Accepter une invitation
@@ -144,7 +120,7 @@ class GroupInvitationController extends AbstractController
         $em->flush();
 
         $group = $invitation->getUsergroup();
-        $notificationRepository->markReadByGroupKey($currentUser, self::invitationKey($group->getId()));
+        $notificationRepository->markReadByGroupKey($currentUser, GroupInvitationSender::notificationKey($group));
         if ($invitation->getInvitedBy()) {
             $notifications->notify(
                 $invitation->getInvitedBy(),
@@ -180,41 +156,23 @@ class GroupInvitationController extends AbstractController
 
         $invitation->setStatus('refused');
         $em->flush();
-        $notificationRepository->markReadByGroupKey($currentUser, self::invitationKey($invitation->getUsergroup()->getId()));
+        $notificationRepository->markReadByGroupKey($currentUser, GroupInvitationSender::notificationKey($invitation->getUsergroup()));
 
         $this->addFlash('info', 'Invitation refusée.');
-        return $this->redirectToRoute('app_group_invitation_list');
+        return $this->redirectToRoute('app_group_index', ['_fragment' => 'invitations']);
     }
 
-    // Liste des invitations reçues
-    #[Route('/list', name: 'list')]
-    public function list(GroupInvitationRepository $groupInvitationRepository, NotificationRepository $notificationRepository): Response
+    /** Address of the notifications sent before the invitations moved to the groups page. */
+    #[Route('/list', name: 'list', methods: ['GET'])]
+    public function list(): Response
     {
-        /** @var \App\Entity\User $currentUser */
-        $currentUser = $this->getUser();
-
-        // Les invitations en attente sont affichées sur cette page : leurs notifications sont lues
-        $notificationRepository->markReadByTypes($currentUser, [Notification::TYPE_GROUP_INVITATION]);
-
-        $pendingInvitations = $groupInvitationRepository->findBy([
-            'invitedUser' => $currentUser,
-            'status' => 'pending',
-        ]);
-
-        return $this->render('group_invitation/list.html.twig', [
-            'invitations' => $pendingInvitations,
-        ]);
+        return $this->redirectToRoute('app_group_index', ['_fragment' => 'invitations'], Response::HTTP_MOVED_PERMANENTLY);
     }
+
     private function denyUnlessCsrfValid(Request $request): void
     {
         if (!$this->isCsrfTokenValid('group_invite', $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
-    }
-
-    /** Clé d'agrégation d'une invitation (une seule notification par groupe). */
-    private static function invitationKey(int $groupId): string
-    {
-        return 'group_invitation:' . $groupId;
     }
 }

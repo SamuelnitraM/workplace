@@ -7,7 +7,9 @@ use App\Entity\TodoNode;
 use App\Entity\User;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
+use App\Repository\TodoAssignmentRepository;
 use App\Repository\TodoNodeRepository;
+use App\Todo\TodoAssignmentManager;
 use App\Security\Voter\GroupMembershipResolver;
 use App\Security\Voter\GroupVoter;
 use App\Security\Voter\TodoNodeVoter;
@@ -64,7 +66,6 @@ class GroupTodoController extends AbstractController
         string $slug,
         Request $request,
         GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
         TodoNodeRepository $todoNodeRepository,
         EntityManagerInterface $em
     ): Response {
@@ -86,7 +87,6 @@ class GroupTodoController extends AbstractController
         $title = trim((string) $request->request->get('title', ''));
         $type = (string) $request->request->get('type', TodoNode::TYPE_LIST);
         $parentId = $request->request->get('parent_id');
-        $assignedToId = $request->request->get('assigned_to');
 
         if (empty($title)) {
             $this->addFlash('error', 'Le titre ne peut pas être vide.');
@@ -108,7 +108,7 @@ class GroupTodoController extends AbstractController
                 $this->addFlash('error', 'Élément parent invalide.');
                 return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
             }
-            // Catégorie : rédacteurs ; tâche : rédacteurs ou membre assigné à la catégorie
+            // Catégorie et tâche : rédacteurs
             $this->denyAccessUnlessGranted(TodoNodeVoter::CREATE_CHILD, $parent);
         } else {
             // Nouvelle liste : rédacteurs uniquement
@@ -122,18 +122,6 @@ class GroupTodoController extends AbstractController
         $node->setUsergroup($group);
         $node->setParent($parent);
 
-        // Assigner à un membre du groupe (rédacteurs uniquement ; une tâche créée par un membre
-        // assigné à la catégorie reste non assignée : l'assignation de la catégorie lui donne déjà les droits)
-        if ($assignedToId) {
-            $this->denyAccessUnlessGranted(TodoNodeVoter::ASSIGN, $node);
-            $assignedTo = $this->findGroupMemberUser($group, (int) $assignedToId, $groupMemberRepository);
-            if (!$assignedTo) {
-                $this->addFlash('error', 'Cet utilisateur n\'est pas membre du groupe.');
-                return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
-            }
-            $node->setAssignedTo($assignedTo);
-        }
-
         // Position
         $siblings = $parent
             ? $todoNodeRepository->findBy(['parent' => $parent], ['position' => 'DESC'], 1)
@@ -144,7 +132,8 @@ class GroupTodoController extends AbstractController
         $em->persist($node);
         $em->flush();
 
-        return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
+        // The page opens again on the list that received the new element (lists are collapsed by default)
+        return $this->redirectToList($slug, $node);
     }
 
     // Supprimer un noeud
@@ -171,11 +160,12 @@ class GroupTodoController extends AbstractController
         // Rédacteurs de la todo uniquement
         $this->denyAccessUnlessGranted(TodoNodeVoter::DELETE, $node);
 
+        $parent = $node->getParent();
         $em->remove($node);
         $em->flush();
 
         $this->addFlash('success', 'Supprimé avec succès.');
-        return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
+        return $parent !== null ? $this->redirectToList($slug, $parent) : $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
     }
 
     // Renommer un noeud
@@ -215,49 +205,96 @@ class GroupTodoController extends AbstractController
         return new JsonResponse(['title' => $node->getTitle()]);
     }
 
-    // Assigner un item à un membre
-    #[Route('/assign/{id}', name: 'assign', methods: ['POST'])]
-    public function assign(
-        string $slug,
-        int $id,
-        Request $request,
-        GroupRepository $groupRepository,
-        GroupMemberRepository $groupMemberRepository,
-        TodoNodeRepository $todoNodeRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        if (!$this->isTodoCsrfValid($request)) {
-            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
-        }
+    // Assignations d'une tâche (App\Todo\TodoAssignmentManager) : réponses JSON avec les fragments à jour
+    // (assignés de la tâche, résumé de sa catégorie)
 
+    /** The current member takes the task: pending request, or direct assignment in free mode. */
+    #[Route('/task/{id}/request', name: 'assignment_request', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function requestAssignment(string $slug, int $id, Request $request, GroupRepository $groupRepository, TodoNodeRepository $todoNodeRepository, TodoAssignmentManager $assignments): JsonResponse
+    {
+        $task = $this->findGroupNode($slug, $id, $request, $groupRepository, $todoNodeRepository, TodoNodeVoter::REQUEST_ASSIGNMENT);
+        if ($task instanceof JsonResponse) {
+            return $task;
+        }
+        return $this->assignmentResponse($task, $assignments->request($task, $this->currentUser()));
+    }
+
+    /** A manager assigns a member of the group. */
+    #[Route('/task/{id}/assign', name: 'assignment_assign', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function assign(string $slug, int $id, Request $request, GroupRepository $groupRepository, TodoNodeRepository $todoNodeRepository, GroupMemberRepository $groupMemberRepository, TodoAssignmentManager $assignments): JsonResponse
+    {
+        $task = $this->findGroupNode($slug, $id, $request, $groupRepository, $todoNodeRepository, TodoNodeVoter::ASSIGN);
+        if ($task instanceof JsonResponse) {
+            return $task;
+        }
+        $member = $this->findGroupMemberUser($task->getUsergroup(), $request->request->getInt('user_id'), $groupMemberRepository);
+        if ($member === null) {
+            return new JsonResponse(['error' => 'Cet utilisateur n\'est pas membre du groupe.'], Response::HTTP_BAD_REQUEST);
+        }
+        return $this->assignmentResponse($task, $assignments->assign($task, $member, $this->currentUser()));
+    }
+
+    /** Decision on an assignment: accept or refuse a request, remove an assignee (managers), withdraw one's own request. */
+    #[Route('/assignment/{id}/{decision}', name: 'assignment_decision', methods: ['POST'], requirements: ['id' => '\d+', 'decision' => 'accept|refuse|remove|withdraw'])]
+    public function decideAssignment(string $slug, int $id, string $decision, Request $request, GroupRepository $groupRepository, TodoAssignmentRepository $assignmentRepository, TodoAssignmentManager $assignments): JsonResponse
+    {
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], Response::HTTP_FORBIDDEN);
+        }
+        $assignment = $assignmentRepository->find($id);
+        $task = $assignment?->getNode();
+        $group = $groupRepository->findOneBy(['slug' => $slug]);
+        $right = $decision === 'withdraw' ? TodoNodeVoter::WITHDRAW_REQUEST : TodoNodeVoter::ASSIGN;
+        if ($assignment === null || $group === null || $task->getUsergroup() !== $group || !$this->isGranted($right, $task)) {
+            return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
+        }
+        $error = null;
+        match ($decision) {
+            'accept' => $error = $assignments->accept($assignment, $this->currentUser()),
+            'refuse' => $assignment->isPending() ? $assignments->refuse($assignment, $this->currentUser()) : $assignments->remove($assignment),
+            default => $assignments->remove($assignment),
+        };
+        return $this->assignmentResponse($task, $error);
+    }
+
+    /** Refreshed fragments of a task after an assignment change (and the error message, if any). */
+    private function assignmentResponse(TodoNode $task, ?string $error): JsonResponse
+    {
+        $category = $task->getParent();
+        return new JsonResponse([
+            'error' => $error,
+            'taskId' => $task->getId(),
+            'task' => $this->renderView('group_todo/_task_assignees.html.twig', ['item' => $task, 'group' => $task->getUsergroup()]),
+            'categoryId' => $category?->getId(),
+            'category' => $category !== null ? $this->renderView('group_todo/_category_assignees.html.twig', ['category' => $category]) : '',
+        ], $error !== null ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK);
+    }
+
+    /** Node of the group on which the current member holds the given right, or a JSON error response. */
+    private function findGroupNode(string $slug, int $id, Request $request, GroupRepository $groupRepository, TodoNodeRepository $todoNodeRepository, string $right): TodoNode|JsonResponse
+    {
+        if (!$this->isTodoCsrfValid($request)) {
+            return new JsonResponse(['error' => 'Jeton CSRF invalide'], Response::HTTP_FORBIDDEN);
+        }
         $group = $groupRepository->findOneBy(['slug' => $slug]);
         $node = $todoNodeRepository->find($id);
-
-        if (!$group || !$node || $node->getUsergroup() !== $group) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
+        if ($group === null || $node === null || $node->getUsergroup() !== $group || !$this->isGranted($right, $node)) {
+            return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
+        return $node;
+    }
 
-        // Rédacteurs de la todo uniquement
-        if (!$this->isGranted(TodoNodeVoter::ASSIGN, $node)) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
+    /** Redirection to the to-do page, opened on the root list of the node. */
+    private function redirectToList(string $slug, TodoNode $node): Response
+    {
+        return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug, '_fragment' => 'list-' . $node->getRootList()->getId()]);
+    }
 
-        $assignedToId = $request->request->get('assigned_to');
-        if ($assignedToId) {
-            $assignedTo = $this->findGroupMemberUser($group, (int) $assignedToId, $groupMemberRepository);
-            if (!$assignedTo) {
-                return new JsonResponse(['error' => 'Cet utilisateur n\'est pas membre du groupe'], 400);
-            }
-            $node->setAssignedTo($assignedTo);
-        } else {
-            $node->setAssignedTo(null);
-        }
-
-        $em->flush();
-
-        return new JsonResponse([
-            'assignedTo' => $node->getAssignedTo()?->getUsername() ?? null
-        ]);
+    private function currentUser(): User
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        return $user;
     }
 
     // Augmenter la progression d'une tâche
@@ -370,7 +407,7 @@ class GroupTodoController extends AbstractController
         $group = $groupRepository->findOneBy(['slug' => $slug]);
         $node = $todoNodeRepository->find($id);
 
-        // Tâche (type item) du groupe : rédacteurs, ou membre assigné à la tâche ou à sa catégorie
+        // Tâche (type item) du groupe : rédacteurs, ou membre assigné à la tâche
         if (!$group || !$node || $node->getUsergroup() !== $group || !$this->isGranted(TodoNodeVoter::PROGRESS, $node)) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }

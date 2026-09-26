@@ -89,7 +89,8 @@ class TodoController extends AbstractController
         $em->persist($node);
         $em->flush();
 
-        return $this->redirectToRoute('app_todo_index');
+        // The page opens again on the list that received the new element (lists are collapsed by default)
+        return $this->redirectToRoute('app_todo_index', ['_fragment' => 'list-' . $node->getRootList()->getId()]);
     }
 
     // Supprimer un noeud
@@ -106,11 +107,12 @@ class TodoController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
+        $parent = $node->getParent();
         $em->remove($node);
         $em->flush();
 
         $this->addFlash('success', 'Supprimé avec succès.');
-        return $this->redirectToRoute('app_todo_index');
+        return $this->redirectToRoute('app_todo_index', $parent !== null ? ['_fragment' => 'list-' . $parent->getRootList()->getId()] : []);
     }
 
     // Renommer un noeud

@@ -4,9 +4,12 @@ namespace App\Moderation;
 
 use App\Controller\ThreadController;
 use App\Entity\GalleryPhoto;
+use App\Entity\Group;
 use App\Entity\User;
 use App\Repository\PostRepository;
 use App\Security\Voter\GalleryPhotoVoter;
+use App\Security\Voter\GroupChannelVoter;
+use App\Security\Voter\GroupVoter;
 use App\Service\NotificationRenderer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -34,9 +37,10 @@ class ReportTargetResolver
     public function authorOf(ReportTargetType $type, object $target): ?User
     {
         return match ($type) {
-            ReportTargetType::Thread, ReportTargetType::Post, ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage => $target->getAuthor(),
+            ReportTargetType::Thread, ReportTargetType::Post, ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage, ReportTargetType::GroupMessage => $target->getAuthor(),
             ReportTargetType::Photo => $target->getOwner(),
             ReportTargetType::Profile => $target,
+            ReportTargetType::Group => $this->ownerOf($target),
         };
     }
 
@@ -46,6 +50,8 @@ class ReportTargetResolver
         $text = match ($type) {
             ReportTargetType::Thread => $target->getTitle() . ' — ' . ($this->postRepository->findFirstPostOfThread($target)?->getContent() ?? ''),
             ReportTargetType::Post, ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage => (string) $target->getContent(),
+            ReportTargetType::GroupMessage => sprintf('#%s (%s) — %s', $target->getChannel()?->getName(), $target->getUsergroup()?->getName(), $target->getContent()),
+            ReportTargetType::Group => $target->getName() . ($target->getDescription() ? ' — ' . $target->getDescription() : ''),
             ReportTargetType::Photo => 'Photo ' . $target->getFilename() . ($target->getDescription() ? ' — ' . $target->getDescription() : ''),
             ReportTargetType::Profile => $target->getUsername() . ($target->getBio() ? ' — ' . $target->getBio() : ''),
         };
@@ -67,6 +73,12 @@ class ReportTargetResolver
             ReportTargetType::PhotoComment => $this->photoUrl($target->getPhoto()) . '#comment-' . $target->getId(),
             ReportTargetType::PrivateMessage => null,
             ReportTargetType::Profile => $this->urlGenerator->generate('app_profil_show', ['username' => $target->getUsername()]),
+            ReportTargetType::Group => $this->urlGenerator->generate('app_group_show', ['slug' => $target->getSlug()]),
+            ReportTargetType::GroupMessage => $this->urlGenerator->generate('app_group_show', [
+                'slug' => $target->getUsergroup()->getSlug(),
+                'channel' => $target->getChannel()?->getId(),
+                '_fragment' => 'msg-' . $target->getId(),
+            ]),
         };
     }
 
@@ -80,6 +92,8 @@ class ReportTargetResolver
             ReportTargetType::Photo => $this->security->isGranted(GalleryPhotoVoter::VIEW, $target),
             ReportTargetType::PhotoComment => $this->security->isGranted(GalleryPhotoVoter::VIEW, $target->getPhoto()),
             ReportTargetType::PrivateMessage => $target->getConversation()?->hasParticipant($reporter) ?? false,
+            ReportTargetType::Group => $this->security->isGranted(GroupVoter::VIEW, $target),
+            ReportTargetType::GroupMessage => $target->getChannel() !== null && $this->security->isGranted(GroupChannelVoter::READ, $target->getChannel()),
             default => true,
         };
     }
@@ -91,6 +105,17 @@ class ReportTargetResolver
         return $type === ReportTargetType::Profile
             ? 'Profil de ' . $author
             : sprintf('%s de %s : « %s »', $type->label(), $author, NotificationRenderer::excerpt($this->excerptOf($type, $target)));
+    }
+
+    /** Owner of a group (member with the owner role), who answers for the group. */
+    private function ownerOf(Group $group): ?User
+    {
+        foreach ($group->getMembers() as $member) {
+            if ($member->getRole() === 'owner') {
+                return $member->getUser();
+            }
+        }
+        return $group->getCreator();
     }
 
     private function photoUrl(GalleryPhoto $photo): string

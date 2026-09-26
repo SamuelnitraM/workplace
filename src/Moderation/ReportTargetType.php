@@ -4,6 +4,8 @@ namespace App\Moderation;
 
 use App\Entity\GalleryPhoto;
 use App\Entity\GalleryPhotoComment;
+use App\Entity\Group;
+use App\Entity\GroupMessage;
 use App\Entity\Post;
 use App\Entity\PrivateMessage;
 use App\Entity\Thread;
@@ -18,6 +20,9 @@ enum ReportTargetType: string
     case PhotoComment = 'commentaire';
     case PrivateMessage = 'message';
     case Profile = 'profil';
+    /** A whole group: its owner answers for it. */
+    case Group = 'groupe';
+    case GroupMessage = 'message-groupe';
 
     public function label(): string
     {
@@ -28,6 +33,8 @@ enum ReportTargetType: string
             self::PhotoComment => 'Commentaire de photo',
             self::PrivateMessage => 'Message privé',
             self::Profile => 'Profil',
+            self::Group => 'Groupe',
+            self::GroupMessage => 'Message de groupe',
         };
     }
 
@@ -41,6 +48,8 @@ enum ReportTargetType: string
             self::PhotoComment => GalleryPhotoComment::class,
             self::PrivateMessage => PrivateMessage::class,
             self::Profile => User::class,
+            self::Group => Group::class,
+            self::GroupMessage => GroupMessage::class,
         };
     }
 

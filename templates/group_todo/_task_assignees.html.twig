@@ -1,0 +1,67 @@
+{#
+    Assignees of a group task (App\Todo\TodoAssignmentManager), refreshed after each change (todo#assignment).
+    Accepted assignees are shown normally, pending requests greyed; a manager opens the decision window by clicking one.
+    Parameters: item (task), group.
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set can_manage = is_granted('TODO_ASSIGN', item) %}
+{% set limit = group.maxAssigneesPerTask %}
+{% set accepted_count = item.acceptedAssignments|length %}
+<div id="assignees-{{ item.id }}" class="task-assignees">
+    {% for assignment in item.assignments %}
+        {% set assignee = assignment.user %}
+        {% set label = assignee.username ~ (assignment.pending ? ' (demande en attente)' : '') %}
+        {% if can_manage %}
+            <button type="button" class="task-assignee {{ assignment.pending ? 'is-pending' }}" title="{{ label }}"
+                    aria-label="{{ assignment.pending ? 'Demande de ' ~ assignee.username ~ ' : accepter ou refuser' : 'Assigné : ' ~ assignee.username ~ ' — retirer' }}"
+                    {{ stimulus_action('todo', 'openAssignment', 'click', {
+                        pending: assignment.pending,
+                        username: assignee.username,
+                        task: item.title,
+                        accept: path('app_group_todo_assignment_decision', {slug: group.slug, id: assignment.id, decision: 'accept'}),
+                        refuse: path('app_group_todo_assignment_decision', {slug: group.slug, id: assignment.id, decision: 'refuse'}),
+                        remove: path('app_group_todo_assignment_decision', {slug: group.slug, id: assignment.id, decision: 'remove'}),
+                    }) }}>{{ ui.avatar(assignee, 'xs') }}</button>
+        {% else %}
+            <span class="task-assignee {{ assignment.pending ? 'is-pending' }}" title="{{ label }}">{{ ui.avatar(assignee, 'xs') }}<span class="sr-only">{{ label }}</span></span>
+        {% endif %}
+    {% endfor %}
+
+    {% if is_granted('TODO_WITHDRAW_REQUEST', item) %}
+        <button type="button" class="btn btn-ghost btn-sm" {{ stimulus_action('todo', 'assignment', 'click', {url: path('app_group_todo_assignment_decision', {slug: group.slug, id: item.assignmentOf(app.user).id, decision: 'withdraw'})}) }}>
+            {{- ui.icon('x', 'size-4') }}Annuler ma demande
+        </button>
+    {% elseif is_granted('TODO_REQUEST_ASSIGNMENT', item) and accepted_count < limit %}
+        {# Managers of the assignments and free mode: direct assignment; otherwise a request to approve #}
+        {% set direct = group.freeAssignment or can_manage %}
+        <button type="button" class="btn btn-ghost btn-sm" {{ stimulus_action('todo', 'assignment', 'click', {url: path('app_group_todo_assignment_request', {slug: group.slug, id: item.id})}) }}
+                title="{{ direct ? 'Vous assigner à cette tâche' : 'Votre demande sera validée par ' ~ (group.assignmentManagerRole == 'owner' ? 'le propriétaire' : 'un administrateur') }}">
+            {{- ui.icon('user-plus', 'size-4') }}{{ direct ? 'M\'assigner' : 'Demander' -}}
+        </button>
+    {% endif %}
+
+    {% if can_manage %}
+        <div class="dropdown" x-data="{ open: false }" @keydown.escape="open = false">
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" @click="open = !open" :aria-expanded="open" aria-haspopup="true"
+                    aria-label="Assigner un membre à « {{ item.title }} »" title="Assigner un membre ({{ accepted_count }}/{{ limit }})">{{ ui.icon('users', 'size-4') }}</button>
+            <div x-show="open" x-cloak @click.outside="open = false" x-transition.opacity.duration.150ms class="menu task-assign-menu">
+                <p class="menu-label eyebrow">Assigner ({{ accepted_count }}/{{ limit }})</p>
+                {% for member in group.members %}
+                    {% set existing = item.assignmentOf(member.user) %}
+                    {% if existing and existing.accepted %}
+                        <button type="button" class="menu-item" aria-current="true"
+                                {{ stimulus_action('todo', 'assignment', 'click', {url: path('app_group_todo_assignment_decision', {slug: group.slug, id: existing.id, decision: 'remove'})}) }}>
+                            {{ ui.avatar(member.user, 'xs') }}<span class="flex-1 truncate">{{ member.user.username }}</span>{{ ui.icon('check', 'size-4 text-primary-text') }}
+                        </button>
+                    {% else %}
+                        <button type="button" class="menu-item" {{ accepted_count >= limit ? 'disabled' }}
+                                {{ stimulus_action('todo', 'assignment', 'click', {url: path('app_group_todo_assignment_assign', {slug: group.slug, id: item.id}), user: member.user.id}) }}>
+                            {{ ui.avatar(member.user, 'xs') }}<span class="flex-1 truncate">{{ member.user.username }}</span>
+                            {% if existing %}<span class="text-caption text-muted">en attente</span>{% endif %}
+                        </button>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
