@@ -58,10 +58,10 @@ class GroupMember
         return $this;
     }
 
-    /** Rôles valides, du moins au plus privilégié. */
+    /** Valid roles, from least to most privileged. */
     public const ROLE_LEVELS = ['member' => 1, 'admin' => 2, 'owner' => 3];
 
-    /** Vrai si le rôle du membre est au moins égal au rôle requis ('member', 'admin' ou 'owner'). */
+    /** True if the member's role is at least the required role ('member', 'admin' or 'owner'). */
     public function hasAtLeastRole(?string $requiredRole): bool
     {
         return (self::ROLE_LEVELS[$this->role] ?? 0) >= (self::ROLE_LEVELS[$requiredRole] ?? 1);

@@ -23,7 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/group-invitation', name: 'app_group_invitation_')]
 class GroupInvitationController extends AbstractController
 {
-    // Envoyer une invitation depuis le profil d'un user
+    // Send an invitation from a user's profile
     #[Route('/send/{username}', name: 'send', methods: ['POST'])]
     public function send(
         string $username,
@@ -87,7 +87,7 @@ class GroupInvitationController extends AbstractController
         return $this->redirectToRoute('app_group_show', ['slug' => $group->getSlug()]);
     }
 
-    // Accepter une invitation
+    // Accept an invitation
     #[Route('/accept/{id}', name: 'accept', methods: ['POST'])]
     public function accept(
         int $id,
@@ -102,12 +102,12 @@ class GroupInvitationController extends AbstractController
         $this->denyUnlessCsrfValid($request);
         $invitation = $groupInvitationRepository->find($id);
 
-        // Une invitation déjà utilisée (acceptée/refusée) ne peut pas resservir, par ex. après une exclusion
+        // An invitation already used (accepted/declined) cannot be reused, e.g. after a removal
         if (!$invitation || $invitation->getInvitedUser() !== $currentUser || $invitation->getStatus() !== 'pending') {
             throw $this->createAccessDeniedException();
         }
 
-        // Vérifier que l'user n'est pas déjà membre
+        // Check that the user is not already a member
         if (!$this->isGranted(GroupVoter::MEMBER, $invitation->getUsergroup())) {
             $member = new GroupMember();
             $member->setUser($currentUser);
@@ -135,7 +135,7 @@ class GroupInvitationController extends AbstractController
         return $this->redirectToRoute('app_group_show', ['slug' => $invitation->getUsergroup()->getSlug()]);
     }
 
-    // Refuser une invitation
+    // Decline an invitation
     #[Route('/refuse/{id}', name: 'refuse', methods: ['POST'])]
     public function refuse(
         int $id,
@@ -149,7 +149,7 @@ class GroupInvitationController extends AbstractController
         $this->denyUnlessCsrfValid($request);
         $invitation = $groupInvitationRepository->find($id);
 
-        // Une invitation déjà utilisée (acceptée/refusée) ne peut pas resservir, par ex. après une exclusion
+        // An invitation already used (accepted/declined) cannot be reused, e.g. after a removal
         if (!$invitation || $invitation->getInvitedUser() !== $currentUser || $invitation->getStatus() !== 'pending') {
             throw $this->createAccessDeniedException();
         }
@@ -162,7 +162,7 @@ class GroupInvitationController extends AbstractController
         return $this->redirectToRoute('app_group_index', ['_fragment' => 'invitations']);
     }
 
-    /** Address of the notifications sent before the invitations moved to the groups page. */
+    /** Invitation list address targeted by some notifications: permanent redirect to the invitations of the groups page. */
     #[Route('/list', name: 'list', methods: ['GET'])]
     public function list(): Response
     {

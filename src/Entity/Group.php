@@ -32,18 +32,18 @@ class Group
     #[ORM\Column]
     private ?bool $isJoinable = null;
 
-    /** Rôle minimum pour écrire dans la todo du groupe ('member', 'admin' ou 'owner', cf. GroupMember::ROLE_LEVELS). */
+    /** Minimum role to write in the group's to-do ('member', 'admin' or 'owner', see GroupMember::ROLE_LEVELS). */
     #[ORM\Column(length: 10, options: ['default' => 'admin'])]
     private string $todoWriteRole = 'admin';
 
     /**
-     * Rôle minimum pour VOIR toute la todo du groupe en lecture seule ('member', 'admin' ou 'owner').
-     * Les rédacteurs voient toujours tout ; les autres membres ne voient sinon que ce qui leur est assigné.
+     * Minimum role to VIEW the whole group to-do read-only ('member', 'admin' or 'owner').
+     * Writers always see everything; other members otherwise only see what is assigned to them.
      */
     #[ORM\Column(length: 10, options: ['default' => 'admin'])]
     private string $todoViewRole = 'admin';
 
-    /** Rôle minimum pour épingler / désépingler des messages dans les channels ('member', 'admin' ou 'owner'). */
+    /** Minimum role to pin / unpin messages in the channels ('member', 'admin' or 'owner'). */
     #[ORM\Column(length: 20, options: ['default' => 'admin'])]
     private string $pinRole = 'admin';
 

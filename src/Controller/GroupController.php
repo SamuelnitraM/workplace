@@ -120,7 +120,7 @@ class GroupController extends AbstractController
         return $unreadGroupCounts;
     }
 
-    // Créer un groupe
+    // Create a group
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function new(
@@ -150,7 +150,7 @@ class GroupController extends AbstractController
             $group->setIsJoinable($request->request->get('isJoinable') === '1');
             $group->setCreator($user);
 
-            // Le créateur devient automatiquement owner
+            // The creator automatically becomes owner
             $member = new GroupMember();
             $member->setUser($user);
             $member->setUsergroup($group);
@@ -164,13 +164,13 @@ class GroupController extends AbstractController
             return $this->redirectToRoute('app_group_show', ['slug' => $group->getSlug()]);
         }
 
-        // Nom pré-rempli possible (ex. présentation guidée : « Crée le premier groupe de ta faction »)
+        // Optional pre-filled name (e.g. guided tour: "Create your faction's first group")
         return $this->render('group/new.html.twig', [
             'name' => mb_substr(trim($request->query->getString('name')), 0, 100),
         ]);
     }
 
-    // Page du groupe
+    // Group page
     #[Route('/{slug}', name: 'show', methods: ['GET'])]
     public function show(
         string $slug,
@@ -183,7 +183,7 @@ class GroupController extends AbstractController
     ): Response {
         $group = $this->findGroup($slug);
 
-        // Groupe privé : seuls les membres peuvent voir (visiteur anonyme -> page de connexion)
+        // Private group: only members can view it (anonymous visitor -> login page)
         if (!$this->isGranted(GroupVoter::VIEW, $group)) {
             if (!$this->getUser()) {
                 return $this->redirectToRoute('app_login');
@@ -194,7 +194,7 @@ class GroupController extends AbstractController
 
         $currentMember = $this->findMember($group);
 
-        // Channels accessibles selon le rôle
+        // Channels accessible according to the role
         $channels = [];
         $activeChannel = null;
 
@@ -205,7 +205,7 @@ class GroupController extends AbstractController
                 }
             }
 
-            // Channel actif = celui demandé (s'il est lisible) ou le premier
+            // Active channel = the requested one (if readable) or the first one
             $channelId = $request->query->getInt('channel');
             if ($channelId) {
                 $requested = $groupChannelRepository->find($channelId);
@@ -219,7 +219,7 @@ class GroupController extends AbstractController
             }
         }
 
-        // Messages non lus par channel ; ceux du channel affiché sont marqués comme lus
+        // Unread messages per channel; those of the displayed channel are marked as read
         $unreadChannelCounts = [];
         if ($currentMember) {
             $prefix = self::channelNotificationKeyPrefix($group);
@@ -240,11 +240,11 @@ class GroupController extends AbstractController
             'currentMember' => $currentMember,
             'channels' => $channels,
             'activeChannel' => $activeChannel,
-            // Auteurs et titres chargés avec les messages (une requête)
+            // Authors and titles loaded with the messages (single query)
             'messages' => $activeChannel ? $groupMessageRepository->findByChannelWithAuthors($activeChannel) : [],
             'unreadChannelCounts' => $unreadChannelCounts,
             'channelNotificationKey' => $activeChannel ? self::channelNotificationKey($activeChannel) : null,
-            // Messages épinglés : requête dédiée (visibles même s'ils sont loin dans l'historique)
+            // Pinned messages: dedicated query (visible even when far back in the history)
             'pinnedMessages' => $pinnedMessages,
             'pinnedData' => array_map(fn (GroupMessage $m) => $this->serializePinnedMessage($m), $pinnedMessages),
             'canPin' => $activeChannel && $this->isGranted(GroupMessageVoter::PIN, $activeChannel),
@@ -255,7 +255,7 @@ class GroupController extends AbstractController
         ]);
     }
 
-    // Rejoindre un groupe
+    // Join a group
     #[Route('/{slug}/join', name: 'join', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function join(
@@ -271,7 +271,7 @@ class GroupController extends AbstractController
             return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
         }
 
-        // Un groupe privé ne se rejoint que via une invitation
+        // A private group can only be joined through an invitation
         if (!$this->isGranted(GroupVoter::JOIN, $group)) {
             $this->addFlash('error', 'Ce groupe n\'accepte pas de nouvelles demandes.');
             return $this->redirectToRoute('app_group_index');
@@ -289,7 +289,7 @@ class GroupController extends AbstractController
         return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
     }
 
-    // Quitter un groupe
+    // Leave a group
     #[Route('/{slug}/leave', name: 'leave', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function leave(
@@ -313,14 +313,14 @@ class GroupController extends AbstractController
 
         $em->remove($member);
         $em->flush();
-        // Les messages non lus d'un groupe quitté ne sont plus accessibles
+        // Unread messages of a group the user left are not accessible
         $this->notificationRepository->markReadByGroupKeyPrefix($this->currentUser(), self::channelNotificationKeyPrefix($group));
 
         $this->addFlash('success', 'Vous avez quitté le groupe.');
         return $this->redirectToRoute('app_group_index');
     }
 
-    // Envoyer un message dans le chat
+    // Send a message in the chat
     #[Route('/{slug}/message', name: 'message', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function message(
@@ -374,11 +374,11 @@ class GroupController extends AbstractController
             'authorId' => $user->getId(),
             'avatar' => $user->getAvatar(),
             'createdAt' => $message->getCreatedAt()->format('d/m H:i'),
-            // Titre de l'auteur ({name, tier, icon} ou null), rendu par chat_controller.js (textContent)
+            // Author's title ({name, tier, icon} or null), rendered by chat_controller.js (textContent)
             'title' => UserTitleManager::payload($user),
         ];
 
-        // Temps réel dans le channel (canal privé : abonnement autorisé via /pusher/auth)
+        // Real time in the channel (private channel: subscription authorized via /pusher/auth)
         $pusher->sendMessage(PusherService::groupChannel($channel->getId()), 'new-message', $payload);
 
         // Mentioned members who can read the channel get a mention notification, even when they muted the group;
@@ -442,7 +442,7 @@ class GroupController extends AbstractController
         return $this->redirectToRoute('app_group_show', ['slug' => $slug, 'channel' => $request->request->getInt('channel') ?: null]);
     }
 
-    // Épingler un message d'un channel
+    // Pin a message of a channel
     #[Route('/{slug}/message/{id}/pin', name: 'message_pin', methods: ['POST'], requirements: ['id' => '\d+'])]
     #[IsGranted('ROLE_USER')]
     public function pinMessage(
@@ -456,7 +456,7 @@ class GroupController extends AbstractController
         return $this->setMessagePinned(true, $slug, $id, $request, $groupMessageRepository, $em, $pusher);
     }
 
-    // Désépingler un message d'un channel
+    // Unpin a message of a channel
     #[Route('/{slug}/message/{id}/unpin', name: 'message_unpin', methods: ['POST'], requirements: ['id' => '\d+'])]
     #[IsGranted('ROLE_USER')]
     public function unpinMessage(
@@ -493,7 +493,7 @@ class GroupController extends AbstractController
         $isOwner = $this->isGranted(GroupVoter::OWNER, $group);
         $redirect = $this->redirectToRoute('app_group_edit', ['slug' => $group->getSlug()]);
 
-        // Formulaire informations générales
+        // General information form
         if ($action === 'update_info') {
             $name = trim($request->request->getString('name'));
             $error = $this->validateName($name);
@@ -516,7 +516,7 @@ class GroupController extends AbstractController
             return $redirect;
         }
 
-        // Modification de rôle (owner uniquement)
+        // Role change (owner only)
         if ($action === 'update_role' && $isOwner) {
             $memberId = $request->request->getInt('member_id');
             $newRole = $request->request->getString('role');
@@ -533,7 +533,7 @@ class GroupController extends AbstractController
             return $redirect;
         }
 
-        // Créer un channel (owner uniquement)
+        // Create a channel (owner only)
         if ($action === 'create_channel' && $isOwner) {
             $channelName = trim($request->request->getString('channel_name'));
             $canRead = $request->request->getString('channel_can_read', 'member');
@@ -550,7 +550,7 @@ class GroupController extends AbstractController
             $channel->setCanRead($canRead);
             $channel->setCanWrite($canWrite);
 
-            // Position = dernier + 1
+            // Position = last + 1
             $maxPosition = -1;
             foreach ($group->getChannels() as $existing) {
                 $maxPosition = max($maxPosition, $existing->getPosition());
@@ -564,7 +564,7 @@ class GroupController extends AbstractController
             return $redirect;
         }
 
-        // Modifier les droits d'un channel (owner et admins)
+        // Edit the permissions of a channel (owner and admins)
         if ($action === 'update_channel') {
             $channelId = $request->request->getInt('channel_id');
             $channel = $channelId ? $groupChannelRepository->find($channelId) : null;
@@ -582,7 +582,7 @@ class GroupController extends AbstractController
             return $redirect;
         }
 
-        // Paramètres de la todo : rôles minimum pour écrire et pour tout voir (owner uniquement)
+        // To-do settings: minimum roles to write and to view everything (owner only)
         if ($action === 'update_todo_settings' && $isOwner) {
             $todoWriteRole = $request->request->getString('todo_write_role');
             $todoViewRole = $request->request->getString('todo_view_role');
@@ -602,7 +602,7 @@ class GroupController extends AbstractController
             return $redirect;
         }
 
-        // Messages épinglés : rôle minimum pour épingler (owner uniquement)
+        // Pinned messages: minimum role to pin (owner only)
         if ($action === 'update_pin_settings' && $isOwner) {
             $pinRole = $request->request->getString('pin_role');
             if (!$this->isValidRole($pinRole)) {
@@ -620,7 +620,7 @@ class GroupController extends AbstractController
         throw $this->createAccessDeniedException();
     }
 
-    // Exclure un membre
+    // Remove a member
     #[Route('/{slug}/kick/{memberId}', name: 'kick', methods: ['POST'], requirements: ['memberId' => '\d+'])]
     #[IsGranted('ROLE_USER')]
     public function kick(
@@ -644,7 +644,7 @@ class GroupController extends AbstractController
         return $this->redirectToRoute('app_group_edit', ['slug' => $slug]);
     }
 
-    // Supprimer le groupe
+    // Delete the group
     #[Route('/{slug}/delete', name: 'delete', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function delete(
@@ -689,9 +689,9 @@ class GroupController extends AbstractController
     // ─── Helpers ──────────────────────────────────────────────
 
     /**
-     * Épingle / désépingle un message (idempotent) : le message doit appartenir à un channel de ce groupe
-     * et l'utilisateur avoir le droit GroupMessageVoter::PIN. Diffuse « message-pinned » / « message-unpinned »
-     * sur le canal Pusher du channel. Réponse JSON pour fetch, redirection (avec message flash) sinon.
+     * Pins / unpins a message (idempotent): the message must belong to a channel of this group
+     * and the user must hold the GroupMessageVoter::PIN right. Broadcasts "message-pinned" / "message-unpinned"
+     * on the channel's Pusher channel. JSON response for fetch, redirect (with flash message) otherwise.
      */
     private function setMessagePinned(
         bool $pin,
@@ -769,7 +769,7 @@ class GroupController extends AbstractController
         ));
     }
 
-    /** Données d'un message épinglé pour le client (barre des messages épinglés, temps réel). */
+    /** Data of a pinned message for the client (pinned messages bar, real time). */
     private function serializePinnedMessage(GroupMessage $message): array
     {
         $author = $message->getAuthor();
@@ -786,7 +786,7 @@ class GroupController extends AbstractController
         ];
     }
 
-    /** Clé d'agrégation des messages d'un channel : « group:{idGroupe}:channel:{idChannel} ». */
+    /** Aggregation key of a channel's messages: "group:{groupId}:channel:{channelId}". */
     public static function channelNotificationKey(GroupChannel $channel): string
     {
         return self::channelNotificationKeyPrefix($channel->getUsergroup()) . $channel->getId();
@@ -815,7 +815,7 @@ class GroupController extends AbstractController
         return $group;
     }
 
-    /** Adhésion de l'utilisateur courant (même cache par requête que les voters). */
+    /** Membership of the current user (same per-request cache as the voters). */
     private function findMember(Group $group): ?GroupMember
     {
         $user = $this->getUser();
@@ -848,7 +848,7 @@ class GroupController extends AbstractController
         return array_key_exists($role, GroupMember::ROLE_LEVELS);
     }
 
-    /** Slug unique tenant dans la colonne (100 caractères) : 80 + '-' + uniqid (13). */
+    /** Unique slug fitting in the column (100 characters): 80 + '-' + uniqid (13). */
     private function makeSlug(SluggerInterface $slugger, string $name): string
     {
         $base = trim(mb_substr(strtolower($slugger->slug($name)), 0, 80), '-');

@@ -15,7 +15,7 @@ class TodoNode
     const TYPE_CATEGORY = 'category';
     const TYPE_ITEM = 'item';
 
-    // Type de parent attendu pour chaque type (null = racine) : liste > catégorie > tâche
+    // Expected parent type for each type (null = root): list > category > task
     const EXPECTED_PARENT_TYPES = [
         self::TYPE_LIST => null,
         self::TYPE_CATEGORY => self::TYPE_LIST,

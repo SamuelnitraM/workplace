@@ -3,36 +3,36 @@ import { Controller } from '@hotwired/stimulus';
 /* stimulusFetch: 'lazy' */
 
 /*
- * Todo lists (personnelles et de groupe) : progression des tâches, renommage par double-clic,
- * assignations (todo de groupe). Chaque action est un POST AJAX avec le jeton CSRF « todo »
- * dans l'en-tête X-CSRF-Token ; la progression de la catégorie et du projet est recalculée côté client.
- * Assignations : le serveur renvoie les fragments à jour (assignés de la tâche #assignees-<id>, résumé de la
- * catégorie #category-assignees-<id>) qui remplacent les anciens ; un clic d'un gestionnaire sur un assigné
- * ouvre la fenêtre de décision (accepter / refuser une demande, retirer un assigné).
+ * To-do lists (personal and group): task progress, renaming by double-click,
+ * assignments (group to-do). Each action is an AJAX POST with the "todo" CSRF token
+ * in the X-CSRF-Token header; the category and project progress is recomputed client-side.
+ * Assignments: the server returns the up-to-date fragments (task assignees #assignees-<id>, category
+ * summary #category-assignees-<id>) which replace the current ones; a manager's click on an assignee
+ * opens the decision window (accept / refuse a request, remove an assignee).
  *
- * Usage :
+ * Usage:
  *   <div {{ stimulus_controller('todo', {token: csrf_token('todo')}) }}>
  *     <span id="rename-list-1" {{ stimulus_action('todo', 'rename', 'dblclick', {url: …}) }}><span data-todo-title>…</span></span>
- *     <button {{ stimulus_action('todo', 'rename:stop', 'click', {url: …, for: 'rename-list-1'}) }}>✎</button>  ← bouton crayon : renomme l'élément d'id « for »
+ *     <button {{ stimulus_action('todo', 'rename:stop', 'click', {url: …, for: 'rename-list-1'}) }}>✎</button>  ← pencil button: renames the element whose id is "for"
  *     <button {{ stimulus_action('todo', 'progress', 'click', {url: …, item: item.id, project: list.id}) }}>+</button>
- *     <button {{ stimulus_action('todo', 'assignment', 'click', {url: …, user: member.user.id}) }}>…</button>  ← assignation (fragments rafraîchis)
+ *     <button {{ stimulus_action('todo', 'assignment', 'click', {url: …, user: member.user.id}) }}>…</button>  ← assignment (refreshed fragments)
  *
- * Éléments d'une tâche : #item-<id> (data-project-id, data-progress, data-is-done),
- * #item-progress-bar-<id>, #item-badge-<id> ; progression du projet : #project-progress-text-<id>, #project-progress-bar-<id>.
+ * Task elements: #item-<id> (data-project-id, data-progress, data-is-done),
+ * #item-progress-bar-<id>, #item-badge-<id>; project progress: #project-progress-text-<id>, #project-progress-bar-<id>.
  */
 export default class extends Controller {
     static values = { token: String };
     static targets = ['assignmentDialog', 'assignmentText', 'assignmentError', 'acceptButton', 'refuseButton', 'removeButton'];
 
-    // url = route progress up / down / validate de la tâche
+    // url = the task's progress up / down / validate route
     progress({ params: { url, item, project, category } }) {
         this.post(url)
             .then(data => this.applyTaskState(item, data.progress, data.isDone, project, category))
             .catch(() => this.failed());
     }
 
-    // ─── Assignations ─────────────────────────────────────
-    // url = request / assign / decision ; user = membre assigné par un gestionnaire
+    // ─── Assignments ──────────────────────────────────────
+    // url = request / assign / decision; user = member assigned by a manager
     assignment({ params: { url, user } }) {
         this.sendAssignment(url, user ? { user_id: user } : {}).then(error => {
             if (error) alert(error);
@@ -96,10 +96,10 @@ export default class extends Controller {
         current.replaceWith(template.content);
     }
 
-    // Renommer via double-clic (ou bouton crayon : param « for » = id de l'élément renommable) : seul l'élément [data-todo-title] est mis à jour
+    // Rename via double-click (or pencil button: "for" param = id of the renamable element): only the [data-todo-title] element is updated
     rename(event) {
         const element = event.params.for ? this.find(String(event.params.for)) : event.currentTarget;
-        if (!element) return; // déjà en cours de renommage
+        if (!element) return; // rename already in progress
         const url = event.params.url;
         const titleEl = element.querySelector('[data-todo-title]') || element;
         const currentTitle = titleEl.textContent.trim();
@@ -151,7 +151,7 @@ export default class extends Controller {
         });
     }
 
-    // POST AJAX avec jeton CSRF ; rejette si la réponse n'est pas OK
+    // AJAX POST with CSRF token; rejects if the response is not OK
     post(url, params = {}) {
         return fetch(url, {
             method: 'POST',

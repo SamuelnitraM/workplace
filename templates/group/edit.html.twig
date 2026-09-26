@@ -3,7 +3,7 @@
 
 {% block title %}Paramètres — {{ group.name }}{% endblock %}
 
-{# En-tête de section : titre + description #}
+{# Section header: title + description #}
 {% macro section_header(id, icon, title, description) %}
     {% import '_macros/ui.html.twig' as ui %}
     <div class="border-b border-line px-4 py-4 sm:px-5">
@@ -39,7 +39,7 @@
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
 
-        {# NAVIGATION DES SECTIONS : colonne collante (desktop), pastilles défilantes (mobile) #}
+        {# SECTION NAVIGATION: sticky column (desktop), scrolling pills (mobile) #}
         <nav aria-label="Sections des paramètres" class="min-w-0 lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:self-start">
             <ul class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:block lg:space-y-0.5 lg:overflow-visible lg:px-0" role="list">
                 {% for section in sections %}
@@ -55,7 +55,7 @@
 
         <div class="min-w-0 space-y-6">
 
-            {# INFORMATIONS GÉNÉRALES #}
+            {# GENERAL INFORMATION #}
             <section id="informations" class="card scroll-mt-24" aria-labelledby="informations-title">
                 {{ _self.section_header('informations', 'file-text', 'Informations générales', 'Nom, description et visibilité du groupe.') }}
                 <form method="post">
@@ -104,7 +104,7 @@
                 </form>
             </section>
 
-            {# GESTION DES MEMBRES (propriétaire uniquement) #}
+            {# MEMBER MANAGEMENT (owner only) #}
             {% if isOwner %}
                 <section id="membres" class="card scroll-mt-24" aria-labelledby="membres-title">
                     {{ _self.section_header('membres', 'users', 'Membres', 'Nommez des admins pour vous aider à gérer les salons, ou excluez un membre.') }}
@@ -162,7 +162,7 @@
                 </section>
             {% endif %}
 
-            {# GESTION DES SALONS (propriétaire/admin) #}
+            {# CHANNEL MANAGEMENT (owner/admin) #}
             <section id="salons" class="card scroll-mt-24" aria-labelledby="salons-title">
                 {{ _self.section_header('salons', 'messages-square', 'Salons', 'Choisissez qui peut lire et écrire dans chaque salon.') }}
 
@@ -181,7 +181,7 @@
                                     </p>
                                 </div>
                                 <div class="flex w-full flex-wrap items-end gap-2 sm:w-auto">
-                                    {# MODIFIER LES DROITS #}
+                                    {# EDIT PERMISSIONS #}
                                     <form method="post" class="flex flex-1 flex-wrap items-end gap-2 sm:flex-none">
                                         <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
                                         <input type="hidden" name="action" value="update_channel">
@@ -204,7 +204,7 @@
                                         </div>
                                         <button type="submit" class="btn btn-secondary">Appliquer</button>
                                     </form>
-                                    {# SUPPRIMER (propriétaire uniquement) #}
+                                    {# DELETE (owner only) #}
                                     {% if isOwner %}
                                         <form method="post"
                                             action="{{ path('app_group_channel_delete', {slug: group.slug, channelId: channel.id}) }}"
@@ -220,7 +220,7 @@
                     </ul>
                 {% endif %}
 
-                {# CRÉER UN SALON (propriétaire uniquement) #}
+                {# CREATE A CHANNEL (owner only) #}
                 {% if isOwner %}
                     <form method="post" id="nouveau-salon" class="scroll-mt-24 border-t border-line bg-surface-raised/40 px-4 py-4 sm:px-5 rounded-b-card">
                         <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
@@ -249,7 +249,7 @@
                 {% endif %}
             </section>
 
-            {# PARAMÈTRES DES TÂCHES (modifiables par le propriétaire, affichés aux admins) #}
+            {# TASK SETTINGS (editable by the owner, shown to admins) #}
             <section id="taches" class="card scroll-mt-24" aria-labelledby="taches-title">
                 {{ _self.section_header('taches', 'list-checks', 'Tâches du groupe', null) }}
                 <div class="card-body space-y-4">
@@ -326,7 +326,7 @@
                 </div>
             </section>
 
-            {# MESSAGES ÉPINGLÉS (modifiable par le propriétaire, affiché aux admins) #}
+            {# PINNED MESSAGES (editable by the owner, shown to admins) #}
             <section id="epingles" class="card scroll-mt-24" aria-labelledby="epingles-title">
                 {{ _self.section_header('epingles', 'pin', 'Messages épinglés', 'Les messages épinglés s\'affichent en haut du chat de leur salon. Pour épingler ou désépingler, il faut avoir au moins ce rôle et pouvoir lire le salon (20 messages épinglés maximum par salon).') }}
                 <div class="card-body">
@@ -354,7 +354,7 @@
                 </div>
             </section>
 
-            {# ZONE DANGEREUSE #}
+            {# DANGER ZONE #}
             {% if isOwner %}
                 <section id="danger" class="card scroll-mt-24 border-danger/60" aria-labelledby="danger-title">
                     <div class="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">

@@ -25,7 +25,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/groups/{slug}/todo', name: 'app_group_todo_')]
 class GroupTodoController extends AbstractController
 {
-    // Page principale todo du groupe
+    // Main to-do page of the group
     #[Route('/', name: 'index')]
     public function index(
         string $slug,
@@ -41,11 +41,11 @@ class GroupTodoController extends AbstractController
             throw $this->createNotFoundException('Groupe introuvable');
         }
 
-        // Vérifier que l'user est membre
+        // Check that the user is a member
         $this->denyAccessUnlessGranted(GroupVoter::MEMBER, $group);
 
-        // Rédacteurs et lecteurs (rôles >= réglages du groupe) voient tout ; les autres membres seulement les listes
-        // où une catégorie ou une tâche leur est assignée (le template filtre ensuite via TODO_VIEW)
+        // Writers and readers (roles >= group settings) see everything; other members only see the lists
+        // where a category or a task is assigned to them (the template then filters via TODO_VIEW)
         $lists = $todoNodeRepository->findGroupLists(
             $group,
             $this->isGranted(GroupVoter::TODO_VIEW_ALL, $group) ? null : $user
@@ -60,7 +60,7 @@ class GroupTodoController extends AbstractController
         ]);
     }
 
-    // Créer un noeud (liste, catégorie ou item)
+    // Create a node (list, category or item)
     #[Route('/create', name: 'create', methods: ['POST'])]
     public function create(
         string $slug,
@@ -81,7 +81,7 @@ class GroupTodoController extends AbstractController
             throw $this->createNotFoundException('Groupe introuvable');
         }
 
-        // Membre du groupe au minimum ; le droit précis (liste / enfant du parent) est vérifié plus bas
+        // Group member at least; the specific right (list / child of the parent) is checked below
         $this->denyAccessUnlessGranted(GroupVoter::MEMBER, $group);
 
         $title = trim((string) $request->request->get('title', ''));
@@ -93,8 +93,8 @@ class GroupTodoController extends AbstractController
             return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
         }
 
-        // Hiérarchie attendue : liste > catégorie > tâche
-        // array_key_exists et non ?? : le type liste a volontairement un parent attendu null
+        // Expected hierarchy: list > category > task
+        // array_key_exists rather than ??: the list type intentionally has a null expected parent
         $expectedParentType = array_key_exists($type, TodoNode::EXPECTED_PARENT_TYPES) ? TodoNode::EXPECTED_PARENT_TYPES[$type] : false;
         if ($expectedParentType === false) {
             $this->addFlash('error', 'Type d\'élément invalide.');
@@ -108,10 +108,10 @@ class GroupTodoController extends AbstractController
                 $this->addFlash('error', 'Élément parent invalide.');
                 return $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
             }
-            // Catégorie et tâche : rédacteurs
+            // Category and task: writers
             $this->denyAccessUnlessGranted(TodoNodeVoter::CREATE_CHILD, $parent);
         } else {
-            // Nouvelle liste : rédacteurs uniquement
+            // List creation: writers only
             $this->denyAccessUnlessGranted(GroupVoter::TODO_WRITE, $group);
         }
 
@@ -132,11 +132,11 @@ class GroupTodoController extends AbstractController
         $em->persist($node);
         $em->flush();
 
-        // The page opens again on the list that received the new element (lists are collapsed by default)
+        // The page reopens on the list that received the created element (lists are collapsed by default)
         return $this->redirectToList($slug, $node);
     }
 
-    // Supprimer un noeud
+    // Delete a node
     #[Route('/delete/{id}', name: 'delete', methods: ['POST'])]
     public function delete(
         string $slug,
@@ -157,7 +157,7 @@ class GroupTodoController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        // Rédacteurs de la todo uniquement
+        // To-do writers only
         $this->denyAccessUnlessGranted(TodoNodeVoter::DELETE, $node);
 
         $parent = $node->getParent();
@@ -168,7 +168,7 @@ class GroupTodoController extends AbstractController
         return $parent !== null ? $this->redirectToList($slug, $parent) : $this->redirectToRoute('app_group_todo_index', ['slug' => $slug]);
     }
 
-    // Renommer un noeud
+    // Rename a node
     #[Route('/rename/{id}', name: 'rename', methods: ['POST'])]
     public function rename(
         string $slug,
@@ -189,7 +189,7 @@ class GroupTodoController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
 
-        // Rédacteurs de la todo uniquement
+        // To-do writers only
         if (!$this->isGranted(TodoNodeVoter::EDIT, $node)) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
@@ -205,8 +205,8 @@ class GroupTodoController extends AbstractController
         return new JsonResponse(['title' => $node->getTitle()]);
     }
 
-    // Assignations d'une tâche (App\Todo\TodoAssignmentManager) : réponses JSON avec les fragments à jour
-    // (assignés de la tâche, résumé de sa catégorie)
+    // Task assignments (App\Todo\TodoAssignmentManager): JSON responses with the up-to-date fragments
+    // (task assignees, summary of its category)
 
     /** The current member takes the task: pending request, or direct assignment in free mode. */
     #[Route('/task/{id}/request', name: 'assignment_request', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -297,7 +297,7 @@ class GroupTodoController extends AbstractController
         return $user;
     }
 
-    // Augmenter la progression d'une tâche
+    // Increase a task's progress
     #[Route('/progress/up/{id}', name: 'progress_up', methods: ['POST'])]
     public function progressUp(
         string $slug,
@@ -330,7 +330,7 @@ class GroupTodoController extends AbstractController
         ]);
     }
 
-    // Réduire la progression d'une tâche
+    // Decrease a task's progress
     #[Route('/progress/down/{id}', name: 'progress_down', methods: ['POST'])]
     public function progressDown(
         string $slug,
@@ -363,7 +363,7 @@ class GroupTodoController extends AbstractController
         ]);
     }
 
-    // Valider/compléter une tâche (passer à 100%)
+    // Validate/complete a task (set to 100%)
     #[Route('/progress/validate/{id}', name: 'progress_validate', methods: ['POST'])]
     public function progressValidate(
         string $slug,
@@ -391,8 +391,8 @@ class GroupTodoController extends AbstractController
         ]);
     }
 
-    // Tâche (type item) du groupe que l'utilisateur courant peut faire progresser,
-    // ou une réponse JSON d'erreur (CSRF invalide / non autorisé)
+    // Task (item type) of the group that the current user can progress,
+    // or a JSON error response (invalid CSRF / not authorized)
     private function findEditableItem(
         string $slug,
         int $id,
@@ -407,7 +407,7 @@ class GroupTodoController extends AbstractController
         $group = $groupRepository->findOneBy(['slug' => $slug]);
         $node = $todoNodeRepository->find($id);
 
-        // Tâche (type item) du groupe : rédacteurs, ou membre assigné à la tâche
+        // Task (item type) of the group: writers, or member assigned to the task
         if (!$group || !$node || $node->getUsergroup() !== $group || !$this->isGranted(TodoNodeVoter::PROGRESS, $node)) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
@@ -415,7 +415,7 @@ class GroupTodoController extends AbstractController
         return $node;
     }
 
-    // Utilisateur membre du groupe correspondant à l'id donné, sinon null
+    // User who is a member of the group matching the given id, otherwise null
     private function findGroupMemberUser(Group $group, int $userId, GroupMemberRepository $groupMemberRepository): ?User
     {
         $member = $groupMemberRepository->findOneBy([
@@ -426,7 +426,7 @@ class GroupTodoController extends AbstractController
         return $member?->getUser();
     }
 
-    // Jeton CSRF envoyé via le champ _token (formulaires) ou l'en-tête X-CSRF-Token (fetch)
+    // CSRF token sent via the _token field (forms) or the X-CSRF-Token header (fetch)
     private function isTodoCsrfValid(Request $request): bool
     {
         $token = $request->request->get('_token') ?? $request->headers->get('X-CSRF-Token');

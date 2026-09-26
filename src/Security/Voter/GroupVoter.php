@@ -9,32 +9,32 @@ use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * Droits sur un groupe. Hiérarchie des rôles : member < admin < owner (GroupMember::ROLE_LEVELS).
+ * Rights on a group. Role hierarchy: member < admin < owner (GroupMember::ROLE_LEVELS).
  *
  * @extends Voter<string, Group>
  */
 final class GroupVoter extends Voter
 {
-    /** Voir la page du groupe : groupe public, ou membre d'un groupe privé. */
+    /** View the group page: public group, or member of a private group. */
     public const VIEW = 'GROUP_VIEW';
-    /** Être membre (quel que soit le rôle) : chat, todo, quitter... */
+    /** Be a member (whatever the role): chat, to-do, leave... */
     public const MEMBER = 'GROUP_MEMBER';
-    /** Admin ou owner : paramètres, droits des channels (la todo dépend de TODO_WRITE). */
+    /** Admin or owner: settings, channel permissions (the to-do depends on TODO_WRITE). */
     public const MANAGE = 'GROUP_MANAGE';
-    /** Owner uniquement : supprimer le groupe, exclure, changer les rôles, créer/supprimer un channel. */
+    /** Owner only: delete the group, remove members, change roles, create/delete a channel. */
     public const OWNER = 'GROUP_OWNER';
-    /** Inviter quelqu'un : membre avec au moins Group::inviteRole, ou tout membre d'un groupe en accès libre. */
+    /** Invite someone: member with at least Group::inviteRole, or any member of a free-access group. */
     public const INVITE = 'GROUP_INVITE';
-    /** Rejoindre librement : connecté, pas encore membre, groupe public ET ouvert aux demandes. */
+    /** Join freely: logged in, not yet a member, group public AND open to join requests. */
     public const JOIN = 'GROUP_JOIN';
     /**
-     * « Rédacteur » de la todo du groupe : membre avec au moins le rôle Group::todoWriteRole.
-     * Crée listes/catégories/tâches, renomme, assigne, supprime, fait progresser toute tâche.
+     * "Writer" of the group to-do: member with at least the Group::todoWriteRole role.
+     * Creates lists/categories/tasks, renames, assigns, deletes, progresses any task.
      */
     public const TODO_WRITE = 'TODO_WRITE';
     /**
-     * Voir TOUTE la todo du groupe (lecture seule si pas rédacteur) : membre avec au moins le rôle
-     * Group::todoViewRole, ou rédacteur. Sinon, un membre ne voit que ce qui lui est assigné.
+     * View the WHOLE group to-do (read-only unless writer): member with at least the
+     * Group::todoViewRole role, or writer. Otherwise, a member only sees what is assigned to them.
      */
     public const TODO_VIEW_ALL = 'TODO_VIEW_ALL';
 

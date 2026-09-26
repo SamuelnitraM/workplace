@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 {% import '_macros/ui.html.twig' as ui %}
 
-{# Ligne d'un message épinglé (barre en haut du chat) : même rendu que assets/controllers/pinned_controller.js (buildRow) #}
+{# Row of a pinned message (bar at the top of the chat): same rendering as assets/controllers/pinned_controller.js (buildRow) #}
 {% macro pinned_row(message, group) %}
     {% import '_macros/ui.html.twig' as ui %}
     <div class="flex min-w-0 items-center gap-1" data-pinned-row="{{ message.id }}">
@@ -23,7 +23,7 @@
     </div>
 {% endmacro %}
 
-{# Liste des membres (colonne desktop et volet repliable mobile) #}
+{# Member list (desktop column and collapsible mobile panel) #}
 {% macro member_list(group) %}
     {% import '_macros/ui.html.twig' as ui %}
     {% set rank = {owner: 0, admin: 1, member: 2} %}
@@ -51,7 +51,7 @@
 {% set writeLabels = {admin: 'les admins et le propriétaire', owner: 'le propriétaire'} %}
 <div data-controller="modal">
 
-    {# EN-TÊTE DU GROUPE #}
+    {# GROUP HEADER #}
     <header class="page-header md:mb-6">
         <div class="flex min-w-0 items-start gap-3 sm:gap-4">
             <span class="avatar avatar-md rounded-card sm:[--avatar-size:4rem]" style="background: hsl({{ (group.id * 47) % 360 }} 45% 34%)" aria-hidden="true">{{ group.name|first|upper }}</span>
@@ -123,7 +123,7 @@
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_17rem]">
 
-        {# COLONNE GAUCHE (desktop) : SALONS + MEMBRES #}
+        {# LEFT COLUMN (desktop): CHANNELS + MEMBERS #}
         <aside class="hidden min-h-[22rem] flex-col gap-4 lg:flex lg:h-[calc(100dvh-var(--header-h)-11rem)] lg:max-h-[52rem]" aria-label="Salons et membres">
             {% if currentMember and channels is not empty %}
                 <nav class="card flex max-h-[60%] min-h-0 shrink-0 flex-col" aria-labelledby="channels-title">
@@ -163,7 +163,7 @@
 
         <div class="flex min-w-0 flex-col gap-3">
 
-            {# SALONS (mobile) : barre de pastilles défilante #}
+            {# CHANNELS (mobile): scrolling pill bar #}
             {% if currentMember and channels is not empty %}
                 <nav class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden" aria-label="Salons">
                     {% for channel in channels %}
@@ -182,7 +182,7 @@
                 </nav>
             {% endif %}
 
-            {# ZONE PRINCIPALE - CHAT (assets/controllers/chat_controller.js + pinned_controller.js) #}
+            {# MAIN AREA - CHAT (assets/controllers/chat_controller.js + pinned_controller.js) #}
             <section class="card chat-panel"
                      aria-label="{{ activeChannel ? 'Salon #' ~ activeChannel.name : 'Discussion' }}"
                  {% if activeChannel and currentMember %}
@@ -204,7 +204,7 @@
                  {% endif %}>
 
                 {% if activeChannel %}
-                    {# EN-TÊTE DU SALON #}
+                    {# CHANNEL HEADER #}
                     <div class="flex items-center gap-3 border-b border-line px-4 py-3">
                         <span class="flex size-9 shrink-0 items-center justify-center rounded-control bg-surface-raised text-h3 font-semibold text-muted" aria-hidden="true">#</span>
                         <div class="min-w-0 flex-1">
@@ -218,7 +218,7 @@
                         {% endif %}
                     </div>
 
-                    {# MESSAGES ÉPINGLÉS (requête dédiée ; reconstruit en direct par pinned_controller.js) #}
+                    {# PINNED MESSAGES (dedicated query; rebuilt live by pinned_controller.js) #}
                     <div data-pinned-target="bar"
                          class="{{ pinnedMessages is empty ? 'hidden' : '' }} border-b border-line bg-accent-soft/40 px-2 py-1.5 text-small">
                         {% if pinnedMessages|length == 1 %}
@@ -237,7 +237,7 @@
                         {% endif %}
                     </div>
 
-                    {# MESSAGES — même structure et classes que les messages ajoutés en direct (chat_controller.js : .chat-msg > .chat-msg-body > .chat-meta + .chat-bubble) #}
+                    {# MESSAGES — same structure and classes as live-appended messages (chat_controller.js: .chat-msg > .chat-msg-body > .chat-meta + .chat-bubble) #}
                     <div class="chat-stream" id="chat-messages"
                          data-chat-target="messages" data-action="scroll->chat#onScroll"
                          role="log" aria-label="Messages de #{{ activeChannel.name }}">
@@ -277,7 +277,7 @@
                                 <div class="chat-msg group {{ _own ? 'chat-msg-own' }}" id="msg-{{ message.id }}">
                                     {{ ui.avatar(message.author, 'sm') }}
                                     <div class="chat-msg-body">
-                                        {# Ligne meta : même texte que chat_controller (pseudo, titre, « — jj/mm HH:ii ») ; indicateur et bouton ajoutés comme pinned#decorate #}
+                                        {# Meta line: same text as chat_controller (username, title, "— dd/mm HH:ii"); indicator and button rendered as by pinned#decorate #}
                                         <div class="chat-meta flex flex-wrap items-center gap-1.5">
                                             <span class="inline-flex flex-wrap items-center gap-1">{{ message.author.username }}{{ include('gamification/_user_title.html.twig', {user: message.author}) }} — <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('d/m H:i') }}</time></span>
                                             <span data-pin-indicator class="{{ message.pinned ? '' : 'hidden' }} text-accent-text" title="Message épinglé">{{ ui.icon('pin', 'size-3.5', 'Épinglé') }}</span>
@@ -304,7 +304,7 @@
                         {% endif %}
                     </div>
 
-                    {# BOUTON « DERNIERS MESSAGES » #}
+                    {# "LATEST MESSAGES" BUTTON #}
                     <div class="relative">
                         <button type="button" id="scroll-btn" data-chat-target="scrollButton" data-action="chat#jumpToBottom" aria-label="Aller aux derniers messages"
                                 class="hidden btn btn-secondary btn-icon chat-scroll-btn">
@@ -314,7 +314,7 @@
                         </button>
                     </div>
 
-                    {# COMPOSITION DU MESSAGE #}
+                    {# MESSAGE COMPOSER #}
                     {% if currentMember %}
                         {% if is_granted('CHANNEL_WRITE', activeChannel) %}
                             <form method="post"
@@ -346,7 +346,7 @@
                     {% endif %}
 
                 {% else %}
-                    {# PAS DE SALON #}
+                    {# NO CHANNEL #}
                     <div class="flex flex-1 items-center justify-center overflow-y-auto">
                         {% if currentMember %}
                             {% if is_granted('GROUP_OWNER', group) %}
@@ -395,7 +395,7 @@
                 {% endif %}
             </section>
 
-            {# MEMBRES (mobile) : volet repliable #}
+            {# MEMBERS (mobile): collapsible panel #}
             <details class="card details-reset lg:hidden">
                 <summary class="flex min-h-12 items-center gap-2 px-4 py-3 font-semibold text-fg">
                     {{ ui.icon('users', 'size-5 text-muted') }}

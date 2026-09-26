@@ -3,7 +3,7 @@
 
 {% block title %}Mes tâches{% endblock %}
 
-{# Bouton crayon : même action que le double-clic (todo#rename), cible = id de l'élément renommable #}
+{# Pencil button: same action as the double-click (todo#rename), target = id of the renamable element #}
 {% macro rename_button(url, targetId, label) %}
     {% import '_macros/ui.html.twig' as ui %}
     <button type="button" class="btn btn-ghost btn-icon btn-sm reveal-on-hover shrink-0"
@@ -26,7 +26,7 @@
 
     <div class="space-y-6">
 
-        {# LISTES / PROJETS EXISTANTS #}
+        {# EXISTING LISTS / PROJECTS #}
         {% for list in lists %}
             {% set totalTasks = 0 %}
             {% set completedTasks = 0 %}
@@ -49,7 +49,7 @@
                      x-init="open = location.hash.length > 1 && ($el.id === location.hash.slice(1) || $el.querySelector('#' + CSS.escape(location.hash.slice(1))) !== null)"
                      aria-labelledby="list-title-{{ list.id }}">
 
-                {# EN-TÊTE DU PROJET (clic : déplier / replier) #}
+                {# PROJECT HEADER (click: expand / collapse) #}
                 <div class="px-4 py-4 sm:px-5">
                     <div class="flex items-start gap-2 sm:gap-3">
                         <div class="group flex min-w-0 flex-1 cursor-pointer items-start gap-2 select-none" @click="open = !open">
@@ -67,7 +67,7 @@
                                     <span class="chip shrink-0 tabular-nums">{{ ui.icon('check-circle', 'size-4') }}{{ completedTasks }}/{{ totalTasks }} tâche{{ totalTasks > 1 ? 's' : '' }}</span>
                                 </div>
 
-                                {# PROGRESSION GLOBALE DU PROJET #}
+                                {# OVERALL PROJECT PROGRESS #}
                                 <div class="mt-3 flex items-center gap-3">
                                     <div class="progress flex-1" aria-hidden="true">
                                         <div class="progress-bar" id="project-progress-bar-{{ list.id }}" style="width: {{ projectProgress }}%"></div>
@@ -88,7 +88,7 @@
                     </div>
                 </div>
 
-                {# CONTENU DU PROJET #}
+                {# PROJECT CONTENT #}
                 <div id="list-body-{{ list.id }}" x-show="open" x-transition.opacity.duration.200ms
                      class="space-y-3 rounded-b-card border-t border-line bg-canvas/40 p-3 sm:p-4">
 
@@ -96,7 +96,7 @@
                     {% for category in list.children %}
                         <div class="card-inset flex flex-col" id="category-{{ category.id }}">
 
-                            {# EN-TÊTE CATÉGORIE #}
+                            {# CATEGORY HEADER #}
                             <div class="group flex items-center gap-2 border-b border-line py-1.5 pr-1.5 pl-3">
                                 {{ ui.icon('folder', 'size-4 shrink-0 text-muted') }}
                                 <h3 class="flex min-w-0 flex-1 items-center gap-1 text-small font-semibold text-fg">
@@ -113,7 +113,7 @@
                                 </form>
                             </div>
 
-                            {# TÂCHES #}
+                            {# TASKS #}
                             {% if category.children is not empty %}
                             <ul class="space-y-2 p-2" role="list">
                                 {% for item in category.children %}
@@ -125,7 +125,7 @@
                                         data-progress="{{ itemProgress }}"
                                         data-is-done="{{ isItemDone ? '1' : '0' }}">
 
-                                        {# TITRE (clic : texte complet ; double-clic ou crayon : renommer) #}
+                                        {# TITLE (click: full text; double-click or pencil: rename) #}
                                         <div class="flex items-start gap-1.5" x-data="{ expanded: false }">
                                             <div id="rename-item-{{ item.id }}" class="min-w-0 flex-1 cursor-pointer py-1 select-none"
                                                  @click="expanded = !expanded"
@@ -142,7 +142,7 @@
                                             <div class="progress-bar" id="item-progress-bar-{{ item.id }}" style="width: {{ itemProgress }}%"></div>
                                         </div>
 
-                                        {# CONTRÔLES : progression, suppression #}
+                                        {# CONTROLS: progress, deletion #}
                                         <div class="mt-2 flex items-center justify-between gap-2">
                                             <div class="btn-group" role="group" aria-label="Progression de « {{ item.title }} »">
                                                 <button type="button" class="btn btn-secondary btn-sm btn-icon"
@@ -169,7 +169,7 @@
                                 <p class="px-3 py-4 text-center text-caption text-muted">Aucune tâche dans cette catégorie.</p>
                             {% endif %}
 
-                            {# AJOUTER UNE TÂCHE #}
+                            {# ADD A TASK #}
                             <form method="post" action="{{ path('app_todo_create') }}" class="mt-auto flex gap-2 border-t border-line p-2">
                                 <input type="hidden" name="type" value="item">
                                 <input type="hidden" name="_token" value="{{ csrf_token('todo') }}">
@@ -183,7 +183,7 @@
                     {% endfor %}
                     </div>
 
-                    {# AJOUTER UNE CATÉGORIE #}
+                    {# ADD A CATEGORY #}
                     <form method="post" action="{{ path('app_todo_create') }}" class="flex gap-2">
                         <input type="hidden" name="type" value="category">
                         <input type="hidden" name="_token" value="{{ csrf_token('todo') }}">
@@ -205,7 +205,7 @@
             }) }}
         {% endfor %}
 
-        {# CRÉER UN NOUVEAU PROJET #}
+        {# CREATE A PROJECT #}
         <section class="card border-dashed" aria-labelledby="new-project-title">
             <div class="card-body">
                 <h2 id="new-project-title" class="text-h3 text-fg">Nouveau projet</h2>
