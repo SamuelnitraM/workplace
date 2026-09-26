@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Didacticiel — SprueHub{% endblock %}
+
+{#
+    Tutorial: one card per guided tour (App\Tour\TourCatalog); « Lancer la visite » opens the page of the feature
+    with ?visite=<key>, which starts the tour there (assets/controllers/tour_controller.js).
+#}
+{% block body %}
+    <header class="page-header">
+        <div>
+            <h1 class="page-header-title">Didacticiel</h1>
+            <p class="page-header-subtitle">Des visites guidées de quelques étapes pour découvrir chaque fonctionnalité, directement sur la page concernée.</p>
+        </div>
+    </header>
+
+    <ol role="list" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for entry in tours %}
+            {% set tour = entry.tour %}
+            <li class="card card-body flex flex-col gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="flex size-10 shrink-0 items-center justify-center rounded-control bg-primary-soft text-primary-text">{{ ui.icon(tour.icon) }}</span>
+                    <div class="min-w-0">
+                        <p class="text-caption text-muted">Visite {{ loop.index }} · {{ tour.steps|length }} étapes</p>
+                        <h2 class="text-h3 text-fg">{{ tour.title }}</h2>
+                    </div>
+                </div>
+                <p class="flex-1 text-small text-fg-secondary">{{ tour.summary }}</p>
+                <a href="{{ entry.url }}" class="btn btn-primary self-start">{{ ui.icon('play') }}Lancer la visite</a>
+            </li>
+        {% endfor %}
+    </ol>
+
+    <p class="mt-6 text-small text-muted">La présentation de bienvenue sert à compléter votre profil ; ce didacticiel explique le fonctionnement du site. Chaque visite propose la suivante à la fin.</p>
+{% endblock %}

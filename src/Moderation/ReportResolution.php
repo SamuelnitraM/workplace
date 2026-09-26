@@ -40,6 +40,30 @@ enum ReportResolution: string
         };
     }
 
+    /** Rank used to order resolutions, the most severe first. */
+    public function rank(): int
+    {
+        return match ($this) {
+            self::Banned => 5,
+            self::Suspended => 4,
+            self::Deleted => 3,
+            self::Hidden => 2,
+            self::Warned => 1,
+            self::Dismissed => 0,
+        };
+    }
+
+    /**
+     * @param iterable<self> $resolutions
+     * @return list<self>
+     */
+    public static function sortBySeverity(iterable $resolutions): array
+    {
+        $sorted = [...$resolutions];
+        usort($sorted, static fn (self $first, self $second): int => $second->rank() <=> $first->rank());
+        return $sorted;
+    }
+
     /** Resolution recorded for a suspension of the given length. */
     public static function forSuspension(SuspensionDuration $duration): self
     {

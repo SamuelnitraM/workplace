@@ -63,6 +63,14 @@ class Report
     #[ORM\Column(length: 20, nullable: true, enumType: ReportResolution::class)]
     private ?ReportResolution $resolution = null;
 
+    /**
+     * Every resolution applied by the decision, most severe first; $resolution holds the most severe one.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $resolutions = null;
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $moderatorNote = null;
 
@@ -97,10 +105,16 @@ class Report
         $this->createdAt = new \DateTimeImmutable();
     }
 
-    public function close(ReportResolution $resolution, User $moderator, ?string $note): void
+    /** @param list<ReportResolution> $resolutions */
+    public function close(array $resolutions, User $moderator, ?string $note): void
     {
+        $resolutions = ReportResolution::sortBySeverity($resolutions);
+        if ($resolutions === []) {
+            throw new \InvalidArgumentException('A report is closed with at least one resolution.');
+        }
         $this->status = self::STATUS_CLOSED;
-        $this->resolution = $resolution;
+        $this->resolution = $resolutions[0];
+        $this->resolutions = array_map(static fn (ReportResolution $resolution): string => $resolution->value, $resolutions);
         $this->handledBy = $moderator;
         $this->handledAt = new \DateTimeImmutable();
         $this->moderatorNote = $note !== null && trim($note) !== '' ? trim($note) : null;
@@ -118,6 +132,14 @@ class Report
     public function getStatus(): string { return $this->status; }
     public function isPending(): bool { return $this->status === self::STATUS_PENDING; }
     public function getResolution(): ?ReportResolution { return $this->resolution; }
+    /** @return list<ReportResolution> */
+    public function getResolutions(): array
+    {
+        if ($this->resolutions === null) {
+            return $this->resolution !== null ? [$this->resolution] : [];
+        }
+        return array_values(array_filter(array_map(ReportResolution::tryFrom(...), $this->resolutions)));
+    }
     public function getModeratorNote(): ?string { return $this->moderatorNote; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getHandledAt(): ?\DateTimeImmutable { return $this->handledAt; }

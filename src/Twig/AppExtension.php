@@ -7,6 +7,7 @@ use App\Repository\NotificationRepository;
 use App\Service\GalleryAlbumManager;
 use App\Service\NotificationRenderer;
 use App\Text\MentionResolver;
+use App\Tour\TourLauncher;
 use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
@@ -21,6 +22,7 @@ class AppExtension extends AbstractExtension
         private NotificationRenderer $notificationRenderer,
         private Security $security,
         private MentionResolver $mentionResolver,
+        private TourLauncher $tourLauncher,
     ) {}
 
     public function getFunctions(): array
@@ -30,6 +32,7 @@ class AppExtension extends AbstractExtension
             new TwigFunction('notification_text', $this->notificationRenderer->text(...)),
             new TwigFunction('notification_icon', $this->notificationRenderer->icon(...)),
             new TwigFunction('album_cover', GalleryAlbumManager::coverOf(...)),
+            new TwigFunction('requested_tour', $this->tourLauncher->requested(...)),
         ];
     }
 

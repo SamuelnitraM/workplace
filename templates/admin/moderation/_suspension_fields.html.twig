@@ -1,6 +1,10 @@
-{# Duration select shared by the report decision and the member sanction forms: expects "durations" and "field_id". #}
+{#
+    Duration select shared by the report decision and the member sanction forms: expects "durations" and "field_id".
+    With "optional", a first empty choice means no suspension.
+#}
 <label class="form-label" for="{{ field_id }}">Durée</label>
-<select class="form-select" id="{{ field_id }}" name="duration" required>
+<select class="form-select" id="{{ field_id }}" name="duration" {{ optional|default(false) ? '' : 'required' }}>
+    {% if optional|default(false) %}<option value="">Aucune suspension</option>{% endif %}
     {% for duration in durations %}
         <option value="{{ duration.value }}">{{ duration.label }}</option>
     {% endfor %}

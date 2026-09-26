@@ -4,7 +4,10 @@ namespace App\Controller\Admin;
 
 use App\Entity\Report;
 use App\Entity\User;
+use App\Moderation\ContentAction;
+use App\Moderation\ModerationDecision;
 use App\Moderation\ModerationService;
+use App\Moderation\ReportResolution;
 use App\Moderation\SuspensionDuration;
 use App\Repository\ReportRepository;
 use App\Security\Voter\MemberSanctionVoter;
@@ -25,14 +28,6 @@ class ModerationController extends AbstractController
 {
     private const DECISION_CSRF_PREFIX = 'moderation_report_';
     private const SANCTION_CSRF_PREFIX = 'moderation_member_';
-    private const DECISION_CONFIRMATIONS = [
-        'hide' => 'Contenu masqué.',
-        'restore' => 'Contenu à nouveau visible.',
-        'delete' => 'Contenu supprimé.',
-        'warn' => 'Avertissement envoyé à l\'auteur.',
-        'suspend' => 'Auteur suspendu.',
-        'dismiss' => 'Signalement classé sans suite.',
-    ];
 
     public function __construct(
         private readonly ModerationService $moderation,
@@ -53,6 +48,7 @@ class ModerationController extends AbstractController
             'authorHistory' => $report->getTargetAuthor() !== null ? $this->reportRepository->findForTargetAuthor($report->getTargetAuthor()) : [],
             'canSuspendAuthor' => $report->getTargetAuthor() !== null && $this->isGranted(MemberSanctionVoter::SANCTION, $report->getTargetAuthor()),
             'durations' => SuspensionDuration::cases(),
+            'contentActions' => array_values(array_filter(ContentAction::cases(), static fn (ContentAction $action): bool => $action->isAllowedFor($report->getTargetType()) && ($action === ContentAction::Keep || $targetAvailable))),
             'csrfTokenId' => self::DECISION_CSRF_PREFIX . $report->getId(),
             'queueUrl' => $this->queueUrl(),
         ]);
@@ -61,43 +57,36 @@ class ModerationController extends AbstractController
     #[AdminRoute('/report/{id}/decision', name: 'report_decision', options: ['methods' => ['POST'], 'requirements' => ['id' => '\d+']])]
     public function decide(#[MapEntity(id: 'id')] Report $report, Request $request): Response
     {
-        if (!$this->isCsrfTokenValid(self::DECISION_CSRF_PREFIX . $report->getId(), (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
-        }
+        $this->denyUnlessDecisionTokenValid($report, $request);
         /** @var User $moderator */
         $moderator = $this->getUser();
-        $note = trim((string) $request->request->get('note'));
-        $decision = (string) $request->request->get('decision');
-        $targetAvailable = $this->moderation->isTargetAvailable($report);
-        $error = match (true) {
-            !array_key_exists($decision, self::DECISION_CONFIRMATIONS) => 'Décision inconnue.',
-            $decision === 'restore' => $targetAvailable ? null : 'Le contenu n\'existe plus.',
-            !$report->isPending() => 'Ce signalement a déjà été traité.',
-            in_array($decision, ['hide', 'delete'], true) && !$targetAvailable => 'Le contenu n\'existe plus.',
-            $decision === 'hide' && !$report->getTargetType()->canBeHidden() => 'Ce type de contenu ne peut pas être masqué.',
-            $decision === 'delete' && !$report->getTargetType()->canBeDeleted() => 'Ce type de contenu ne peut pas être supprimé.',
-            in_array($decision, ['warn', 'suspend'], true) && $report->getTargetAuthor() === null => 'L\'auteur n\'existe plus.',
-            in_array($decision, ['warn', 'suspend'], true) && $note === '' => 'Indique le message ou le motif transmis au membre.',
-            $decision === 'suspend' && SuspensionDuration::tryFrom((string) $request->request->get('duration')) === null => 'Choisis une durée de suspension.',
-            $decision === 'suspend' && !$this->isGranted(MemberSanctionVoter::SANCTION, $report->getTargetAuthor()) => 'Tu ne peux pas suspendre ce membre de l\'équipe.',
-            default => null,
-        };
-        if ($error !== null) {
-            $this->addFlash('danger', $error);
+        $decision = ModerationDecision::fromForm($request->request);
+        $canSanctionAuthor = $report->getTargetAuthor() !== null && $this->isGranted(MemberSanctionVoter::SANCTION, $report->getTargetAuthor());
+        $errors = $this->moderation->process($report, $moderator, $decision, $canSanctionAuthor);
+        if ($errors !== []) {
+            foreach ($errors as $error) {
+                $this->addFlash('danger', $error);
+            }
             return $this->redirectToRoute('admin_moderation_report', ['id' => $report->getId()]);
         }
-        match ($decision) {
-            'hide' => $this->moderation->hideTarget($report, $moderator, $note),
-            'restore' => $this->moderation->restoreTarget($report),
-            'delete' => $this->moderation->deleteTarget($report, $moderator, $note),
-            'warn' => $this->moderation->warnAuthor($report, $moderator, $note),
-            'suspend' => $this->moderation->suspendAuthor($report, $moderator, SuspensionDuration::from((string) $request->request->get('duration')), $note),
-            'dismiss' => $this->moderation->dismiss($report, $moderator, $note),
-        };
-        $this->addFlash('success', self::DECISION_CONFIRMATIONS[$decision]);
-        return $decision === 'restore'
-            ? $this->redirectToRoute('admin_moderation_report', ['id' => $report->getId()])
-            : $this->redirect($this->queueUrl());
+        $this->addFlash('success', 'Signalement traité : ' . implode(', ', array_map(
+            static fn (ReportResolution $resolution): string => mb_strtolower($resolution->label()),
+            $decision->resolutions(),
+        )) . '.');
+        return $this->redirect($this->queueUrl());
+    }
+
+    #[AdminRoute('/report/{id}/restore', name: 'report_restore', options: ['methods' => ['POST'], 'requirements' => ['id' => '\d+']])]
+    public function restore(#[MapEntity(id: 'id')] Report $report, Request $request): Response
+    {
+        $this->denyUnlessDecisionTokenValid($report, $request);
+        if (!$this->moderation->isTargetAvailable($report)) {
+            $this->addFlash('danger', 'Le contenu n\'existe plus.');
+        } else {
+            $this->moderation->restoreTarget($report);
+            $this->addFlash('success', 'Contenu à nouveau visible.');
+        }
+        return $this->redirectToRoute('admin_moderation_report', ['id' => $report->getId()]);
     }
 
     #[AdminRoute('/member/{id}', name: 'member', options: ['methods' => ['GET'], 'requirements' => ['id' => '\d+']])]
@@ -134,6 +123,13 @@ class ModerationController extends AbstractController
             }
         }
         return $this->redirectToRoute('admin_moderation_member', ['id' => $member->getId()]);
+    }
+
+    private function denyUnlessDecisionTokenValid(Report $report, Request $request): void
+    {
+        if (!$this->isCsrfTokenValid(self::DECISION_CSRF_PREFIX . $report->getId(), $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
     }
 
     private function queueUrl(): string

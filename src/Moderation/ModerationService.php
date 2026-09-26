@@ -17,9 +17,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
- * Every moderation decision goes through this service: report submission, hiding, deletion,
- * warning, suspension and dismissal. A decision closes all pending reports of the same target
- * and the author is told what happened (site notification and e-mail).
+ * Every moderation decision goes through this service: report submission, combined decision on a report
+ * (fate of the content, warning, suspension, dismissal) and sanctions of a member. A decision closes all
+ * pending reports of the same target and the author is told what happened (site notification and e-mail).
  */
 class ModerationService
 {
@@ -52,22 +52,49 @@ class ModerationService
         return $report;
     }
 
-    /** Hides the target: members see a notice instead of the content, moderators still see it. */
-    public function hideTarget(Report $report, User $moderator, ?string $note): void
+    /** @return list<string> reasons why the decision cannot be applied, empty when it can */
+    private function validate(Report $report, ModerationDecision $decision, bool $canSanctionAuthor): array
     {
-        $target = $this->requireTarget($report);
-        match ($report->getTargetType()) {
-            ReportTargetType::Post => $target->setHiddenByModeration(true),
-            ReportTargetType::Thread => $this->hideThread($target),
-            ReportTargetType::Photo => $target->setHiddenByModeration(true),
-            default => throw new \LogicException(sprintf('A %s cannot be hidden.', $report->getTargetType()->value)),
+        $type = $report->getTargetType();
+        $targetAvailable = $this->isTargetAvailable($report);
+        return array_values(array_filter([
+            !$report->isPending() ? 'Ce signalement a déjà été traité.' : null,
+            $decision->contentAction !== ContentAction::Keep && !$targetAvailable ? 'Le contenu n\'existe plus.' : null,
+            !$decision->contentAction->isAllowedFor($type) ? sprintf('Action impossible sur ce type de contenu : %s.', mb_strtolower($decision->contentAction->label())) : null,
+            $decision->concernsAuthor() && $report->getTargetAuthor() === null ? 'L\'auteur n\'existe plus.' : null,
+            $decision->suspension !== null && $decision->suspensionReason === null ? 'Indique le motif de la suspension communiqué au membre.' : null,
+            $decision->suspension !== null && $report->getTargetAuthor() !== null && !$canSanctionAuthor ? 'Tu ne peux pas suspendre ce membre de l\'équipe.' : null,
+        ]));
+    }
+
+    /**
+     * Validates then applies every action of the decision, closes the pending reports of the target with all the
+     * resolutions, then sends the author one notice gathering the content decision and the warning (the suspension
+     * has its own e-mail). Nothing is applied when the decision is not valid.
+     *
+     * @return list<string> reasons why the decision was refused, empty when it was applied
+     */
+    public function process(Report $report, User $moderator, ModerationDecision $decision, bool $canSanctionAuthor): array
+    {
+        $errors = $this->validate($report, $decision, $canSanctionAuthor);
+        if ($errors !== []) {
+            return $errors;
+        }
+        match ($decision->contentAction) {
+            ContentAction::Keep => null,
+            ContentAction::Hide => $this->hideTarget($report),
+            ContentAction::Delete => $this->deleteTarget($report),
         };
-        $this->closeReportsOfTarget($report, ReportResolution::Hidden, $moderator, $note);
-        $this->notifyAuthor($report->getTargetAuthor(), sprintf(
-            'Ton contenu (%s) a été masqué par la modération. Motif du signalement : %s.',
-            mb_strtolower($report->getTargetType()->label()),
-            mb_strtolower($report->getReason()->label()),
-        ));
+        $this->closeReportsOfTarget($report, $decision->resolutions(), $moderator, $decision->summary());
+        $author = $report->getTargetAuthor();
+        $notice = $this->authorNotice($report, $decision);
+        if ($author !== null && $notice !== null) {
+            $this->notifyAuthor($author, $notice);
+        }
+        if ($author !== null && $decision->suspension !== null) {
+            $this->suspend($author, $decision->suspension, (string) $decision->suspensionReason);
+        }
+        return [];
     }
 
     /** Shows again a content hidden by moderation. The reports stay closed. */
@@ -79,43 +106,6 @@ class ModerationService
             ReportTargetType::Thread => $this->postRepository->findFirstPostOfThread($target)?->setHiddenByModeration(false),
             default => null,
         };
-        $this->em->flush();
-    }
-
-    public function deleteTarget(Report $report, User $moderator, ?string $note): void
-    {
-        $target = $this->requireTarget($report);
-        match ($report->getTargetType()) {
-            ReportTargetType::Thread => $this->deleteThread($target),
-            ReportTargetType::Post => $target->isFirst() ? $this->deleteThread($target->getThread()) : $this->deletePost($target),
-            ReportTargetType::Photo => $this->galleryPhotoUploader->delete($target),
-            ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage, ReportTargetType::GroupMessage, ReportTargetType::Group => $this->em->remove($target),
-            ReportTargetType::Profile => throw new \LogicException('A profile cannot be deleted from a report.'),
-        };
-        $this->closeReportsOfTarget($report, ReportResolution::Deleted, $moderator, $note);
-        $this->notifyAuthor($report->getTargetAuthor(), sprintf(
-            'Ton contenu (%s) a été supprimé par la modération. Motif du signalement : %s.',
-            mb_strtolower($report->getTargetType()->label()),
-            mb_strtolower($report->getReason()->label()),
-        ));
-    }
-
-    public function warnAuthor(Report $report, User $moderator, string $message): void
-    {
-        $this->closeReportsOfTarget($report, ReportResolution::Warned, $moderator, $message);
-        $this->notifyAuthor($report->getTargetAuthor(), 'Avertissement de la modération : ' . $message);
-    }
-
-    public function suspendAuthor(Report $report, User $moderator, SuspensionDuration $duration, string $reason): void
-    {
-        $author = $report->getTargetAuthor() ?? throw new \LogicException('The reported content has no author anymore.');
-        $this->closeReportsOfTarget($report, ReportResolution::forSuspension($duration), $moderator, $reason);
-        $this->suspend($author, $duration, $reason);
-    }
-
-    public function dismiss(Report $report, User $moderator, ?string $note): void
-    {
-        $this->closeReportsOfTarget($report, ReportResolution::Dismissed, $moderator, $note);
         $this->em->flush();
     }
 
@@ -151,6 +141,49 @@ class ModerationService
         };
     }
 
+    /** Members see a notice instead of the content, moderators still see it. */
+    private function hideTarget(Report $report): void
+    {
+        $target = $this->requireTarget($report);
+        match ($report->getTargetType()) {
+            ReportTargetType::Post, ReportTargetType::Photo => $target->setHiddenByModeration(true),
+            ReportTargetType::Thread => $this->hideThread($target),
+            default => throw new \LogicException(sprintf('A %s cannot be hidden.', $report->getTargetType()->value)),
+        };
+    }
+
+    private function deleteTarget(Report $report): void
+    {
+        $target = $this->requireTarget($report);
+        match ($report->getTargetType()) {
+            ReportTargetType::Thread => $this->deleteThread($target),
+            ReportTargetType::Post => $target->isFirst() ? $this->deleteThread($target->getThread()) : $this->deletePost($target),
+            ReportTargetType::Photo => $this->galleryPhotoUploader->delete($target),
+            ReportTargetType::PhotoComment, ReportTargetType::PrivateMessage, ReportTargetType::GroupMessage, ReportTargetType::Group => $this->em->remove($target),
+            ReportTargetType::Profile => throw new \LogicException('A profile cannot be deleted from a report.'),
+        };
+    }
+
+    /** Message sent to the author about the content and the warning, NULL when neither concerns them. */
+    private function authorNotice(Report $report, ModerationDecision $decision): ?string
+    {
+        $contentVerb = match ($decision->contentAction) {
+            ContentAction::Hide => 'masqué',
+            ContentAction::Delete => 'supprimé',
+            ContentAction::Keep => null,
+        };
+        $sentences = array_filter([
+            $contentVerb !== null ? sprintf(
+                'Ton contenu (%s) a été %s par la modération. Motif du signalement : %s.',
+                mb_strtolower($report->getTargetType()->label()),
+                $contentVerb,
+                mb_strtolower($report->getReason()->label()),
+            ) : null,
+            $decision->warning !== null ? 'Avertissement de la modération : ' . $decision->warning : null,
+        ]);
+        return $sentences === [] ? null : implode(' ', $sentences);
+    }
+
     private function requireTarget(Report $report): object
     {
         return $this->targetResolver->find($report->getTargetType(), $report->getTargetId())
@@ -181,24 +214,25 @@ class ModerationService
         $this->em->remove($post);
     }
 
-    /** Closes the report and every other pending report of the same target, then flushes. */
-    private function closeReportsOfTarget(Report $report, ReportResolution $resolution, User $moderator, ?string $note): void
+    /**
+     * Closes the report and every other pending report of the same target, then flushes.
+     *
+     * @param list<ReportResolution> $resolutions
+     */
+    private function closeReportsOfTarget(Report $report, array $resolutions, User $moderator, ?string $note): void
     {
         $reports = $this->reportRepository->findPendingForTarget($report->getTargetType(), $report->getTargetId());
         if (!in_array($report, $reports, true)) {
             $reports[] = $report;
         }
         foreach ($reports as $pendingReport) {
-            $pendingReport->close($resolution, $moderator, $note);
+            $pendingReport->close($resolutions, $moderator, $note);
         }
         $this->em->flush();
     }
 
-    private function notifyAuthor(?User $author, string $message): void
+    private function notifyAuthor(User $author, string $message): void
     {
-        if ($author === null) {
-            return;
-        }
         $this->notificationService->notify(
             $author,
             Notification::TYPE_MODERATION_NOTICE,

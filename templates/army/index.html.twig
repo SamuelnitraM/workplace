@@ -12,10 +12,10 @@
             <p class="page-header-subtitle">Composez vos listes, suivez vos points et partagez les publiques sur votre profil.</p>
         </div>
         <div class="page-header-actions">
-            <a href="{{ path('app_army_explorer') }}" class="btn btn-ghost">{{ ui.icon('compass') }}Explorer</a>
-            <a href="{{ path('app_army_import') }}" class="btn btn-secondary">{{ ui.icon('upload') }}Importer</a>
+            <a href="{{ path('app_army_explorer') }}" class="btn btn-ghost" data-tour="army-explorer">{{ ui.icon('compass') }}Explorer</a>
+            <a href="{{ path('app_army_import') }}" class="btn btn-secondary" data-tour="army-import">{{ ui.icon('upload') }}Importer</a>
             {% if lists is not empty %}
-                <a href="{{ path('app_army_new') }}" class="btn btn-primary">{{ ui.icon('plus') }}Nouvelle liste</a>
+                <a href="{{ path('app_army_new') }}" class="btn btn-primary" data-tour="army-new">{{ ui.icon('plus') }}Nouvelle liste</a>
             {% endif %}
         </div>
     </header>

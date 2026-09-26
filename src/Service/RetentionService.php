@@ -6,27 +6,22 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Statistiques d'engagement des utilisateurs (rétention, actifs, inscriptions).
+ * Engagement figures over rolling periods (retention, active members, registrations), computed from the columns
+ * User::createdAt, User::lastActivityAt (heartbeat, at most once a minute) and User::lastDailyLoginAt.
+ * The day-by-day series of the dashboard charts come from member_daily_activity (App\Statistics\DailyActivityHistory).
  *
- * Aucune table d'historique quotidien n'existe : seules les colonnes
- * User::createdAt, User::lastActivityAt (heartbeat, au plus 1x/min) et
- * User::lastDailyLoginAt sont disponibles. On en déduit :
+ * - Last activity = max(lastActivityAt, lastDailyLoginAt), NULL values ignored.
  *
- * - "Dernière activité" = max(lastActivityAt, lastDailyLoginAt) (NULL ignorés).
+ * - Rolling retention over N days, N in {1, 7, 30}:
+ *     cohort   = members registered for at least N days (createdAt <= now - N days);
+ *     retained = cohort members whose last activity is >= createdAt + N days (came back at least N days after registering);
+ *     rate     = retained / cohort (NULL for an empty cohort).
+ *   The measure is "came back at least once after day N", not "active on day N": it never decreases for a given member.
  *
- * - Rétention glissante ("rolling retention") sur N jours, N ∈ {1, 7, 30} :
- *     cohorte  = utilisateurs inscrits depuis au moins N jours
- *                (createdAt <= maintenant - N jours) ;
- *     retenus  = membres de la cohorte dont la dernière activité est
- *                >= createdAt + N jours (revenus au moins N jours après leur inscription) ;
- *     taux     = retenus / cohorte (null si la cohorte est vide).
- *   Cette mesure est "au moins revenu une fois après J+N", pas "actif le jour J+N" :
- *   elle ne diminue jamais pour un utilisateur donné.
+ * - Active over N days: last activity >= now - N days.
+ * - New over N days: createdAt >= now - N days.
  *
- * - Actifs sur N jours : dernière activité >= maintenant - N jours.
- * - Nouveaux sur N jours : createdAt >= maintenant - N jours.
- *
- * Tout est calculé en une seule requête agrégée (SUM(CASE ...)).
+ * Everything is computed by a single aggregated query (SUM(CASE ...)).
  */
 class RetentionService
 {

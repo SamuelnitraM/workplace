@@ -1,7 +1,7 @@
-{# Decision of a report in the moderation lists, with the colour code of its severity (App\Moderation\ReportResolution::severity()). #}
-{% set resolution = field.value %}
-{% if resolution %}
+{# Decisions of a report in the moderation lists, most severe first, with the colour code of their severity (App\Moderation\ReportResolution::severity()). #}
+{% set resolutions = entity.instance.resolutions %}
+{% for resolution in resolutions %}
     <span class="badge sanction sanction-{{ resolution.severity }}">{{ resolution.label }}</span>
 {% else %}
     <span class="text-muted">—</span>
-{% endif %}
+{% endfor %}

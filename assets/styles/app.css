@@ -3012,3 +3012,20 @@
     .datasheet-table-wrap { overflow: visible; }
     @page { margin: 12mm; }
 }
+
+/* Guided tour popovers (driver.js, assets/controllers/tour_controller.js), in the colours of the site */
+.driver-popover.tour-popover { background: var(--color-surface-raised); color: var(--color-fg-secondary); border: 1px solid var(--color-line-strong); border-radius: 0.75rem; padding: 1.1rem 1.1rem 0.9rem; max-width: min(22rem, calc(100vw - 2rem)); font-family: inherit; box-shadow: 0 18px 48px rgb(0 0 0 / 0.45); }
+.tour-popover .driver-popover-title { color: var(--color-fg); font-size: 1rem; font-weight: 700; font-family: inherit; }
+.tour-popover .driver-popover-description { color: var(--color-fg-secondary); font-size: 0.875rem; line-height: 1.5; font-family: inherit; }
+.tour-popover .driver-popover-progress-text { color: var(--color-fg-muted); font-size: 0.75rem; }
+.tour-popover .driver-popover-close-btn { color: var(--color-fg-muted); width: 2.25rem; height: 2.25rem; }
+.tour-popover .driver-popover-close-btn:hover, .tour-popover .driver-popover-close-btn:focus-visible { color: var(--color-fg); }
+.tour-popover .driver-popover-footer-btn { background: var(--color-surface); color: var(--color-fg); border: 1px solid var(--color-line-strong); border-radius: 0.5rem; padding: 0.4rem 0.8rem; font-size: 0.8125rem; font-weight: 600; text-shadow: none; }
+.tour-popover .driver-popover-footer-btn:hover, .tour-popover .driver-popover-footer-btn:focus-visible { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-primary-fg); }
+.tour-popover .driver-popover-arrow { border-color: transparent; }
+.tour-popover .driver-popover-arrow-side-top { border-top-color: var(--color-surface-raised); }
+.tour-popover .driver-popover-arrow-side-bottom { border-bottom-color: var(--color-surface-raised); }
+.tour-popover .driver-popover-arrow-side-left { border-left-color: var(--color-surface-raised); }
+.tour-popover .driver-popover-arrow-side-right { border-right-color: var(--color-surface-raised); }
+.tour-popover-links { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.75rem; font-size: 0.8125rem; }
+.tour-popover-links a { color: var(--color-primary-text); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }

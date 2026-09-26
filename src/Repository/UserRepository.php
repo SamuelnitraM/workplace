@@ -37,6 +37,20 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
      * Un identifiant contenant « @ » est toujours traité comme un email (un pseudo ne peut pas en contenir),
      * sinon comme un pseudo : un pseudo égal à l'email d'un autre membre ne peut donc pas détourner la connexion.
      */
+    /**
+     * Number of registrations per day since the given day, days without registration left out.
+     *
+     * @return array<string, int> keyed by Y-m-d
+     */
+    public function countRegistrationsPerDay(\DateTimeImmutable $firstDay): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllKeyValue(
+            'SELECT DATE(created_at) AS day, COUNT(*) AS total FROM user WHERE created_at >= :first GROUP BY DATE(created_at)',
+            ['first' => $firstDay->format('Y-m-d 00:00:00')],
+        );
+        return array_map('intval', $rows);
+    }
+
     public function findOneByEmailOrUsername(string $identifier): ?User
     {
         if (str_contains($identifier, '@')) {

@@ -35,7 +35,7 @@
 
             {% if app.user %}
                 {# Publier (desktop) — sur mobile : bouton central de la barre du bas #}
-                <div class="dropdown hidden md:block" x-data="{ open: false }"
+                <div class="dropdown hidden md:block" x-data="{ open: false }" data-tour="publish"
                      @click.outside="open = false" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
                     <button type="button" x-ref="trigger" @click="open = !open" class="btn btn-primary btn-sm"
                             aria-expanded="false" :aria-expanded="open.toString()" aria-controls="publish-menu">
@@ -47,7 +47,7 @@
                 </div>
 
                 {# Messages : lien vers la messagerie + compteur temps réel (le messenger flottant reste sur desktop) #}
-                <a href="{{ path('app_message_index') }}" class="btn btn-ghost btn-icon"{% if shell_section == 'messages' %} aria-current="page"{% endif %}>
+                <a href="{{ path('app_message_index') }}" class="btn btn-ghost btn-icon" data-tour="messages"{% if shell_section == 'messages' %} aria-current="page"{% endif %}>
                     {{ ui.icon('message-circle') }}
                     <span class="sr-only">Messages</span>
                     <span id="message-menu-badge" data-controller="counter" data-counter-kind-value="messages"
@@ -56,7 +56,7 @@
 
                 {# Cloche de notifications (assets/controllers/notifications_controller.js) — lien vers la page complète sans JavaScript #}
                 {% set unreadNotifications = notification_unread_count() %}
-                <div class="relative"
+                <div class="relative" data-tour="notifications"
                      data-controller="notifications"
                      data-notifications-recent-url-value="{{ path('app_notification_recent') }}"
                      data-notifications-read-url-value="{{ path('app_notification_read', {id: 0}) }}"
@@ -99,7 +99,7 @@
                 </div>
 
                 {# Menu du compte (desktop) — sur mobile : onglet « Menu » de la barre du bas #}
-                <div class="dropdown hidden md:block" x-data="{ open: false }"
+                <div class="dropdown hidden md:block" x-data="{ open: false }" data-tour="account"
                      @click.outside="open = false" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
                     <button type="button" x-ref="trigger" @click="open = !open"
                             class="flex items-center gap-2 min-h-10 rounded-pill p-1 pr-2 text-fg-secondary hover:bg-white/5 hover:text-fg transition-colors"

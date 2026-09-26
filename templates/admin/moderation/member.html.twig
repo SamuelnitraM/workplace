@@ -45,7 +45,7 @@
                             <li class="list-group-item px-0 small">
                                 <a href="{{ path('admin_moderation_report', {id: report.id}) }}" class="moderation-history-item">
                                     <span>#{{ report.id }} · {{ report.createdAt|date('d/m/Y') }} · {{ report.targetType.label }} · {{ report.reason.label }}</span>
-                                    {% if report.pending %}<span class="badge bg-warning text-dark">en attente</span>{% else %}<span class="badge sanction sanction-{{ report.resolution.severity }}">{{ report.resolution.label }}</span>{% endif %}
+                                    {% if report.pending %}<span class="badge bg-warning text-dark">en attente</span>{% else %}{% for resolution in report.resolutions %}<span class="badge sanction sanction-{{ resolution.severity }} me-1">{{ resolution.label }}</span>{% endfor %}{% endif %}
                                 </a>
                             </li>
                         {% endfor %}

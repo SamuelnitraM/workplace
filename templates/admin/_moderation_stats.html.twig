@@ -1,0 +1,41 @@
+{# Moderation block of the dashboard: expects "moderationStats" (App\Moderation\ModerationStatistics::summary, durations formatted). #}
+{% macro summary_table(title, rows, total_label) %}
+    <div class="hf-card p-3 h-100">
+        <h3 class="h6 fw-bold mb-2">{{ title }}</h3>
+        {% if rows is empty %}
+            <p class="text-muted small mb-0">Aucun signalement.</p>
+        {% else %}
+            <table class="table table-sm mb-0 small">
+                <thead><tr><th scope="col">{{ total_label }}</th><th scope="col" class="text-end">Nombre</th></tr></thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>{% if row.severity is defined %}<span class="badge sanction sanction-{{ row.severity }}">{{ row.label }}</span>{% else %}{{ row.label }}{% endif %}</td>
+                            <td class="text-end tabular-nums">{{ row.count|number_format(0, ',', ' ') }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+{% endmacro %}
+{% import _self as moderation %}
+
+<section class="mb-4" aria-labelledby="moderation-stats-title">
+    <h2 id="moderation-stats-title" class="h5 fw-bold mb-3">Modération</h2>
+    <div class="row g-3">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="hf-card p-3 h-100">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="hf-icon hf-rose flex-shrink-0"><i class="fa fa-stopwatch"></i></span>
+                    <h3 class="h6 fw-bold mb-0">Temps moyen de traitement</h3>
+                </div>
+                <p class="fs-3 fw-bold mb-0 text-dark">{{ moderationStats.recentAverageHandling }}</p>
+                <p class="text-muted small mb-0">sur les {{ recentDays }} derniers jours · {{ moderationStats.averageHandling }} depuis le début</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">{{ moderation.summary_table('Motifs les plus fréquents', moderationStats.reasons, 'Motif') }}</div>
+        <div class="col-12 col-md-6 col-xl-3">{{ moderation.summary_table('Contenus les plus signalés', moderationStats.targetTypes, 'Type de contenu') }}</div>
+        <div class="col-12 col-md-6 col-xl-3">{{ moderation.summary_table('Décisions prises', moderationStats.resolutions, 'Décision') }}</div>
+    </div>
+</section>

@@ -10,8 +10,8 @@ use App\Entity\PrivateMessage;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Compteurs d'activité pour le tableau de bord admin.
- * Une seule requête agrégée par entité : total + créations sur 24h / 7j / 30j (champ createdAt).
+ * Activity counters of the admin dashboard.
+ * One aggregated query per entity: total and creations over 24 h / 7 days / 30 days (createdAt field).
  */
 class AdminStatsService
 {

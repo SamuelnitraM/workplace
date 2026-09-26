@@ -68,6 +68,11 @@
 
     {% if app.user %}
         {{ include('_partials/shell/_messenger.html.twig') }}
+        {# Guided tour requested by ?visite=<key> (App\Tour\TourLauncher, assets/controllers/tour_controller.js) #}
+        {% set requested = requested_tour() %}
+        {% if requested %}
+            <div hidden {{ stimulus_controller('tour', {steps: requested.tour.steps, nextTitle: requested.next.title ?? '', nextUrl: requested.next.url ?? '', index: path('app_tour_index')}) }}></div>
+        {% endif %}
     {% endif %}
 </body>
 </html>

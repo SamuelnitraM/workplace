@@ -2,8 +2,10 @@
 
 namespace App\Controller\Admin;
 
+use App\Moderation\ModerationStatistics;
 use App\Repository\ReportRepository;
 use App\Service\AdminStatsService;
+use App\Statistics\DailyActivityHistory;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
@@ -23,6 +25,8 @@ class DashboardController extends AbstractDashboardController
         private readonly AdminUrlGenerator $adminUrlGenerator,
         private readonly AdminStatsService $adminStatsService,
         private readonly ReportRepository $reportRepository,
+        private readonly DailyActivityHistory $dailyActivityHistory,
+        private readonly ModerationStatistics $moderationStatistics,
     ) {
     }
 
@@ -32,7 +36,14 @@ class DashboardController extends AbstractDashboardController
         if (!$this->isGranted('ROLE_ADMIN')) {
             return $this->redirect($this->crudUrl(ReportCrudController::class, 'index'));
         }
+        $now = new \DateTimeImmutable();
+        $moderationStats = $this->moderationStatistics->summary($now);
+        $moderationStats['averageHandling'] = ModerationStatistics::formatDuration($moderationStats['averageHandling']);
+        $moderationStats['recentAverageHandling'] = ModerationStatistics::formatDuration($moderationStats['recentAverageHandling']);
         return $this->render('admin/dashboard.html.twig', [
+            'charts' => $this->dailyActivityHistory->charts($now),
+            'moderationStats' => $moderationStats,
+            'recentDays' => ModerationStatistics::RECENT_DAYS,
             'stats' => [
                 ['label' => 'Signalements en attente', 'value' => $this->reportRepository->countPending(), 'icon' => 'fa-flag', 'tone' => 'rose', 'url' => $this->crudUrl(ReportCrudController::class, 'index')],
                 ['label' => 'Utilisateurs', 'value' => $this->count(\App\Entity\User::class), 'icon' => 'fa-users', 'tone' => 'indigo', 'url' => $this->crudUrl(UserCrudController::class, 'index')],
@@ -42,7 +53,7 @@ class DashboardController extends AbstractDashboardController
                 ['label' => 'Tâches', 'value' => $this->count(\App\Entity\TodoNode::class), 'icon' => 'fa-list-check', 'tone' => 'violet', 'url' => $this->crudUrl(TodoNodeCrudController::class, 'index')],
                 ['label' => 'Amitiés', 'value' => $this->count(\App\Entity\Friendship::class), 'icon' => 'fa-heart', 'tone' => 'rose', 'url' => $this->crudUrl(FriendshipCrudController::class, 'index')],
             ],
-            // Pas de "Nouvel utilisateur" / "Nouveau sujet" / "Nouveau badge" : création désactivée dans ces CRUD (badges définis dans le code : App\Gamification\BadgeCatalog)
+            // No creation shortcut for users, threads or badges: creation is disabled in those CRUDs (badges are defined in App\Gamification\BadgeCatalog)
             'quickActions' => [
                 ['label' => 'Nouvelle catégorie', 'url' => $this->crudUrl(CategoryCrudController::class, 'new'), 'icon' => 'fa-folder-plus'],
                 ['label' => 'Badges (lecture seule)', 'url' => $this->crudUrl(BadgeCrudController::class, 'index'), 'icon' => 'fa-award'],

@@ -54,7 +54,7 @@ class ModerationTest extends FunctionalTestCase
         $this->client->loginUser($this->reload($admin));
         $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
         self::assertResponseIsSuccessful();
-        $this->client->submit($crawler->selectButton('Masquer')->form());
+        $this->client->submit($crawler->selectButton('Traiter')->form(['content' => 'hide']));
         self::assertResponseRedirects();
         $this->entityManager()->clear();
         self::assertSame(ReportResolution::Hidden, $this->entityManager()->find(Report::class, $report->getId())->getResolution());
@@ -80,11 +80,71 @@ class ModerationTest extends FunctionalTestCase
         $this->client->loginUser($this->reload($admin));
         $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
         self::assertSelectorTextContains('body', 'Historique des signalements visant bob');
-        $this->client->submit($crawler->selectButton('Suspendre')->form(['duration' => 'permanent', 'note' => 'Harcèlement']));
+        $this->client->submit($crawler->selectButton('Traiter')->form(['duration' => 'permanent', 'suspension_reason' => 'Harcèlement']));
         $this->entityManager()->clear();
         self::assertSame(ReportResolution::Banned, $this->entityManager()->find(Report::class, $report->getId())->getResolution());
         $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
         self::assertSelectorTextContains('.sanction-ban', 'Auteur banni définitivement');
+    }
+
+    public function testCombinedDecisionAppliesEveryActionAtOnce(): void
+    {
+        $alice = $this->createMember('alice');
+        $bob = $this->createMember('bob');
+        $carol = $this->createMember('carol');
+        $admin = $this->createMember('admin', ['ROLE_ADMIN']);
+        $reply = $this->createThreadWithReply($alice, $bob);
+        $report = $this->reportReply($alice, $reply->getId(), 'harassment');
+        $secondReport = $this->reportReply($carol, $reply->getId(), 'hate_speech');
+        $this->client->loginUser($this->reload($admin));
+        $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
+        $this->client->submit($crawler->selectButton('Traiter')->form(['content' => 'delete', 'duration' => 'P3D']));
+        self::assertResponseRedirects('/admin/moderation/report/' . $report->getId());
+        self::assertTrue($this->entityManager()->find(Report::class, $report->getId())->isPending());
+        self::assertNotNull($this->entityManager()->find(Post::class, $reply->getId()));
+        $crawler = $this->client->followRedirect();
+        self::assertSelectorTextContains('body', 'Indique le motif de la suspension');
+        $this->client->submit($crawler->selectButton('Traiter')->form([
+            'content' => 'delete',
+            'warning' => 'Reste courtois.',
+            'duration' => 'P3D',
+            'suspension_reason' => 'Insultes',
+            'note' => 'Récidive',
+        ]));
+        self::assertResponseRedirects();
+        $this->entityManager()->clear();
+        foreach ([$report, $secondReport] as $closedReport) {
+            $closedReport = $this->entityManager()->find(Report::class, $closedReport->getId());
+            self::assertSame(ReportResolution::Suspended, $closedReport->getResolution());
+            self::assertSame([ReportResolution::Suspended, ReportResolution::Deleted, ReportResolution::Warned], $closedReport->getResolutions());
+            self::assertStringContainsString('Suspension (3 jours) : Insultes', (string) $closedReport->getModeratorNote());
+        }
+        self::assertNull($this->entityManager()->find(Post::class, $reply->getId()));
+        self::assertTrue($this->reload($bob)->isSuspended());
+        $notices = $this->entityManager()->getRepository(Notification::class)->findBy(['type' => Notification::TYPE_MODERATION_NOTICE]);
+        self::assertCount(1, $notices);
+        self::assertStringContainsString('supprimé', $notices[0]->getData()['message']);
+        self::assertStringContainsString('Reste courtois.', $notices[0]->getData()['message']);
+        self::assertEmailCount(2);
+        $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
+        self::assertSelectorTextContains('.sanction-suspension', 'Auteur suspendu temporairement');
+        self::assertSelectorTextContains('.sanction-content', 'Contenu supprimé');
+    }
+
+    public function testDecisionWithoutActionDismissesTheReport(): void
+    {
+        $alice = $this->createMember('alice');
+        $bob = $this->createMember('bob');
+        $moderator = $this->createMember('modo', ['ROLE_MODERATOR']);
+        $reply = $this->createThreadWithReply($alice, $bob);
+        $report = $this->reportReply($alice, $reply->getId(), 'spam');
+        $this->client->loginUser($this->reload($moderator));
+        $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
+        $this->client->submit($crawler->selectButton('Traiter')->form());
+        $this->entityManager()->clear();
+        self::assertSame([ReportResolution::Dismissed], $this->entityManager()->find(Report::class, $report->getId())->getResolutions());
+        self::assertFalse($this->entityManager()->find(Post::class, $reply->getId())->isHiddenByModeration());
+        self::assertEmailCount(0);
     }
 
     public function testMembersCannotReportTheirOwnContent(): void
@@ -185,7 +245,7 @@ class ModerationTest extends FunctionalTestCase
         }
         $report = $this->entityManager()->getRepository(Report::class)->findOneBy([]);
         $crawler = $this->client->request('GET', '/admin/moderation/report/' . $report->getId());
-        $this->client->submit($crawler->selectButton('Masquer')->form());
+        $this->client->submit($crawler->selectButton('Traiter')->form(['content' => 'hide']));
         self::assertResponseRedirects();
         $this->entityManager()->clear();
         self::assertTrue($this->entityManager()->find(Post::class, $reply->getId())->isHiddenByModeration());
@@ -208,5 +268,13 @@ class ModerationTest extends FunctionalTestCase
         $crawler = $this->client->request('GET', '/admin/moderation/member/' . $otherModerator->getId());
         $this->client->submit($crawler->selectButton('Suspendre')->form(['duration' => 'P1D', 'reason' => 'Abus de pouvoir']));
         self::assertTrue($this->reload($otherModerator)->isSuspended());
+    }
+
+    private function reportReply(\App\Entity\User $reporter, int $replyId, string $reason): Report
+    {
+        $this->client->loginUser($this->reload($reporter));
+        $crawler = $this->client->request('GET', '/signaler/reponse/' . $replyId);
+        $this->client->submit($crawler->selectButton('Envoyer le signalement')->form(['report_form[reason]' => $reason]));
+        return $this->entityManager()->getRepository(Report::class)->findOneBy([], ['id' => 'DESC']);
     }
 }

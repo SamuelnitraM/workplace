@@ -37,7 +37,7 @@
                         <li class="list-group-item px-0 small">
                             {{ related.createdAt|date('d/m/Y H:i') }} · {{ related.reason.label }} · {{ related.reporter ? related.reporter.username : 'compte supprimé' }}
                             {% if related.pending %}<span class="badge bg-warning text-dark">en attente</span>
-                            {% else %}<span class="badge sanction sanction-{{ related.resolution.severity }}">{{ related.resolution.label }}</span>{% if related.handledBy %} par {{ related.handledBy.username }}{% endif %}{% if related.moderatorNote %} — {{ related.moderatorNote }}{% endif %}{% endif %}
+                            {% else %}{% for resolution in related.resolutions %}<span class="badge sanction sanction-{{ resolution.severity }} me-1">{{ resolution.label }}</span>{% endfor %}{% if related.handledBy %} par {{ related.handledBy.username }}{% endif %}{% if related.moderatorNote %} — {{ related.moderatorNote }}{% endif %}{% endif %}
                         </li>
                     {% endfor %}
                 </ul>
@@ -55,7 +55,7 @@
                                 <a href="{{ path('admin_moderation_report', {id: entry.id}) }}" class="moderation-history-item {{ entry.id == report.id ? 'is-current' }}">
                                     <span>#{{ entry.id }} · {{ entry.createdAt|date('d/m/Y H:i') }} · {{ entry.targetType.label }} · {{ entry.reason.label }}</span>
                                     {% if entry.pending %}<span class="badge bg-warning text-dark">en attente</span>
-                                    {% else %}<span class="badge sanction sanction-{{ entry.resolution.severity }}">{{ entry.resolution.label }}</span>{% endif %}
+                                    {% else %}{% for resolution in entry.resolutions %}<span class="badge sanction sanction-{{ resolution.severity }}">{{ resolution.label }}</span>{% endfor %}{% endif %}
                                     {% if entry.id == report.id %}<span class="text-muted">(ce signalement)</span>{% endif %}
                                 </a>
                             </li>
@@ -68,72 +68,74 @@
 
     <div class="col-lg-5">
         {% if report.pending %}
-            <section class="card mb-4">
+            {#
+                Combined decision: every action is prepared first, then applied together by « Traiter »
+                after a confirmation window listing them (moderation-decision script below).
+            #}
+            <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}" id="moderation-decision" class="card">
+                <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
                 <div class="card-body">
-                    <h2 class="h6 mb-3">Décision</h2>
-                    <p class="small text-muted">La décision s'applique à tous les signalements en attente de ce contenu. L'auteur est prévenu par notification et par e-mail.</p>
-                    <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}" class="mb-3">
-                        <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
-                        <label class="form-label" for="decision-note">Note interne (facultative)</label>
-                        <textarea class="form-control mb-2" id="decision-note" name="note" rows="2"></textarea>
-                        <div class="d-flex flex-wrap gap-2">
-                            {% if targetAvailable and type.canBeHidden %}
-                                <button type="submit" name="decision" value="hide" class="btn btn-warning"><i class="fa fa-eye-slash"></i> Masquer</button>
-                            {% endif %}
-                            <button type="submit" name="decision" value="dismiss" class="btn btn-secondary"><i class="fa fa-check"></i> Classer sans suite</button>
-                        </div>
-                    </form>
-                    {% if targetAvailable and type.canBeDeleted %}
-                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}" class="border-top pt-3">
-                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="delete-confirm" required>
-                                <label class="form-check-label" for="delete-confirm">Je confirme la suppression définitive{{ type.value in ['sujet', 'reponse'] ? ' (un message d\'ouverture supprime tout le sujet)' }}{{ type.value == 'groupe' ? ' (le groupe, ses salons, ses messages et ses tâches)' }}</label>
+                    <h2 class="h6 mb-1">Décision</h2>
+                    <p class="small text-muted">Prépare toutes les actions puis valide-les ensemble. Sans aucune action, le signalement est classé sans suite. La décision s'applique à tous les signalements en attente de ce contenu ; l'auteur est prévenu par notification et par e-mail.</p>
+
+                    <fieldset class="mb-3">
+                        <legend class="form-label fw-semibold fs-6">Contenu</legend>
+                        {% for action in contentActions %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="content" id="content-{{ action.value }}" value="{{ action.value }}" {{ loop.first ? 'checked' }} data-summary="{{ action.label }}{{ action.value == 'delete' ? ' (définitif' ~ (type.value in ['sujet', 'reponse'] ? ', un message d\'ouverture supprime tout le sujet' : '') ~ (type.value == 'groupe' ? ', avec ses salons, messages et tâches' : '') ~ ')' }}">
+                                <label class="form-check-label" for="content-{{ action.value }}">{{ action.label }}</label>
                             </div>
-                            <button type="submit" name="decision" value="delete" class="btn btn-danger"><i class="fa fa-trash"></i> Supprimer</button>
-                        </form>
+                        {% endfor %}
+                        {% if not targetAvailable %}<p class="small text-muted mb-0 mt-1">Le contenu n'existe plus.</p>{% endif %}
+                    </fieldset>
+
+                    {% if author %}
+                        <fieldset class="mb-3 border-top pt-3">
+                            <legend class="form-label fw-semibold fs-6">Avertir {{ author.username }}</legend>
+                            <label class="form-label small text-muted" for="decision-warning">Message envoyé au membre (laisser vide pour ne pas avertir)</label>
+                            <textarea class="form-control" id="decision-warning" name="warning" rows="3"></textarea>
+                        </fieldset>
+                        {% if canSuspendAuthor %}
+                            <fieldset class="mb-3 border-top pt-3">
+                                <legend class="form-label fw-semibold fs-6">Suspendre {{ author.username }}</legend>
+                                {{ include('admin/moderation/_suspension_fields.html.twig', {field_id: 'decision-duration', optional: true}) }}
+                                <label class="form-label mt-2" for="decision-suspension-reason">Motif communiqué au membre</label>
+                                <textarea class="form-control" id="decision-suspension-reason" name="suspension_reason" rows="2"></textarea>
+                            </fieldset>
+                        {% endif %}
                     {% endif %}
+
+                    <div class="border-top pt-3">
+                        <label class="form-label" for="decision-note">Note interne (facultative)</label>
+                        <textarea class="form-control" id="decision-note" name="note" rows="2"></textarea>
+                    </div>
                 </div>
-            </section>
+                <div class="card-footer d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-gavel"></i> Traiter</button>
+                </div>
+            </form>
 
-            {% if author %}
-                <section class="card mb-4">
-                    <div class="card-body">
-                        <h2 class="h6 mb-3">Avertir {{ author.username }}</h2>
-                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">
-                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
-                            <label class="form-label" for="warn-message">Message envoyé au membre</label>
-                            <textarea class="form-control mb-2" id="warn-message" name="note" rows="3" required></textarea>
-                            <button type="submit" name="decision" value="warn" class="btn btn-primary"><i class="fa fa-triangle-exclamation"></i> Avertir</button>
-                        </form>
-                    </div>
-                </section>
-
-                {% if canSuspendAuthor %}
-                <section class="card">
-                    <div class="card-body">
-                        <h2 class="h6 mb-3">Suspendre {{ author.username }}</h2>
-                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">
-                            <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
-                            {{ include('admin/moderation/_suspension_fields.html.twig', {field_id: 'report-duration'}) }}
-                            <label class="form-label mt-2" for="suspend-reason">Motif communiqué au membre</label>
-                            <textarea class="form-control mb-2" id="suspend-reason" name="note" rows="2" required></textarea>
-                            <button type="submit" name="decision" value="suspend" class="btn btn-danger"><i class="fa fa-user-slash"></i> Suspendre</button>
-                        </form>
-                    </div>
-                </section>
-                {% endif %}
-            {% endif %}
+            <dialog id="moderation-confirm" class="moderation-confirm" aria-labelledby="moderation-confirm-title">
+                <h2 id="moderation-confirm-title" class="h6">Confirmer la décision</h2>
+                <ul id="moderation-confirm-list" class="small mb-3"></ul>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" data-confirm-cancel>Annuler</button>
+                    <button type="button" class="btn btn-primary" data-confirm-accept><i class="fa fa-check"></i> Confirmer</button>
+                </div>
+            </dialog>
         {% else %}
             <section class="card">
                 <div class="card-body">
                     <h2 class="h6">Signalement traité</h2>
-                    <p class="mb-2"><span class="badge sanction sanction-{{ report.resolution.severity }}">{{ report.resolution.label }}</span>{% if report.handledBy %} par {{ report.handledBy.username }}{% endif %} le {{ report.handledAt|date('d/m/Y à H:i') }}.</p>
-                    {% if report.moderatorNote %}<p class="small text-muted">{{ report.moderatorNote }}</p>{% endif %}
+                    <p class="mb-2">
+                        {% for resolution in report.resolutions %}<span class="badge sanction sanction-{{ resolution.severity }} me-1">{{ resolution.label }}</span>{% endfor %}
+                        {% if report.handledBy %} par {{ report.handledBy.username }}{% endif %} le {{ report.handledAt|date('d/m/Y à H:i') }}.
+                    </p>
+                    {% if report.moderatorNote %}<p class="small text-muted" style="white-space: pre-line">{{ report.moderatorNote }}</p>{% endif %}
                     {% if targetHidden %}
-                        <form method="post" action="{{ path('admin_moderation_report_decision', {id: report.id}) }}">
+                        <form method="post" action="{{ path('admin_moderation_report_restore', {id: report.id}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
-                            <button type="submit" name="decision" value="restore" class="btn btn-secondary"><i class="fa fa-eye"></i> Rétablir le contenu</button>
+                            <button type="submit" class="btn btn-secondary"><i class="fa fa-eye"></i> Rétablir le contenu</button>
                         </form>
                     {% endif %}
                 </div>
@@ -142,4 +144,34 @@
         <p class="mt-3"><a href="{{ queueUrl }}"><i class="fa fa-arrow-left"></i> Retour à la file de modération</a></p>
     </div>
 </div>
+{% endblock %}
+
+{% block body_javascript %}
+    {{ parent() }}
+    <script>
+        (() => {
+            // Opens the confirmation window listing the prepared actions; the form is sent once they are confirmed
+            const form = document.getElementById('moderation-decision');
+            const dialog = document.getElementById('moderation-confirm');
+            if (!form || !dialog) return;
+            const list = document.getElementById('moderation-confirm-list');
+            const valueOf = name => (form.elements[name]?.value || '').trim();
+            const describeDecision = () => {
+                const actions = [];
+                const content = form.querySelector('input[name="content"]:checked');
+                if (content && content.value !== 'keep') actions.push(content.dataset.summary);
+                if (valueOf('warning')) actions.push('Avertissement : « ' + valueOf('warning') + ' »');
+                const duration = form.elements.duration;
+                if (duration && duration.value) actions.push('Suspension (' + duration.options[duration.selectedIndex].text.toLowerCase() + ') : « ' + valueOf('suspension_reason') + ' »');
+                return actions.length ? actions : ['Classer sans suite'];
+            };
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                list.replaceChildren(...describeDecision().map(text => Object.assign(document.createElement('li'), { textContent: text })));
+                dialog.showModal();
+            });
+            dialog.querySelector('[data-confirm-cancel]').addEventListener('click', () => dialog.close());
+            dialog.querySelector('[data-confirm-accept]').addEventListener('click', () => form.submit());
+        })();
+    </script>
 {% endblock %}

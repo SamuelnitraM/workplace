@@ -41,7 +41,7 @@
         {% set blocks = blocks|merge([{grouping: null, items: run}]) %}
     {% endif %}
 
-    <div class="space-y-8">
+    <div class="space-y-8" data-tour="forum-sections">
         {% for block in blocks %}
             {% if block.grouping %}
                 {% set group = block.grouping %}

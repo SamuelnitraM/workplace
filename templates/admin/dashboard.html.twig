@@ -51,6 +51,18 @@
 
     {% include 'admin/_activity_stats.html.twig' %}
 
+    <section class="mb-4" aria-labelledby="daily-charts-title">
+        <h2 id="daily-charts-title" class="h5 fw-bold mb-1">Les 30 derniers jours</h2>
+        <p class="text-muted small mb-3">Survolez une barre pour lire la valeur du jour.</p>
+        <div class="row g-3">
+            {% for chart in charts %}
+                <div class="col-12 col-xl-4">{{ include('admin/_bar_chart.html.twig', {chart: chart}) }}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% include 'admin/_moderation_stats.html.twig' %}
+
     <section class="hf-card p-3 p-md-4 mb-4">
         <h2 class="h5 fw-bold mb-1">Actions rapides</h2>
         <p class="text-muted small mb-3">Accédez directement aux tâches courantes.</p>

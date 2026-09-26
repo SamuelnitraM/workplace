@@ -38,6 +38,11 @@
             {% endfor %}
         </ul>
     </section>
+
+    <p class="flex items-start gap-3 rounded-control border border-line bg-surface-raised p-4 text-small text-fg-secondary">
+        <span class="mt-0.5 text-primary-text">{{ ui.icon('life-buoy', 'size-4') }}</span>
+        <span>Si tu es perdu, lance le <a href="{{ path('app_tour_index') }}" class="link">didacticiel</a> qui te guidera à travers le site. Il reste accessible à tout moment par le lien « Je suis perdu » en bas de page.</span>
+    </p>
 </div>
 {% endblock %}
 

@@ -23,7 +23,7 @@
                 {# ---- Actions ---- #}
                 <div class="profile-actions">
                     {% if isOwner %}
-                        <a href="{{ path('app_profil_edit') }}" class="btn btn-primary">{{ ui.icon('pencil') }}Modifier le profil</a>
+                        <a href="{{ path('app_profil_edit') }}" class="btn btn-primary" data-tour="profile-edit">{{ ui.icon('pencil') }}Modifier le profil</a>
 
                     {% elseif app.user %}
                         {% set blocked_between = blockedByMe or blockedMe %}
