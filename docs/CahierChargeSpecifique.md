@@ -67,6 +67,8 @@
     * Lorsqu'un utilisateur clique sur le bouton d'assignation, sa photo apparaît en grisé (demande en attente).
     * Un administrateur ou le propriétaire valide ou refuse l'assignation via une pop-up dédiée déclenchée au clic sur la photo.
     * Ajouter un réglage d'autorisation pour la gestion des assignations (Droits : *Propriétaire*, *Admin*, ou *Libre*).
+    * **Mode *Libre* :** tout membre peut s'assigner directement à une tâche, sans demande à valider. Seuls les administrateurs et le propriétaire peuvent retirer un membre assigné.
+  * **Nombre d'assignés par tâche :** jusqu'à 3 membres par tâche. Un paramètre du groupe fixe la limite (1, 2 ou 3) ; les demandes au-delà de la limite sont refusées.
   * **Ergonomie :** Rendre le menu déroulant d'assignation scrollable en cas de nombre élevé de membres. Replier (*collapse*) les projets par défaut (appliquer la même règle à la ToDo personnelle).
 
 * **Paramètres :**
@@ -96,6 +98,7 @@
 
 * **Footer et Onboarding :**
   * Ajouter un bouton « Je suis perdu » déclenchant un didacticiel interactif.
+  * **Rôles distincts :** la présentation (onboarding existant) sert uniquement à compléter le profil. Le didacticiel est une visite guidée (librairie de *guided tour*) qui explique le fonctionnement de chaque fonctionnalité du site (forum, groupes, galerie, listes d'armée, messagerie, etc.).
   * Ajuster la présentation initiale du site avec la mention finale : *« Si vous êtes perdu, lancez le didacticiel qui vous guidera à travers le site »* (incluant le lien vers le didacticiel).
   * **Logique du bouton de présentation dans le footer :** Masquer le bouton si la présentation a été complétée. Si elle est incomplète, afficher le libellé « Continuer la présentation ».
 
@@ -135,7 +138,7 @@
 ## 7. Messagerie privée
 
 * **Tri et affichage :**
-  * Trier les messages chronologiquement du plus récent au plus ancien.
+  * Sur la page listant les conversations, trier les conversations par activité la plus récente (dernier message en haut). La liste doit se réordonner en temps réel à la réception d'un nouveau message, sans rechargement. L'ordre des messages à l'intérieur d'une conversation reste chronologique.
   * Adapter la fenêtre de messagerie instantanée (*sticky* en bas à droite) pour éviter tout chevauchement avec le *footer*.
 * **Fonctionnalités de saisie :**
   * Intégrer un sélecteur d'émoticônes (icône SVG casque Space Marine) dans la zone de texte.
@@ -186,3 +189,12 @@
 3. **Optimisation de la forme :**
    * Correction systématique des coquilles et fautes de frappe.
    * Mise en conformité de la typographie et de la structure Markdown.
+
+---
+
+## Découpage en lots
+
+1. **Lot 1 — Finition :** sections 1, 3 (hors didacticiel), 4, 5, 6, 7 et 8 ; lignes cliquables et code couleur des sanctions en administration. Le sélecteur d'émoticônes et la détection des mentions `@pseudo` sont réalisés une seule fois sous forme de composants communs (forum, groupes, messagerie). La table d'activité quotidienne des membres est créée dès ce lot afin d'alimenter les statistiques du lot 3.
+2. **Lot 2 — Groupes :** page en trois colonnes, tri personnalisé, invitations, assignations multiples avec demande et validation, groupe muet.
+3. **Lot 3 — Chantiers lourds :** didacticiel en visite guidée, traitement combiné des signalements, statistiques d'activité (rétention, actifs quotidiens, inscriptions).
+
