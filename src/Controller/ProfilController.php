@@ -285,7 +285,7 @@ public function show(
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Profile photo and banner: removal requested, then optional new file (re-encoded to WebP, EXIF removed)
+            // Profile photo and banner: removal requested, then optional new file cropped to the chosen frame (WebP, EXIF removed)
             $previousFilenames = [];
             foreach ([ProfileImage::Avatar, ProfileImage::Cover] as $kind) {
                 $previousFilenames[$kind->value] = $kind->filenameOf($user);
@@ -294,7 +294,8 @@ public function show(
                 }
                 /** @var UploadedFile|null $imageFile */
                 $imageFile = $form->get($kind->value . 'File')->getData();
-                if ($imageFile instanceof UploadedFile && ($error = $profileImageUploader->upload($user, $kind, $imageFile))) {
+                $cropFrame = $request->request->get($kind->cropFieldName());
+                if ($imageFile instanceof UploadedFile && ($error = $profileImageUploader->upload($user, $kind, $imageFile, is_string($cropFrame) ? $cropFrame : null))) {
                     $this->addFlash('error', $error);
                 }
             }

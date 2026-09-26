@@ -6,7 +6,8 @@ use App\Entity\User;
 
 /**
  * Images of a member profile: the profile photo (avatar) and the banner shown at the top of the profile (cover).
- * Each kind has its own upload folder (public/uploads/<folder>), maximum dimension and file size.
+ * Each kind has its own upload folder (public/uploads/<folder>), aspect ratio, maximum dimension and file size.
+ * The stored image always has the aspect ratio of its kind: it is displayed exactly as framed when it was uploaded.
  */
 enum ProfileImage: string
 {
@@ -20,6 +21,21 @@ enum ProfileImage: string
             self::Avatar => 'avatars',
             self::Cover => 'covers',
         };
+    }
+
+    /** Width / height of the stored image (square profile photo, wide banner). */
+    public function aspectRatio(): float
+    {
+        return match ($this) {
+            self::Avatar => 1.0,
+            self::Cover => 4.0,
+        };
+    }
+
+    /** Request field holding the crop frame chosen in the browser ("x,y,width,height"). */
+    public function cropFieldName(): string
+    {
+        return $this->value . '_crop';
     }
 
     /** Largest side of the re-encoded WebP image, in pixels. */

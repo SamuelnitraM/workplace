@@ -25,8 +25,10 @@
             <div class="card-body space-y-6">
 
                 {# Photo de profil (assets/controllers/profile_image_controller.js) #}
-                <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-center" data-controller="profile-image">
+                <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-center" data-controller="profile-image"
+                     data-profile-image-aspect-ratio-value="{{ constant('App\\Profile\\ProfileImage::Avatar').aspectRatio }}">
                     <input type="hidden" name="delete_avatar" id="delete-avatar" value="0" data-profile-image-target="deleteInput">
+                    {{ include('_partials/_crop_dialog.html.twig', {kind: constant('App\\Profile\\ProfileImage::Avatar'), title: 'Recadrer la photo de profil', round: true}) }}
                     <div class="group relative size-28 shrink-0">
                         <div class="relative size-full overflow-hidden rounded-pill border-2 border-line-strong bg-surface-raised">
                             <img {% if user.avatar %}src="{{ asset('uploads/avatars/' ~ user.avatar) }}" {% endif %}
@@ -43,7 +45,7 @@
                         </div>
                         {# Champ fichier masqué, ouvert par la photo ou le bouton « Changer la photo » #}
                         <div class="absolute inset-0">
-                            {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'data-action': 'change->profile-image#preview'}, 'id': 'avatar-upload-input'}) }}
+                            {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'data-action': 'change->profile-image#chooseFile', 'data-profile-image-target': 'fileInput'}, 'id': 'avatar-upload-input'}) }}
                             <label for="avatar-upload-input" class="absolute inset-0 cursor-pointer rounded-pill"><span class="sr-only">Choisir une nouvelle photo de profil</span></label>
                         </div>
                     </div>
@@ -78,15 +80,17 @@
                 <hr class="divider my-0">
 
                 {# Banner (assets/controllers/profile_image_controller.js): the default visual is shown without one #}
-                <div class="space-y-3" data-controller="profile-image">
+                <div class="space-y-3" data-controller="profile-image"
+                     data-profile-image-aspect-ratio-value="{{ constant('App\\Profile\\ProfileImage::Cover').aspectRatio }}">
                     <input type="hidden" name="delete_cover" value="0" data-profile-image-target="deleteInput">
+                    {{ include('_partials/_crop_dialog.html.twig', {kind: constant('App\\Profile\\ProfileImage::Cover'), title: 'Recadrer la bannière'}) }}
                     <p class="label">Bannière</p>
                     <div class="profile-cover-preview">
                         <img {% if user.cover %}src="{{ asset('uploads/covers/' ~ user.cover) }}" {% endif %}alt="Bannière actuelle"
                              data-profile-image-target="preview" class="size-full object-cover {{ user.cover ? '' : 'hidden' }}">
                         <div data-profile-image-target="placeholder" class="profile-cover size-full {{ user.cover ? 'hidden' : '' }}" aria-hidden="true"></div>
                     </div>
-                    {{ form_widget(form.coverFile, {attr: form.coverFile.vars.attr|merge({class: 'sr-only', 'data-action': 'change->profile-image#preview'}), id: 'cover-upload-input'}) }}
+                    {{ form_widget(form.coverFile, {attr: form.coverFile.vars.attr|merge({class: 'sr-only', 'data-action': 'change->profile-image#chooseFile', 'data-profile-image-target': 'fileInput'}), id: 'cover-upload-input'}) }}
                     <div class="flex flex-wrap items-center gap-2">
                         <label for="cover-upload-input" class="btn btn-secondary btn-sm cursor-pointer">{{ ui.icon('upload') }}Changer la bannière</label>
                         {% if user.cover %}

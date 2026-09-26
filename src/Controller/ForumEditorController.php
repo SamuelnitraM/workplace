@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Forum\ForumMarkdown;
-use App\Repository\UserRepository;
 use App\Service\ForumImageUploader;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -15,7 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * Points d'accès de l'éditeur Markdown du forum (contrôleur Stimulus « markdown-editor ») :
- * aperçu, envoi d'image et suggestions de mention. Réservés aux membres connectés.
+ * aperçu et envoi d'image. Réservés aux membres connectés (suggestions de mention : MentionController).
  */
 #[Route('/forum/editor', name: 'app_forum_editor_')]
 #[IsGranted('ROLE_USER')]
@@ -53,22 +52,6 @@ final class ForumEditorController extends AbstractController
         return isset($result['error'])
             ? new JsonResponse(['error' => $result['error']], Response::HTTP_UNPROCESSABLE_ENTITY)
             : new JsonResponse(['url' => $result['url']]);
-    }
-
-    #[Route('/mentions', name: 'mentions', methods: ['GET'])]
-    public function mentions(Request $request, UserRepository $userRepository): JsonResponse
-    {
-        $query = trim((string) $request->query->get('q', ''));
-        if ($query === '' || !preg_match('/^[A-Za-z0-9_.-]{1,50}$/D', $query)) {
-            return new JsonResponse(['users' => []]);
-        }
-
-        $users = array_map(fn (User $user) => [
-            'username' => $user->getUsername(),
-            'avatar' => $user->getAvatar() ? '/uploads/avatars/' . $user->getAvatar() : null,
-        ], $userRepository->findMentionSuggestions($query));
-
-        return new JsonResponse(['users' => $users]);
     }
 
     private function checkCsrf(Request $request): ?JsonResponse

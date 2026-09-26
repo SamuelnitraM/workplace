@@ -1,0 +1,21 @@
+{#
+    Crop window of a profile image (assets/controllers/profile_image_controller.js), placed inside the controller element.
+    Parameters: kind (App\Profile\ProfileImage), title, round (true: round guide of a profile photo).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+<input type="hidden" name="{{ kind.cropFieldName }}" value="" data-profile-image-target="cropInput">
+<dialog class="modal modal-wide crop-dialog {{ round ?? false ? 'crop-round' }}" aria-labelledby="{{ kind.value }}-crop-title"
+        data-profile-image-target="dialog" data-action="close->profile-image#onDialogClose">
+    <div class="modal-header">
+        <p class="modal-title" id="{{ kind.value }}-crop-title">{{ title }}</p>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" data-action="profile-image#cancelCrop" aria-label="Annuler">{{ ui.icon('x') }}</button>
+    </div>
+    <div class="modal-body">
+        <p class="mb-3 text-small text-muted">Déplace l'image et ajuste le cadre (molette ou pincement pour zoomer) : ce qui est dans le cadre sera affiché tel quel.</p>
+        <div class="crop-stage"><img src="" alt="Image à recadrer" data-profile-image-target="cropImage"></div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" data-action="profile-image#cancelCrop">Annuler</button>
+        <button type="button" class="btn btn-primary" data-action="profile-image#confirmCrop">{{ ui.icon('check') }}Valider le cadrage</button>
+    </div>
+</dialog>

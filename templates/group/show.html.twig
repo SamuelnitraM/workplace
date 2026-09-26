@@ -303,10 +303,14 @@
                                 <input type="hidden" name="_token" value="{{ csrf_token('group') }}">
                                 <input type="hidden" name="channel_id" value="{{ activeChannel.id }}">
                                 <label for="message-input" class="sr-only">Message dans #{{ activeChannel.name }}</label>
-                                <input type="text" name="content" id="message-input" data-chat-target="input" maxlength="2000" required
-                                       placeholder="Message dans #{{ activeChannel.name }}…"
-                                       autocomplete="off" enterkeyhint="send"
-                                       class="input flex-1 rounded-pill px-4">
+                                <div class="flex-1" data-controller="mention-suggest">
+                                    <input type="text" name="content" id="message-input" data-chat-target="input" data-mention-suggest-target="input" maxlength="2000" required
+                                           data-action="keydown->mention-suggest#onKeydown input->mention-suggest#onInput blur->mention-suggest#close"
+                                           placeholder="Message dans #{{ activeChannel.name }}…"
+                                           autocomplete="off" enterkeyhint="send"
+                                           class="input w-full rounded-pill px-4">
+                                </div>
+                                <div data-controller="emoji-picker" data-emoji-picker-input-value="message-input"></div>
                                 <button type="submit" class="btn btn-primary btn-icon shrink-0 rounded-pill" aria-label="Envoyer le message">
                                     {{- ui.icon('send') -}}
                                 </button>

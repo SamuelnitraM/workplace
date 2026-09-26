@@ -153,7 +153,8 @@ final class OnboardingController extends AbstractController
 
             $oldAvatar = $user->getAvatar();
             $avatarFile = $form->get('avatarFile')->getData();
-            if ($avatarFile instanceof UploadedFile && ($error = $profileImageUploader->upload($user, ProfileImage::Avatar, $avatarFile))) {
+            $cropFrame = $request->request->get(ProfileImage::Avatar->cropFieldName());
+            if ($avatarFile instanceof UploadedFile && ($error = $profileImageUploader->upload($user, ProfileImage::Avatar, $avatarFile, is_string($cropFrame) ? $cropFrame : null))) {
                 $errors[] = $error;
             }
 

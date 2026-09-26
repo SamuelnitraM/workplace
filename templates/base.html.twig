@@ -21,6 +21,7 @@
     <meta name="hf-csrf-private-message" content="{{ csrf_token('private_message') }}">
     <meta name="hf-csrf-notification" content="{{ csrf_token('notification') }}">
     <meta name="hf-notification-sound" content="{{ app.user.notificationSound }}">
+    <meta name="hf-mentions-url" content="{{ path('app_mention_suggestions') }}">
     {% endif %}
     {% block stylesheets %}{% endblock %}
     {% block javascripts %}

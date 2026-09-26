@@ -120,7 +120,8 @@
         {{ block('gallery_carousels') }}
 
         <div class="grid gap-8 lg:grid-cols-3">
-            <div class="min-w-0 lg:col-span-2">
+            {# The feed column is exactly as tall as the right column; the feed scrolls inside it #}
+            <div class="home-feed-column min-w-0 lg:col-span-2">
                 {# Fil d'actualité : amis, groupes ou communauté (templates/feed/_feed.html.twig) #}
                 {{ include('feed/_feed.html.twig', {feed: userDashboard.feed, hasNetwork: userDashboard.hasNetwork, filters: feedFilters}, with_context = false) }}
             </div>

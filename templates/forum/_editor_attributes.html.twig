@@ -4,7 +4,6 @@
 {% if with_controller ?? true %}data-controller="markdown-editor"{% endif %}
 data-markdown-editor-preview-url-value="{{ path('app_forum_editor_preview') }}"
 data-markdown-editor-image-url-value="{{ path('app_forum_editor_image') }}"
-data-markdown-editor-mentions-url-value="{{ path('app_forum_editor_mentions') }}"
 data-markdown-editor-csrf-value="{{ csrf_token(constant('App\\Controller\\ForumEditorController::CSRF_TOKEN_ID')) }}"
 data-markdown-editor-draft-key-value="{{ draft_key ?? '' }}"
 data-action="submit->markdown-editor#onSubmit"

@@ -98,6 +98,45 @@ class CommunityTest extends FunctionalTestCase
         self::assertSame((new \DateTimeImmutable())->format('Y-m-d'), $activities[0]->getDay()->format('Y-m-d'));
     }
 
+    public function testBannerIsStoredAsTheChosenFrame(): void
+    {
+        $alice = $this->createMember('alice');
+        $source = sys_get_temp_dir() . '/banner-source-' . uniqid() . '.png';
+        $image = imagecreatetruecolor(1000, 800);
+        imagefill($image, 0, 0, imagecolorallocate($image, 20, 20, 200));
+        imagefilledrectangle($image, 0, 500, 999, 699, imagecolorallocate($image, 220, 20, 20));
+        imagepng($image, $source);
+        $this->client->loginUser($alice);
+        $crawler = $this->client->request('GET', '/profil/settings/edit');
+        $form = $crawler->selectButton('Enregistrer')->form();
+        $form['user_profile_form[coverFile]']->upload($source);
+        $values = $form->getPhpValues();
+        $values['cover_crop'] = '0,500,800,200';
+        $this->client->request('POST', $form->getUri(), $values, $form->getPhpFiles());
+        self::assertResponseRedirects('/profil/alice');
+        $cover = $this->reload($alice)->getCover();
+        $storedPath = static::getContainer()->getParameter('kernel.project_dir') . '/public/uploads/covers/' . $cover;
+        [$width, $height] = getimagesize($storedPath);
+        $stored = imagecreatefromwebp($storedPath);
+        $centre = imagecolorsforindex($stored, imagecolorat($stored, intdiv($width, 2), intdiv($height, 2)));
+        unlink($storedPath);
+        unlink($source);
+        self::assertSame($height * 4, $width);
+        self::assertGreaterThan(150, $centre['red']);
+        self::assertLessThan(80, $centre['blue']);
+    }
+
+    public function testMentionSuggestionsListMatchingMembers(): void
+    {
+        $this->createMember('alice');
+        $this->createMember('albert');
+        $this->client->loginUser($this->createMember('bob'));
+        $this->client->request('GET', '/mentions?q=al');
+        $usernames = array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['users'], 'username');
+        sort($usernames);
+        self::assertSame(['albert', 'alice'], $usernames);
+    }
+
     private function befriend(User $requester, User $receiver): void
     {
         $friendship = (new Friendship())->setRequester($requester)->setReceiver($receiver)->setStatus('accepted');

@@ -201,7 +201,9 @@ Fonctionnement :
     - les badges non obtenus sont affichés en gris ;
     - un **historique d'XP** en bandeau déroulant, replié par défaut, séparé de l'activité du compte ;
   - **Activité** : les 10 dernières actions. Le membre peut masquer cet onglet (`showActivity`).
-- **Paramètres :** avatar et **bannière** (`App\Profile\ProfileImage`, `ProfileImageUploader` : ré-encodage WebP 512 px pour l'avatar, 1920 px pour la bannière, dans `public/uploads/avatars` et `public/uploads/covers`), bio, faction favorite, visibilité de l'activité.
+- **Paramètres :** avatar et **bannière** (`App\Profile\ProfileImage`, `ProfileImageUploader`), bio, faction favorite, visibilité de l'activité.
+  - **Recadrage** : une image choisie s'ouvre dans une fenêtre de recadrage (Cropper.js, contrôleur `profile-image`) avec un cadre carré pour l'avatar (guide rond) et 4:1 pour la bannière. Le serveur garde exactement ce cadre (`App\Image\ImageCrop`, recentré au bon format s'il est incomplet), après avoir appliqué l'orientation EXIF des photos de téléphone ;
+  - ré-encodage WebP 512 px pour l'avatar, 1920 px de large pour la bannière, dans `public/uploads/avatars` et `public/uploads/covers` ; la bannière s'affiche au format 4:1 sur le profil.
 - **Choix du titre :** parmi les badges obtenus (`POST /profil/settings/title`).
 
 ### 3.4 Galerie photo
@@ -228,7 +230,7 @@ Fonctionnement :
 - **Contenu** (`App\Feed\FeedService`) : activité **publique** des autres membres — photos visibles, nouveaux sujets, listes d'armée publiques, badges obtenus (regroupés par membre et par jour).
 - **Filtres** : Tout (amis + membres de mes groupes), Amis, Groupes, Communauté (tout le monde), **Actualités** (sujets des catégories du forum en lecture seule : nouveautés et changelog du site). Par défaut « Tout », ou « Communauté » tant que le membre n'a ni ami ni groupe.
 - **Réactions** : « J'aime » (cœur et compteur) sur les photos directement depuis le fil, commentaires et réponses (icône et compteur), alignés sur une même ligne ; bouton « Répondre » sur les sujets (« Lire » quand on ne peut pas répondre).
-- **Pagination** : 12 éléments ; la page suivante se charge automatiquement quand on arrive en bas (Turbo Frame `loading="lazy"`, curseur de date sans doublon ni oubli ; le lien « Voir plus » reste en secours). Sur grand écran, le fil défile dans sa propre zone. Le changement de filtre ne recharge que le fil.
+- **Pagination** : 12 éléments ; la page suivante se charge automatiquement quand on arrive en bas (Turbo Frame `loading="lazy"`, curseur de date sans doublon ni oubli ; le lien « Voir plus » reste en secours). Sur grand écran, le fil a exactement la hauteur de la colonne de droite et défile à l'intérieur. Le changement de filtre ne recharge que le fil.
 - « Dernières discussions », « Mes derniers sujets » et « Explorer les sections » sont dans la colonne de droite, masquée sur mobile. Les raccourcis déjà présents dans la barre de navigation ne sont pas répétés.
 
 ### 3.5 Forum
@@ -250,7 +252,7 @@ Fonctionnement :
   - **images** : bouton, coller ou glisser-déposer ; ré-encodées en WebP 1600 px dans `public/uploads/forum/`, 30 par jour et par membre ;
   - **brouillon** enregistré dans le navigateur, effacé à l'envoi.
 - **Rendu** (`App\Forum\ForumMarkdown`, filtre Twig `forum_markdown`) : HTML saisi échappé, liens externes en `nofollow` dans un nouvel onglet, seules les images envoyées sur le site sont affichées (une image externe devient un lien : pas de pistage des lecteurs). Les sauts de ligne sont conservés : les anciens messages s'affichent comme avant.
-- **Mentions `@pseudo`** : suggestions pendant la saisie, lien vers le profil, notification de la personne mentionnée (10 au plus par message). Détection et résolution communes à tout le site : `App\Text\MentionResolver`.
+- **Mentions `@pseudo`** : suggestions pendant la saisie, lien vers le profil, notification de la personne mentionnée (10 au plus par message). Détection et résolution communes à tout le site : `App\Text\MentionResolver` ; suggestions communes au forum, à la messagerie privée et aux salons de groupe : contrôleur `mention-suggest` et `/mentions` (`MentionController`).
 - **Émoticônes** : sélecteur commun (contrôleur `emoji-picker`, icône de casque de Space Marine), dans l'éditeur du forum et la messagerie.
 - **Citer** : le bouton « Citer » d'un message insère la citation (sans les citations imbriquées) dans la réponse.
 - **Abonnements** (`ThreadSubscription`) : l'auteur du sujet et chaque membre qui répond suivent automatiquement le sujet ; bouton « Suivre / Suivi » pour les autres. Chaque nouvelle réponse notifie les abonnés (un membre mentionné reçoit la mention plutôt que la réponse).
@@ -273,7 +275,7 @@ Fonctionnement :
   - pages `/messages` et `/messages/{username}`, plus une **messagerie flottante** ouvrable partout ;
   - envoi et réception **en temps réel** (Pusher, canaux privés), accusés de lecture, compteur de non-lus ;
   - la page `/messages` classe les conversations par activité la plus récente et fait remonter en direct celle qui reçoit un message (contrôleur `conversation-list`) ;
-  - **mentions `@pseudo`** transformées en lien vers le profil, sans notification (`MentionResolver::linkify`, filtre Twig `mention_links`) ; **émoticônes** dans la page de conversation et la messagerie flottante ;
+  - **mentions `@pseudo`** proposées pendant la saisie et transformées en lien vers le profil, sans notification (`MentionResolver::linkify`, filtre Twig `mention_links`) ; **émoticônes** dans la page de conversation et la messagerie flottante ;
   - protégés par CSRF (identifiant `private_message`).
 
 ### 3.7 Groupes

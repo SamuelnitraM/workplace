@@ -42,22 +42,20 @@
     </div>
 
     <div class="md-editor-body">
-        <div id="{{ input_id }}-write" role="tabpanel" aria-labelledby="{{ input_id }}-tab-write" data-markdown-editor-target="writePane">
+        <div id="{{ input_id }}-write" role="tabpanel" aria-labelledby="{{ input_id }}-tab-write" data-markdown-editor-target="writePane"
+             data-controller="mention-suggest" data-mention-suggest-placement-value="inside">
             {% if label is defined and label %}
                 <label for="{{ input_id }}" class="sr-only">{{ label }}</label>
             {% endif %}
             {{ form_widget(field, {attr: field.vars.attr|merge({
                 class: 'md-editor-input',
                 'data-markdown-editor-target': 'input',
-                'data-action': 'input->markdown-editor#onInput keydown->markdown-editor#onKeydown paste->markdown-editor#onPaste drop->markdown-editor#onDrop dragover->markdown-editor#onDragover blur->markdown-editor#closeMentions',
+                'data-mention-suggest-target': 'input',
+                'data-action': 'keydown->mention-suggest#onKeydown input->mention-suggest#onInput blur->mention-suggest#close input->markdown-editor#onInput keydown->markdown-editor#onKeydown paste->markdown-editor#onPaste drop->markdown-editor#onDrop dragover->markdown-editor#onDragover',
                 role: 'combobox',
-                'aria-autocomplete': 'list',
-                'aria-expanded': 'false',
-                'aria-controls': input_id ~ '-mentions',
                 'aria-haspopup': 'listbox',
                 'aria-multiline': 'true',
             })}) }}
-            <ul id="{{ input_id }}-mentions" role="listbox" aria-label="Membres à mentionner" class="md-mention-list hidden" data-markdown-editor-target="mentions"></ul>
         </div>
         <div id="{{ input_id }}-preview" role="tabpanel" aria-labelledby="{{ input_id }}-tab-preview" tabindex="0" hidden
              class="md-editor-preview post-content" data-markdown-editor-target="previewPane"></div>

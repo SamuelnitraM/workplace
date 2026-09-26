@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Image\ImageCrop;
 use App\Profile\ProfileImage;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
@@ -11,10 +12,12 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\Validator\Constraints\File;
 
 /**
- * Profile images (profile photo, banner): shared validation (profile form, guided presentation), WebP re-encoding
- * (EXIF metadata removed) and removal of the replaced file.
+ * Profile images (profile photo, banner): shared validation (profile form, guided presentation), crop to the frame
+ * chosen in the browser (always at the aspect ratio of the kind), WebP re-encoding (EXIF metadata removed)
+ * and removal of the replaced file.
  *
- * Usage: $old = ProfileImage::Cover->filenameOf($user); $error = $uploader->upload($user, ProfileImage::Cover, $file);
+ * Usage: $old = ProfileImage::Cover->filenameOf($user);
+ *        $error = $uploader->upload($user, ProfileImage::Cover, $file, $request->request->get(ProfileImage::Cover->cropFieldName()));
  *        $em->flush(); $uploader->deleteReplaced($user, ProfileImage::Cover, $old);
  */
 final class ProfileImageUploader
@@ -40,9 +43,10 @@ final class ProfileImageUploader
 
     /**
      * Stores the file (already validated by fileConstraint()) and assigns it to the member (no flush).
+     * $cropFrame: "x,y,width,height" chosen in the crop window; without it, the centre of the image is kept.
      * Returns null on success, otherwise an error message in French (the current image is kept).
      */
-    public function upload(User $user, ProfileImage $kind, UploadedFile $file): ?string
+    public function upload(User $user, ProfileImage $kind, UploadedFile $file, ?string $cropFrame = null): ?string
     {
         $failure = sprintf('Erreur lors de l\'envoi de %s.', $kind->label());
         if (!$file->isValid()) {
@@ -56,7 +60,8 @@ final class ProfileImageUploader
         } catch (FileException) {
             return $failure;
         }
-        if (!$this->imageOptimizer->optimizeToWebp($directory . '/' . $newFilename, $kind->maxDimension(), self::QUALITY)) {
+        $crop = ImageCrop::fromFrameValue($kind->aspectRatio(), $cropFrame);
+        if (!$this->imageOptimizer->optimizeToWebp($directory . '/' . $newFilename, $kind->maxDimension(), self::QUALITY, $crop)) {
             @unlink($directory . '/' . $newFilename);
             return sprintf('%s n’a pas pu être traitée (image invalide ou dimensions trop grandes).', ucfirst($kind->label()));
         }

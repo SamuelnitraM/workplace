@@ -399,13 +399,17 @@ export default class extends Controller {
                                     ${messagesHtml}
                                 </div>
                                 <div class="p-2 border-t border-line flex gap-2">
+                                    <div class="min-w-0 flex-1" data-controller="mention-suggest">
                                     <input data-input-key="${conv.key}"
                                            id="messenger-input-${conv.key}"
+                                           data-mention-suggest-target="input"
+                                           data-action="keydown->mention-suggest#onKeydown input->mention-suggest#onInput blur->mention-suggest#close"
                                            type="text"
                                            maxlength="2000"
                                            placeholder="Message..."
                                            autocomplete="off"
-                                           class="input flex-1 min-h-9 px-2.5 py-1 text-small">
+                                           class="input w-full min-h-9 px-2.5 py-1 text-small">
+                                    </div>
                                     <div data-controller="emoji-picker" data-emoji-picker-input-value="messenger-input-${conv.key}"></div>
                                     <button type="button" data-send-conv="${conv.key}"
                                             class="btn btn-primary btn-icon btn-sm shrink-0" aria-label="Envoyer">

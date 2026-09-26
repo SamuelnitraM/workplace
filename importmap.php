@@ -25,4 +25,11 @@ return [
     '@hotwired/turbo' => [
         'version' => '8.0.23',
     ],
+    'cropperjs' => [
+        'version' => '1.6.2',
+    ],
+    'cropperjs/dist/cropper.min.css' => [
+        'version' => '1.6.2',
+        'type' => 'css',
+    ],
 ];

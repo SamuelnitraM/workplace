@@ -5,12 +5,12 @@
     les autres liens du frame (target="_top") ouvrent une page complète.
 #}
 {% import '_macros/ui.html.twig' as ui %}
-<section aria-labelledby="feed-title">
+<section class="home-feed" aria-labelledby="feed-title">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 id="feed-title" class="section-title mb-0">{{ ui.icon('rss') }}Fil d'actualité</h2>
     </div>
 
-    <turbo-frame id="feed" class="block" target="_top">
+    <turbo-frame id="feed" class="flex flex-col" target="_top">
         <nav class="tabs tabs-pills mb-4" aria-label="Filtrer le fil d'actualité">
             {% for key, label in filters %}
                 <a href="{{ path('app_home', {fil: key}) }}" class="tab" data-turbo-frame="feed" data-turbo-action="advance"

@@ -245,3 +245,11 @@ Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_i
 
 `.badge-tier-bronze|silver|gold|premium|honorary` : les badges honorifiques (sans XP) ont leur propre couleur, turquoise.
 
+## Suggestions de mention
+
+`<div data-controller="mention-suggest">` autour d'un champ `data-mention-suggest-target="input"` avec les actions `keydown->mention-suggest#onKeydown input->mention-suggest#onInput blur->mention-suggest#close`, déclarées **avant** les autres actions du champ (Entrée choisit le membre au lieu d'envoyer). Liste au-dessus du champ par défaut, `data-mention-suggest-placement-value="inside"` pour une grande zone de texte.
+
+## Recadrage d'image
+
+`templates/_partials/_crop_dialog.html.twig` dans un bloc `data-controller="profile-image"` (valeur `aspect-ratio`) : le fichier choisi s'ouvre dans la fenêtre de recadrage, le cadre part avec le formulaire (`<type>_crop`).
+
