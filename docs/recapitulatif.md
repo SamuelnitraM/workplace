@@ -563,7 +563,7 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 - **Envois de fichiers :** type et taille vérifiés, noms de fichiers générés. `public/uploads` n'est pas versionné.
 - **Secrets :**
   - dans `.env.local`, jamais commité (le `.env` du dépôt a des secrets vides) ;
-  - en production, le `.env` du serveur est conservé lors des mises à jour.
+  - en production, dans le `.env.local` du serveur, absent du code exporté et donc conservé lors des mises à jour.
 
 ---
 
@@ -664,8 +664,10 @@ HighlightForge/
 |---|---|---|
 | Hébergement | XAMPP (Windows) | alwaysdata, offre gratuite |
 | `APP_ENV` | `dev` | `prod` |
-| Secrets | `.env.local` | `.env` du serveur (conservé à chaque mise à jour) |
-| E-mails | `MAILER_DSN=mailjet+api://CLE_API:CLE_SECRETE@default` | idem, dans le `.env` du serveur |
+| Secrets | `.env.local` | `.env.local` du serveur (`APP_ENV=prod`, jamais présent dans le code exporté) |
+| E-mails | `MAILER_DSN=mailjet+api://CLE_API:CLE_SECRETE@default` | idem, dans le `.env.local` du serveur |
+
+Le `.env` du dépôt ne contient que des valeurs de développement sans secret (`APP_ENV=dev`, e-mails désactivés) : il peut être envoyé sur le serveur sans risque, le `.env.local` du serveur le surcharge. Un serveur sans `.env.local` démarre en `dev` et répond par une erreur 500 (paquets de développement absents avec `composer install --no-dev`).
 
 **Variables e-mail** (à définir dans les deux environnements) :
 - `MAILER_DSN` : clés API Mailjet (compte Mailjet > Paramètres du compte > Clés API REST). `null://null` n'envoie rien ;
@@ -675,7 +677,7 @@ HighlightForge/
 
 ### Procédure de mise à jour (FileZilla et SSH)
 1. **Sur le PC :**
-   - exporter le code propre (sans `.env`, `vendor`, `var`, `uploads`) ;
+   - exporter le code propre (sans `.env.local`, `vendor`, `var`, `uploads`) ;
    - construire le CSS avec `php bin/console tailwind:build --minify`.
 2. **Envoyer** le dossier exporté dans `~/sprue-deploy` sur le serveur.
 3. **Sauvegarder la base :**
@@ -695,9 +697,9 @@ composer install --no-dev --optimize-autoloader
 php bin/console doctrine:migrations:migrate --no-interaction
 ```
 7. **Envoyer `var/tailwind/app.built.css`** construit sur le PC. ⚠️ `tailwind:build` est interrompu sur le serveur (manque de mémoire de l'offre gratuite).
-8. **Compiler les assets et vider le cache :**
+8. **Installer les bibliothèques JavaScript, compiler les assets et vider le cache :**
 ```bash
-php bin/console asset-map:compile && php bin/console cache:clear
+php bin/console importmap:install && php bin/console asset-map:compile && php bin/console cache:clear
 ```
 9. **Selon les changements :** `app:gamification:sync-badges`, `app:gamification:recompute --resum`, `app:forum:seed-categories`, `army:sync-bsdata --force` (obligatoire après la migration `Version20261003100000` : remplit les améliorations des détachements).
 
