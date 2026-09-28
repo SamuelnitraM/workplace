@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { skeletonRows } from '../lib/skeleton.js';
 
 /*
  * Éditeur Markdown du forum (templates/forum/_editor.html.twig).
@@ -133,7 +134,7 @@ export default class extends Controller {
             pane.replaceChildren(this.message('Rien à prévisualiser pour l’instant.'));
             return;
         }
-        pane.replaceChildren(this.message('Chargement de l’aperçu…'));
+        pane.replaceChildren(skeletonRows(3, { avatar: false }));
         const body = new FormData();
         body.append('content', content);
         this.post(this.previewUrlValue, body)

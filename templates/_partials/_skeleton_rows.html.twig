@@ -1,0 +1,18 @@
+{#
+    Loading placeholder: rows of an avatar and two lines, with the shimmer of .skeleton.
+    Rendered by Twig where content loads in the background (feed pages, search) and cloned by JavaScript from the
+    <template id="skeleton-rows"> of base.html.twig (assets/lib/skeleton.js), so both share this markup.
+    Parameters: rows (default 3), avatar (default true).
+#}
+<div class="skeleton-rows" role="status" aria-live="polite">
+    <span class="sr-only">Chargement…</span>
+    {% for row in 1..(rows ?? 3) %}
+        <div class="skeleton-row" aria-hidden="true">
+            {% if avatar ?? true %}<span class="skeleton skeleton-circle size-9 shrink-0"></span>{% endif %}
+            <span class="flex-1 space-y-2">
+                <span class="skeleton skeleton-text block" style="width: {{ [72, 58, 84][loop.index0 % 3] }}%"></span>
+                <span class="skeleton skeleton-text block" style="width: {{ [40, 52, 34][loop.index0 % 3] }}%"></span>
+            </span>
+        </div>
+    {% endfor %}
+</div>

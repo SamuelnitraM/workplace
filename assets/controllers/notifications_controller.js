@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { icon } from '../lib/icon.js';
+import { skeletonRows } from '../lib/skeleton.js';
 import { listen, userChannelName, setCount, getCount, getActive, postJson, visit } from '../lib/realtime.js';
 import { playNotificationSound } from '../lib/sounds.js';
 
@@ -78,7 +79,7 @@ export default class extends Controller {
     }
 
     load() {
-        if (!this.items) this.renderMessage('Chargement…');
+        if (!this.items) this.listTarget.replaceChildren(skeletonRows(3));
         fetch(this.recentUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(r => (r.ok ? r.json() : Promise.reject(r)))
             .then(data => {
@@ -182,7 +183,7 @@ export default class extends Controller {
         link.href = item.url;
         link.dataset.notificationId = String(item.id);
         link.className = 'flex items-start gap-3 px-4 py-3 border-b border-line last:border-b-0 transition '
-            + (item.read ? 'hover:bg-white/5' : 'bg-primary-soft hover:bg-white/5');
+            + (item.read ? 'hover:bg-hover' : 'bg-primary-soft hover:bg-hover');
 
         const avatar = document.createElement('div');
         avatar.className = 'avatar avatar-sm';   // design system (.avatar : photo ou initiale)

@@ -1,0 +1,21 @@
+{#
+    Three-state theme switch: light on the left, automatic (preference of the system) in the middle, dark on the right.
+    Every switch of the page stays in sync (assets/controllers/theme_controller.js); the choice is kept in the hf_theme cookie.
+    Parameter: id (unique suffix of the radio group of the page).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set current_theme = theme_preference() %}
+<div class="theme-switch" role="radiogroup" aria-label="Thème d'affichage"
+     {{ stimulus_controller('theme', {cookie: constant('App\\Twig\\AppExtension::THEME_COOKIE')}) }}>
+    {% for option in [
+        {value: 'light', label: 'Thème clair', icon: 'sun'},
+        {value: 'auto', label: 'Thème automatique (celui du système)', icon: 'monitor'},
+        {value: 'dark', label: 'Thème sombre', icon: 'moon'},
+    ] %}
+        <label class="theme-switch-option" title="{{ option.label }}">
+            <input type="radio" name="theme-{{ id }}" value="{{ option.value }}" class="sr-only" data-action="theme#choose"{% if option.value == current_theme %} checked{% endif %}>
+            {{ ui.icon(option.icon, 'size-4') }}<span class="sr-only">{{ option.label }}</span>
+        </label>
+    {% endfor %}
+    <span class="theme-switch-thumb" aria-hidden="true"></span>
+</div>

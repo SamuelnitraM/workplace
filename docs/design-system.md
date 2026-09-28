@@ -14,6 +14,7 @@ Après modification du CSS : `php bin/console tailwind:build`.
 5. **Couleurs sémantiques** : indigo = marque et actions ; laiton (`accent`) = récompenses, XP, premium — avec parcimonie ; `success` / `warning` / `danger` / `info` uniquement pour un état. Toujours doubler la couleur d'un texte ou d'une icône (pas d'information par la couleur seule).
 6. **Accessibilité** : focus visible hérité (`:focus-visible`, anneau `--color-focus`) — ne jamais mettre `outline-none` sans remplacement ; cibles ≥ 44 px sur mobile (les `.btn`, `.menu-item`, `.tab` s'agrandissent en `pointer: coarse`) ; `.btn-icon` toujours avec `aria-label` ; icônes décoratives en `aria-hidden` (défaut du macro) ; mouvement réduit respecté globalement.
 7. **Mobile d'abord** : la barre d'onglets du bas occupe 60 px + safe-area ; le `body` a déjà le padding nécessaire (`.has-bottom-bar`). Ne pas créer d'autres éléments `fixed bottom-0` sur mobile.
+8. **Thème clair et sombre** : toute couleur passe par un token (`bg-surface`, `text-fg`, `bg-hover`…). Chaque token a une valeur claire et une valeur sombre, écrites ensemble avec `light-dark()` dans le bloc `@supports` d'`app.css` ; `color-scheme` choisit : choix du membre (`<html data-theme>`, cookie `hf_theme`) ou préférence du système en mode automatique (changement suivi en direct). Pas de couleur en dur dans les templates ni de `bg-white/…` : `bg-hover` / `bg-hover-strong` pour les survols, `color-mix(in srgb, var(--color-…) N%, transparent)` pour une bordure teintée. Exception : voiles sombres posés sur une photo (légendes, boutons de la visionneuse), identiques dans les deux thèmes. Les navigateurs sans `light-dark()` gardent le thème sombre.
 
 ## Tokens
 
@@ -276,3 +277,12 @@ Les bulles de driver.js prennent les couleurs du site via la classe `tour-popove
 ## Graphiques du tableau de bord
 
 `templates/admin/_bar_chart.html.twig` (`App\Statistics\BarChart`) : une série, une couleur (indigo `#4f46e5`, validée pour le contraste), barres de 24 px au plus arrondies en haut, 2 px d'écart, axe de trois graduations rondes, une date par semaine, valeur au survol ou au clavier, tableau des valeurs dans « Voir le tableau ».
+
+## Sélecteur de thème
+
+`{{ include('_partials/_theme_switch.html.twig', {id: 'unique'}) }}` : interrupteur à trois positions (clair à gauche, automatique au centre, sombre à droite), groupe de boutons radio dont la pastille glisse sous le choix. Présent dans le pied de page (tout le monde) et le menu du compte ; tous les sélecteurs de la page restent synchronisés (contrôleur `theme`, événement `theme:changed`). Le logo blanc s'affiche en noir sur le thème clair (`.theme-invert-on-light`).
+
+## Chargement
+
+- Changement de page : barre de progression de Turbo (`.turbo-progress-bar`), aux couleurs du site.
+- Zones chargées en arrière-plan : lignes squelettes (`_partials/_skeleton_rows.html.twig`) ; JavaScript clone la même structure depuis `<template id="skeleton-rows">` (`assets/lib/skeleton.js`). Utilisées par la recherche, les notifications, la messagerie flottante, l'aperçu Markdown et la page suivante du fil d'actualité (`turbo-frame[busy]`). Pas de squelette devant un contenu déjà rendu par le serveur.

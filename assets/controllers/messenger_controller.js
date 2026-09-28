@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { skeletonRowsHtml } from '../lib/skeleton.js';
 import { esc, listen, userChannelName, currentUserId, store, getActive, setCount, getCount, postJson } from '../lib/realtime.js';
 import { playNotificationSound } from '../lib/sounds.js';
 
@@ -369,7 +370,7 @@ export default class extends Controller {
                     `).join('')
                     : '<div class="text-muted text-xs text-center py-4">Commencez la conversation !</div>'
                 )
-                : '<div class="text-muted text-xs text-center py-4">Chargement...</div>';
+                : skeletonRowsHtml(2);
 
             const unreadBadge = conv.unread > 0
                 ? `<span class="count-badge">${Number(conv.unread)}</span>`

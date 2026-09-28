@@ -9,6 +9,7 @@ use App\Service\NotificationRenderer;
 use App\Text\MentionResolver;
 use App\Tour\TourLauncher;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
@@ -18,6 +19,10 @@ class AppExtension extends AbstractExtension
     /** Icons drawn by JavaScript besides the notification icons: like hearts, password rules. */
     private const SCRIPT_ICONS = ['heart', 'check', 'dot'];
 
+    /** Cookie holding the theme chosen by the visitor (assets/controllers/theme_controller.js). */
+    public const THEME_COOKIE = 'hf_theme';
+    private const THEMES = ['light', 'dark', 'auto'];
+
     private ?int $unreadNotifications = null;
 
     public function __construct(
@@ -26,6 +31,7 @@ class AppExtension extends AbstractExtension
         private Security $security,
         private MentionResolver $mentionResolver,
         private TourLauncher $tourLauncher,
+        private RequestStack $requestStack,
     ) {}
 
     public function getFunctions(): array
@@ -36,6 +42,7 @@ class AppExtension extends AbstractExtension
             new TwigFunction('notification_icon', $this->notificationRenderer->icon(...)),
             new TwigFunction('notification_tone', $this->notificationRenderer->tone(...)),
             new TwigFunction('sprite_icons', $this->spriteIcons(...)),
+            new TwigFunction('theme_preference', $this->themePreference(...)),
             new TwigFunction('album_cover', GalleryAlbumManager::coverOf(...)),
             new TwigFunction('requested_tour', $this->tourLauncher->requested(...)),
         ];
@@ -83,5 +90,12 @@ class AppExtension extends AbstractExtension
     public function spriteIcons(): array
     {
         return array_values(array_unique([...NotificationRenderer::iconNames(), ...self::SCRIPT_ICONS]));
+    }
+
+    /** Theme chosen by the visitor: « light », « dark » or « auto » (preference of the system, by default). */
+    public function themePreference(): string
+    {
+        $theme = $this->requestStack->getMainRequest()?->cookies->getString(self::THEME_COOKIE) ?? '';
+        return in_array($theme, self::THEMES, true) ? $theme : 'auto';
     }
 }

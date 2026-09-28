@@ -40,4 +40,9 @@
     <a href="{{ path('admin') }}" class="menu-item">{{ ui.icon('shield-check') }}{{ is_granted('ROLE_ADMIN') ? 'Administration' : 'Modération' }}</a>
 {% endif %}
 <div class="menu-separator"></div>
+<div class="flex items-center justify-between gap-3 px-3 py-1.5 text-small text-fg-secondary">
+    <span>Thème</span>
+    {{ include('_partials/_theme_switch.html.twig', {id: 'account-' ~ random()}) }}
+</div>
+<div class="menu-separator"></div>
 <a href="{{ logout_path() }}" data-turbo="false" class="menu-item menu-item-danger">{{ ui.icon('log-out') }}Déconnexion</a>

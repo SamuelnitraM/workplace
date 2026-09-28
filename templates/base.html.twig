@@ -1,9 +1,14 @@
 <!DOCTYPE html>
-<html lang="fr">
+{# Theme chosen by the visitor (cookie, _partials/_theme_switch.html.twig); without choice the system preference applies #}
+{% set theme = theme_preference() %}
+{% set theme_colors = {light: '#f3f4f7', dark: '#0d1016'} %}
+<html lang="fr"{% if theme != 'auto' %} data-theme="{{ theme }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0d1016">
+    {% for scheme, color in theme_colors %}
+        <meta name="theme-color" media="(prefers-color-scheme: {{ scheme }})" content="{{ theme == 'auto' ? color : theme_colors[theme] }}" data-scheme-color="{{ color }}">
+    {% endfor %}
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>[x-cloak] { display: none !important; }</style>
@@ -46,6 +51,7 @@
 <body class="min-h-screen flex flex-col bg-canvas text-fg has-bottom-bar">
     <a href="#main" class="skip-link">Aller au contenu</a>
     {{ include('_partials/_icon_sprite.html.twig') }}
+    <template id="skeleton-rows">{{ include('_partials/_skeleton_rows.html.twig', {rows: 5}, with_context = false) }}</template>
 
     {% if app.user %}
     <div data-controller="heartbeat" data-heartbeat-url-value="{{ path('app_heartbeat') }}" data-heartbeat-interval-value="{{ constant('App\\Service\\PresenceService::HEARTBEAT_INTERVAL_MS') }}" hidden></div>

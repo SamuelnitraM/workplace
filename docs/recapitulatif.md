@@ -142,6 +142,10 @@
 | `GET /profil/{username}/xp-history` | Historique d'XP (bandeau déroulant) |
 | `/_styleguide` | Catalogue des composants d'interface (**développement uniquement**) |
 
+### Thème et chargement
+- **Thème clair ou sombre** : par défaut celui du navigateur ou du système (suivi en direct) ; interrupteur à trois positions (clair, automatique, sombre) dans le pied de page et le menu du compte. Le choix est gardé un an dans le cookie `hf_theme`, lu par le serveur pour afficher directement le bon thème (`AppExtension::themePreference()`, contrôleur `theme`). Couleurs définies une seule fois pour les deux thèmes (`light-dark()`, voir docs/design-system.md).
+- **Chargement** : barre de progression lors des changements de page ; lignes squelettes dans la recherche, les notifications, la messagerie flottante, l'aperçu Markdown et la suite du fil d'actualité.
+
 ### Navigation
 - **En-tête (ordinateur) :**
   - logo et liens Accueil, Forum, Groupes, Classement ;
@@ -545,6 +549,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | `print` | Fenêtre d'impression du navigateur (version imprimable) |
 | `photo_viewer` | Page photo : agrandissement, flèches du clavier |
 | `share` | Partage d'une page (feuille de partage du système ou copie du lien) |
+| `theme` | Choix du thème clair, automatique ou sombre |
 | `markdown_editor` | Éditeur Markdown du forum |
 | `mention_suggest` | Suggestions de mention `@pseudo` |
 | `emoji_picker` | Sélecteur d'émoticônes |

@@ -5,7 +5,7 @@
 <header class="app-header" x-data="{ searchOpen: false }">
     <div class="app-header-inner container-app">
         <a href="{{ path('app_home') }}" class="app-logo"{% if shell_section == 'home' %} aria-current="page"{% endif %}>
-            <img src="{{ asset('images/SprueHub-W-0.png') }}" alt="SprueHub — accueil" width="1254" height="437">
+            <img src="{{ asset('images/SprueHub-W-0.png') }}" alt="SprueHub — accueil" width="1254" height="437" class="theme-invert-on-light">
         </a>
 
         <nav class="app-nav" aria-label="Navigation principale">
@@ -26,7 +26,7 @@
             {# Loupe mobile : ouvre la recherche en pleine largeur sous la barre #}
             <button type="button" @click="searchOpen = !searchOpen"
                     class="btn btn-ghost btn-icon md:hidden"
-                    :class="{ 'bg-white/10 text-fg': searchOpen }"
+                    :class="{ 'bg-hover-strong text-fg': searchOpen }"
                     aria-controls="site-search" aria-expanded="false" :aria-expanded="searchOpen.toString()"
                     aria-label="Rechercher" :aria-label="searchOpen ? 'Fermer la recherche' : 'Rechercher'">
                 <span x-show="!searchOpen">{{ ui.icon('search') }}</span>
@@ -92,7 +92,7 @@
                              data-action="click->notifications#openItem auxclick->notifications#openItem"
                              class="max-h-96 overflow-y-auto overscroll-contain"></div>
                         <a href="{{ path('app_notification_index') }}"
-                           class="flex items-center justify-center gap-1.5 min-h-11 text-small font-medium text-primary-text hover:bg-white/5 border-t border-line">
+                           class="flex items-center justify-center gap-1.5 min-h-11 text-small font-medium text-primary-text hover:bg-hover border-t border-line">
                             Voir tout{{ ui.icon('arrow-right', 'size-4') }}
                         </a>
                     </div>
@@ -102,7 +102,7 @@
                 <div class="dropdown hidden md:block" x-data="{ open: false }" data-tour="account"
                      @click.outside="open = false" @keydown.escape="if (open) { open = false; $refs.trigger.focus() }">
                     <button type="button" x-ref="trigger" @click="open = !open"
-                            class="flex items-center gap-2 min-h-10 rounded-pill p-1 pr-2 text-fg-secondary hover:bg-white/5 hover:text-fg transition-colors"
+                            class="flex items-center gap-2 min-h-10 rounded-pill p-1 pr-2 text-fg-secondary hover:bg-hover hover:text-fg transition-colors"
                             aria-expanded="false" :aria-expanded="open.toString()" aria-controls="account-menu">
                         {{ ui.avatar(app.user, 'sm') }}
                         <span class="hidden lg:inline max-w-32 truncate text-small font-medium">{{ app.user.username }}</span>
