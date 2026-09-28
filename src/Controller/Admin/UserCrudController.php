@@ -30,8 +30,9 @@ class UserCrudController extends AbstractCrudController
     {
         $sanctions = Action::new('sanctions', 'Sanctions', 'fa fa-gavel')
             ->linkToRoute('admin_moderation_member', static fn (User $user): array => ['id' => $user->getId()]);
+        // Accounts are deleted from the Sanctions page only (App\Account\AccountDeleter): anonymisation, group hand-over, e-mail
         return $actions
-            ->disable(Action::NEW)
+            ->disable(Action::NEW, Action::DELETE, Action::BATCH_DELETE)
             ->add(Crud::PAGE_INDEX, $sanctions)
             ->add(Crud::PAGE_DETAIL, $sanctions);
     }
