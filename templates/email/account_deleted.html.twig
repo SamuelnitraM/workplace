@@ -1,0 +1,15 @@
+{% extends 'email/layout.html.twig' %}
+
+{# Confirmation sent just before an account deletion (App\Account\AccountDeleter). Parameter: reason. #}
+{% block preheader %}Ton compte SprueHub est supprimé.{% endblock %}
+
+{% block heading %}Ton compte est supprimé{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 20px 0;">Bonjour {{ recipient.username }},</p>
+    <p style="margin:0 0 20px 0;">{{ reason }}</p>
+    <p style="margin:0 0 20px 0;">Ton profil, tes photos, tes listes d'armée, tes messages privés et tes amis sont effacés. Tes sujets et réponses du forum ainsi que tes messages de groupe restent en ligne, signés « Membre supprimé », pour que les discussions restent lisibles.</p>
+    <p style="margin:0 0 20px 0;font-size:14px;color:#5b6272;">Tu peux recréer un compte à tout moment avec la même adresse. Une question ? Écris à <a href="mailto:{{ legal.publisher.email }}" style="color:#4f46e5;">{{ legal.publisher.email }}</a>. Détails dans la <a href="{{ url('app_privacy') }}#conservation" style="color:#4f46e5;">politique de confidentialité</a>.</p>
+{% endblock %}
+
+{% block footer_note %}L'équipe SprueHub{% endblock %}

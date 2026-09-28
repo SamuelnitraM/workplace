@@ -43,6 +43,8 @@ class PresenceService
         }
 
         $user->setLastActivityAt($now);
+        // Any activity cancels a pending deletion for inactivity (App\Account\InactiveAccountPurger)
+        $user->setInactivityWarnedAt(null);
         $this->em->flush();
         if ($last === null || $last->format('Y-m-d') !== $now->format('Y-m-d')) {
             $this->dailyActivityRepository->record($user, $now);

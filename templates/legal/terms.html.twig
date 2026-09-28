@@ -1,0 +1,102 @@
+{% extends 'legal/_layout.html.twig' %}
+
+{#
+    Terms of use: access, account, rules of conduct, licence on published content, moderation (notice and action,
+    statement of reasons and appeal as required by the European Digital Services Act), liability, account deletion.
+#}
+{% block legal_title %}Conditions d’utilisation{% endblock %}
+{% block legal_intro %}Les règles du jeu de {{ legal.site_name }} : ce que le site vous offre et ce que la communauté attend de chacun.{% endblock %}
+
+{% block sections %}
+    {% set publisher = legal.publisher %}
+    <section id="objet" aria-labelledby="objet-title">
+        <h2 id="objet-title">1. Objet</h2>
+        <p>{{ legal.site_name }} est un réseau communautaire gratuit consacré au loisir des figurines : forum, galeries photo, listes d'armée, groupes, messagerie et outils d'organisation. Il est édité par {{ publisher.name }} ({{ publisher.trade_name }}), dont les coordonnées figurent dans les <a href="{{ path('app_legal') }}">mentions légales</a>.</p>
+        <p>Les présentes conditions encadrent l'utilisation du site. En créant un compte, vous les acceptez ; si vous ne les acceptez pas, n'utilisez pas le site. La consultation sans compte des pages publiques implique aussi leur respect.</p>
+    </section>
+
+    <section id="acces" aria-labelledby="acces-title">
+        <h2 id="acces-title">2. Accès et inscription</h2>
+        <ul>
+            <li>L'inscription est réservée aux personnes de <strong>{{ legal.minimum_age }} ans et plus</strong>.</li>
+            <li>Vous fournissez une adresse e-mail valide, que vous confirmez, et un pseudo qui ne doit ni usurper l'identité d'un tiers, ni être injurieux ou trompeur.</li>
+            <li>Un seul compte par personne. Créer un compte pour contourner une sanction est interdit.</li>
+            <li>L'accès au site est gratuit ; les frais de connexion à internet restent à votre charge.</li>
+        </ul>
+    </section>
+
+    <section id="compte" aria-labelledby="compte-title">
+        <h2 id="compte-title">3. Compte et sécurité</h2>
+        <p>Vous êtes responsable de la confidentialité de votre mot de passe et de l'utilisation de votre compte. Choisissez un mot de passe propre au site ; en cas de doute sur une utilisation frauduleuse, changez-le et prévenez-nous.</p>
+    </section>
+
+    <section id="regles" aria-labelledby="regles-title">
+        <h2 id="regles-title">4. Règles de conduite</h2>
+        <p>La communauté repose sur le respect. Sont interdits, dans tous les espaces du site (forum, galeries, groupes, messages privés, profils) :</p>
+        <ul>
+            <li>le harcèlement, les insultes, les menaces, la provocation et les attaques personnelles ;</li>
+            <li>les propos haineux ou discriminatoires, l'apologie de crimes ou de la violence réelle ;</li>
+            <li>les contenus pornographiques, choquants ou inadaptés à un public de {{ legal.minimum_age }} ans ;</li>
+            <li>les contenus illicites : contrefaçon, atteinte à la vie privée, diffusion de données personnelles d'autrui, diffamation ;</li>
+            <li>la publicité non sollicitée, le spam, les arnaques et les liens malveillants ;</li>
+            <li>la publication d'œuvres dont vous n'avez pas les droits (photos d'autrui, fichiers ou livres de règles protégés) ;</li>
+            <li>toute tentative de perturber le site ou d'accéder à des données qui ne vous sont pas destinées.</li>
+        </ul>
+        <p>Les univers de jeu ont leurs guerres ; la communauté, non. Les échanges vifs sur la peinture ou les règles sont bienvenus tant qu'ils restent courtois.</p>
+    </section>
+
+    <section id="contenus" aria-labelledby="contenus-title">
+        <h2 id="contenus-title">5. Vos contenus</h2>
+        <p>Vous restez propriétaire de ce que vous publiez (textes, photos, listes d'armée) et vous en êtes responsable. Vous garantissez disposer des droits nécessaires, notamment sur les photos et sur l'image des personnes éventuellement visibles.</p>
+        <p>Pour que le site puisse les afficher, vous accordez à l'éditeur une <strong>licence gratuite et non exclusive</strong> de reproduction et de représentation de vos contenus sur {{ legal.site_name }}, pour le monde entier et pour la durée de leur publication, dans les formats nécessaires à l'affichage (redimensionnement, aperçus). Cette licence prend fin lorsque vous supprimez un contenu ou votre compte, à une exception près : vos messages du forum et des groupes sont alors conservés sous forme <strong>anonymisée</strong>, pour ne pas priver les autres membres du fil des discussions.</p>
+        <p>Les listes d'armée reposent sur les données du projet communautaire BSData ; les points et règles affichés sont indicatifs et ne remplacent pas les publications officielles.</p>
+    </section>
+
+    <section id="moderation" aria-labelledby="moderation-title">
+        <h2 id="moderation-title">6. Signalements et modération</h2>
+        <p>Tout membre peut signaler un contenu ou un profil avec le bouton « Signaler » ; toute personne peut aussi écrire à <a href="mailto:{{ publisher.email }}">{{ publisher.email }}</a> en décrivant précisément le contenu et la raison du signalement. L'équipe de modération examine les signalements de manière objective et proportionnée.</p>
+        <p>Selon la gravité, la modération peut :</p>
+        <ul>
+            <li>laisser le contenu en ligne (signalement classé sans suite) ;</li>
+            <li>adresser un avertissement ;</li>
+            <li>masquer ou supprimer le contenu ;</li>
+            <li>suspendre le compte temporairement (24 heures à 1 mois) ;</li>
+            <li>bannir définitivement le compte en cas de manquement grave ou répété.</li>
+        </ul>
+        <p>Chaque décision qui vous concerne vous est notifiée sur le site et par e-mail, avec sa <strong>raison</strong>. Pendant une suspension ou un bannissement, la connexion est impossible. Le profil d'un membre banni définitivement n'affiche plus que sa photo et son pseudo ; ses messages du forum et des groupes restent visibles, marqués « Banni ».</p>
+        <p><strong>Contester une décision</strong> : un membre suspendu ou banni peut déposer une <strong>réclamation</strong> depuis la page de connexion (une par sanction). Elle est examinée par l'équipe, qui lève ou maintient la sanction et répond par e-mail. Vous conservez la possibilité de saisir les juridictions compétentes.</p>
+    </section>
+
+    <section id="espaces" aria-labelledby="espaces-title">
+        <h2 id="espaces-title">7. Groupes, messagerie et classement</h2>
+        <ul>
+            <li>Le propriétaire et les administrateurs d'un groupe gèrent ses membres, ses salons et ses tâches ; ils veillent au respect des présentes règles dans leur groupe, sans se substituer à la modération du site.</li>
+            <li>Les messages privés s'échangent entre amis. Un membre bloqué ne peut plus vous contacter.</li>
+            <li>L'expérience, les niveaux, badges et classements récompensent la participation ; ils n'ont aucune valeur monétaire et peuvent être recalculés en cas d'abus.</li>
+        </ul>
+    </section>
+
+    <section id="responsabilite" aria-labelledby="responsabilite-title">
+        <h2 id="responsabilite-title">8. Disponibilité et responsabilité</h2>
+        <p>L'éditeur s'efforce de rendre le site accessible et fiable, sans pouvoir le garantir en permanence : des interruptions pour maintenance, mise à jour ou panne peuvent survenir, et des fonctions peuvent évoluer. En tant qu'hébergeur des contenus des membres, l'éditeur n'est responsable d'un contenu illicite qu'à partir du moment où il en a connaissance et tarde à le retirer. Il ne répond pas des contenus des sites externes vers lesquels renvoient des liens publiés par les membres.</p>
+    </section>
+
+    <section id="suppression" aria-labelledby="suppression-title">
+        <h2 id="suppression-title">9. Suppression du compte</h2>
+        <ul>
+            <li><strong>Par vous</strong>, à tout moment, depuis <a href="{{ path('app_profil_edit') }}#suppression">Paramètres › Supprimer mon compte</a>, après confirmation de votre mot de passe.</li>
+            <li><strong>Par l'éditeur</strong>, en cas de manquement grave aux présentes conditions, sur votre demande écrite, ou après {{ legal.inactivity_years }} ans sans connexion (un e-mail de prévenance vous est envoyé {{ legal.inactivity_warning_days }} jours avant).</li>
+        </ul>
+        <p>Les conséquences de la suppression sur vos données sont détaillées dans la <a href="{{ path('app_privacy') }}#conservation">politique de confidentialité</a>.</p>
+    </section>
+
+    <section id="evolution" aria-labelledby="evolution-title">
+        <h2 id="evolution-title">10. Modification des conditions</h2>
+        <p>Ces conditions peuvent être modifiées, par exemple lors de l'ajout de fonctions. La version en vigueur est celle publiée sur cette page, datée en haut ; en cas de changement important, les membres en sont informés sur le site avant son entrée en vigueur. Continuer à utiliser le site vaut acceptation de la nouvelle version ; à défaut, vous pouvez supprimer votre compte.</p>
+    </section>
+
+    <section id="droit" aria-labelledby="droit-title">
+        <h2 id="droit-title">11. Droit applicable</h2>
+        <p>Les présentes conditions sont régies par le droit français. En cas de différend, une solution amiable sera recherchée en priorité en écrivant à <a href="mailto:{{ publisher.email }}">{{ publisher.email }}</a> ; à défaut, les tribunaux français sont compétents, sous réserve des règles protectrices dont vous bénéficiez en tant que consommateur.</p>
+    </section>
+{% endblock %}

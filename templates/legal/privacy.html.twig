@@ -1,0 +1,142 @@
+{% extends 'legal/_layout.html.twig' %}
+
+{#
+    Privacy policy (GDPR articles 12 to 14) and cookies (article 82 of the French data protection act, CNIL guidelines).
+    Only strictly necessary or user-requested cookies are used: no consent banner is required, this page informs.
+#}
+{% block legal_title %}Confidentialité et cookies{% endblock %}
+{% block legal_intro %}Quelles données {{ legal.site_name }} utilise, pourquoi, combien de temps, et quels sont vos droits.{% endblock %}
+
+{% block sections %}
+    {% set publisher = legal.publisher %}
+    <section id="responsable" aria-labelledby="responsable-title">
+        <h2 id="responsable-title">Responsable du traitement</h2>
+        <p>Le responsable du traitement de vos données est {{ publisher.name }} ({{ publisher.trade_name }}), {{ publisher.address }}. Pour toute question ou demande sur vos données : <a href="mailto:{{ publisher.email }}">{{ publisher.email }}</a>.</p>
+        <p>{{ legal.site_name }} n'utilise vos données que pour faire fonctionner le site. Elles ne sont <strong>jamais vendues</strong>, ni utilisées pour de la publicité ou du profilage commercial.</p>
+    </section>
+
+    <section id="donnees" aria-labelledby="donnees-title">
+        <h2 id="donnees-title">Données traitées et raisons</h2>
+        <div class="overflow-x-auto">
+            <table class="legal-table">
+                <thead>
+                    <tr><th scope="col">Données</th><th scope="col">Utilisation</th><th scope="col">Base légale</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Pseudo, adresse e-mail, mot de passe (enregistré chiffré de façon irréversible), date d'inscription</td>
+                        <td>Créer et sécuriser votre compte, vous connecter, confirmer votre adresse, réinitialiser votre mot de passe</td>
+                        <td>Exécution des conditions d'utilisation</td>
+                    </tr>
+                    <tr>
+                        <td>Profil : photo, bannière, présentation, faction favorite, titre, réglages (son des notifications, visibilité de l'activité)</td>
+                        <td>Afficher votre profil selon vos choix</td>
+                        <td>Exécution des conditions d'utilisation</td>
+                    </tr>
+                    <tr>
+                        <td>Contenus : sujets et réponses du forum, photos et commentaires, « j'aime » et votes, listes d'armée, groupes, salons et tâches, messages privés</td>
+                        <td>Publier, échanger et organiser vos activités avec la communauté</td>
+                        <td>Exécution des conditions d'utilisation</td>
+                    </tr>
+                    <tr>
+                        <td>Relations : amis, demandes, membres bloqués, invitations</td>
+                        <td>Gérer vos contacts et respecter vos blocages</td>
+                        <td>Exécution des conditions d'utilisation</td>
+                    </tr>
+                    <tr>
+                        <td>Activité : dernière activité, jours de connexion, expérience, badges, séries</td>
+                        <td>Afficher les membres en ligne, la progression et le classement ; statistiques internes agrégées de fréquentation (sans outil tiers)</td>
+                        <td>Intérêt légitime : animer la communauté et piloter le site</td>
+                    </tr>
+                    <tr>
+                        <td>Modération : signalements (auteur, contenu visé, extrait, motif), décisions, sanctions, réclamations</td>
+                        <td>Faire respecter les règles, traiter les signalements et les réclamations</td>
+                        <td>Intérêt légitime et obligations légales de l'hébergeur de contenus (LCEN, règlement européen DSA)</td>
+                    </tr>
+                    <tr>
+                        <td>Notifications</td>
+                        <td>Vous prévenir des réponses, mentions, invitations, badges</td>
+                        <td>Exécution des conditions d'utilisation</td>
+                    </tr>
+                    <tr>
+                        <td>Données techniques : adresse IP, date, page consultée, navigateur (journaux du serveur)</td>
+                        <td>Sécurité, diagnostic des pannes, réponse aux demandes des autorités</td>
+                        <td>Intérêt légitime et obligations légales</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p>Les contenus publiés sur le forum, dans les galeries, les listes d'armée publiques et les groupes publics sont visibles selon les réglages de chaque page, parfois par des visiteurs non connectés. Les messages privés ne sont lisibles que par leurs participants ; la modération n'y accède que lorsqu'un message lui est signalé.</p>
+    </section>
+
+    <section id="destinataires" aria-labelledby="destinataires-title">
+        <h2 id="destinataires-title">Destinataires et sous-traitants</h2>
+        <p>Vos données ne sont accessibles qu'à l'éditeur et, pour la modération, à l'équipe de modération. Des prestataires techniques les traitent pour notre compte, uniquement pour le service décrit :</p>
+        <ul>
+            {% for processor in legal.processors %}
+                <li><strong>{{ processor.name }}</strong> : {{ processor.role }} ({{ processor.location }}).</li>
+            {% endfor %}
+        </ul>
+        <p>Les bibliothèques du site (interface, temps réel) sont servies depuis notre propre serveur : votre navigateur ne contacte aucun autre site pour les charger. Aucune donnée n'est transférée vers un pays qui n'offre pas un niveau de protection reconnu par la Commission européenne.</p>
+    </section>
+
+    <section id="conservation" aria-labelledby="conservation-title">
+        <h2 id="conservation-title">Durées de conservation</h2>
+        <ul>
+            <li><strong>Compte et profil</strong> : tant que le compte existe. Un compte sans aucune connexion pendant {{ legal.inactivity_years }} ans est supprimé, après un e-mail de prévenance envoyé {{ legal.inactivity_warning_days }} jours avant.</li>
+            <li><strong>Contenus et messages privés</strong> : tant que le compte existe, sauf suppression par vous ou par la modération.</li>
+            <li><strong>À la suppression du compte</strong> : vos sujets et réponses du forum ainsi que vos messages dans les groupes restent en place pour ne pas rendre les discussions incompréhensibles, mais ils sont <strong>anonymisés</strong> (auteur affiché « Membre supprimé »). Tout le reste est supprimé : profil, photos, listes d'armée, messages privés et conversations, amis, badges, notifications.</li>
+            <li><strong>Signalements, décisions de modération et réclamations</strong> : {{ legal.report_retention_months }} mois après la décision, et en tout état de cause tant que la sanction qu'ils justifient (suspension, bannissement) est en cours.</li>
+            <li><strong>Notifications lues</strong> : 90 jours.</li>
+            <li><strong>Liens de réinitialisation du mot de passe</strong> : 1 heure.</li>
+            <li><strong>Journaux techniques du serveur</strong> : au plus 1 an.</li>
+        </ul>
+    </section>
+
+    <section id="droits" aria-labelledby="droits-title">
+        <h2 id="droits-title">Vos droits</h2>
+        <p>Vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité de vos données, ainsi que du droit de définir des directives sur leur sort après votre décès.</p>
+        <ul>
+            <li><strong>Rectifier</strong> : modifiez directement votre profil et vos contenus depuis le site.</li>
+            <li><strong>Effacer</strong> : supprimez votre compte à tout moment depuis <a href="{{ path('app_profil_edit') }}#suppression">Paramètres › Supprimer mon compte</a>.</li>
+            <li><strong>Accéder, récupérer vos données (portabilité), vous opposer ou toute autre demande</strong> : écrivez à <a href="mailto:{{ publisher.email }}">{{ publisher.email }}</a>. Nous répondons dans un délai d'un mois ; une preuve d'identité peut être demandée en cas de doute.</li>
+        </ul>
+        <p>Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la CNIL (<a href="https://www.cnil.fr/fr/plaintes" rel="noopener" target="_blank">www.cnil.fr</a>, 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07).</p>
+    </section>
+
+    <section id="mineurs" aria-labelledby="mineurs-title">
+        <h2 id="mineurs-title">Âge minimum</h2>
+        <p>L'inscription est réservée aux personnes de <strong>{{ legal.minimum_age }} ans et plus</strong>, âge à partir duquel une personne peut consentir seule au traitement de ses données en France. Si vous apprenez qu'un compte appartient à une personne plus jeune, écrivez-nous : il sera supprimé.</p>
+    </section>
+
+    <section id="securite" aria-labelledby="securite-title">
+        <h2 id="securite-title">Sécurité</h2>
+        <p>Le site est servi en HTTPS ; les mots de passe sont enregistrés avec un algorithme de hachage irréversible ; les formulaires sont protégés contre les requêtes frauduleuses ; les tentatives de connexion sont limitées. Les accès à l'administration sont réservés à l'équipe.</p>
+    </section>
+
+    <section id="cookies" aria-labelledby="cookies-title">
+        <h2 id="cookies-title">Cookies et stockage local</h2>
+        <p>{{ legal.site_name }} n'utilise <strong>aucun cookie publicitaire, de mesure d'audience ou de réseau social</strong>, et aucun traceur tiers. Les seuls cookies déposés sont strictement nécessaires au fonctionnement du site ou à une fonction que vous demandez : la loi les dispense de consentement (article 82 de la loi Informatique et Libertés), c'est pourquoi aucun bandeau ne vous le demande.</p>
+        <div class="overflow-x-auto">
+            <table class="legal-table">
+                <thead>
+                    <tr><th scope="col">Nom</th><th scope="col">Rôle</th><th scope="col">Durée</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>PHPSESSID</td><td>Session : vous garder connecté pendant votre visite</td><td>Fin de la session</td></tr>
+                    <tr><td>REMEMBERME</td><td>Connexion automatique, seulement si vous cochez « Se souvenir de moi »</td><td>30 jours</td></tr>
+                    <tr><td>Jeton de sécurité des formulaires</td><td>Protéger les formulaires contre les envois frauduleux</td><td>Fin de la session</td></tr>
+                    <tr><td>hf_theme</td><td>Retenir le thème que vous avez choisi (clair, automatique ou sombre)</td><td>1 an</td></tr>
+                    <tr><td>hf_suspension</td><td>Afficher le motif d'une suspension sur la page de connexion</td><td>Durée de la suspension</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p>Le navigateur garde aussi, sur votre appareil uniquement, les <strong>brouillons</strong> de vos messages du forum en cours d'écriture (stockage local), supprimés à l'envoi. Vous pouvez effacer cookies et stockage local depuis les réglages de votre navigateur ; le site vous demandera alors de vous reconnecter.</p>
+        <p>Si des cookies soumis à consentement (mesure d'audience, contenus tiers) devaient être ajoutés un jour, votre accord serait demandé au préalable, avec la possibilité de refuser aussi simplement que d'accepter.</p>
+    </section>
+
+    <section id="modifications" aria-labelledby="modifications-title">
+        <h2 id="modifications-title">Modifications</h2>
+        <p>Cette politique peut évoluer, notamment si le site ajoute des fonctions ou change de prestataire. La date de mise à jour figure en haut de la page ; en cas de changement important, les membres en sont informés sur le site.</p>
+    </section>
+{% endblock %}

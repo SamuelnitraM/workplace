@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{#
+    Layout of the legal pages: title, date of the last update, links between the three pages.
+    Child templates define: legal_title, legal_intro and sections (one <section> with an id and an h2 per part).
+    Publisher, host and processors: Twig global « legal » (config/packages/legal.yaml).
+#}
+{% block title %}{{ block('legal_title') }} — SprueHub{% endblock %}
+
+{% block body %}
+<article class="container-reading" aria-labelledby="legal-title">
+    <header class="page-header">
+        <div>
+            <p class="page-header-eyebrow">{{ ui.icon('file-text', 'size-4') }}Informations légales</p>
+            <h1 id="legal-title" class="page-header-title">{% block legal_title %}{% endblock %}</h1>
+            <p class="page-header-subtitle">{% block legal_intro %}{% endblock %}</p>
+            <p class="mt-2 text-caption text-muted">Dernière mise à jour : {{ legal.updated_at|date('d/m/Y') }}</p>
+        </div>
+    </header>
+
+    <nav class="legal-nav mb-6" aria-label="Pages légales">
+        {% for route, label in {app_legal: 'Mentions légales', app_privacy: 'Confidentialité et cookies', app_terms: 'Conditions d’utilisation'} %}
+            <a href="{{ path(route) }}" class="tab"{% if app.current_route == route %} aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+    </nav>
+
+    <div class="card">
+        <div class="card-body legal-body sm:p-8">
+            {% block sections %}{% endblock %}
+        </div>
+    </div>
+</article>
+{% endblock %}

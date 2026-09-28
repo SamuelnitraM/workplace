@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Account\AccountDeleter;
 use App\Entity\Appeal;
 use App\Entity\Report;
 use App\Entity\User;
@@ -31,6 +32,7 @@ class ModerationController extends AbstractController
     private const DECISION_CSRF_PREFIX = 'moderation_report_';
     private const SANCTION_CSRF_PREFIX = 'moderation_member_';
     private const APPEAL_CSRF_PREFIX = 'moderation_appeal_';
+    private const DELETE_CSRF_PREFIX = 'moderation_delete_';
 
     public function __construct(
         private readonly ModerationService $moderation,
@@ -102,6 +104,8 @@ class ModerationController extends AbstractController
             'canSanction' => $this->isGranted(MemberSanctionVoter::SANCTION, $member),
             'durations' => SuspensionDuration::cases(),
             'csrfTokenId' => self::SANCTION_CSRF_PREFIX . $member->getId(),
+            'canDelete' => $this->canDelete($member),
+            'deleteCsrfTokenId' => self::DELETE_CSRF_PREFIX . $member->getId(),
         ]);
     }
 
@@ -169,6 +173,31 @@ class ModerationController extends AbstractController
             ? 'Sanction levée : ' . $appeal->getMember()->getUsername() . ' peut à nouveau se connecter.'
             : 'Sanction maintenue, la réponse a été envoyée à ' . $appeal->getMember()->getUsername() . '.');
         return $this->redirectToRoute('admin_moderation_appeal', ['id' => $appeal->getId()]);
+    }
+
+    /** Deletion of a member account by an administrator, same rules as for the member (App\Account\AccountDeleter). */
+    #[AdminRoute('/member/{id}/delete', name: 'member_delete', options: ['methods' => ['POST'], 'requirements' => ['id' => '\d+']])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function deleteMember(#[MapEntity(id: 'id')] User $member, Request $request, AccountDeleter $accountDeleter): Response
+    {
+        if (!$this->isCsrfTokenValid(self::DELETE_CSRF_PREFIX . $member->getId(), $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+        if (!$this->canDelete($member) || $request->request->getString('confirm_username') !== $member->getUsername()) {
+            $this->addFlash('danger', 'Suppression refusée : recopie exactement le pseudo du membre (les comptes de l\'équipe ne se suppriment pas ici).');
+            return $this->redirectToRoute('admin_moderation_member', ['id' => $member->getId()]);
+        }
+        $username = $member->getUsername();
+        $reason = trim($request->request->getString('reason'));
+        $accountDeleter->delete($member, $reason !== '' ? $reason : 'Ton compte a été supprimé par l\'administration du site.');
+        $this->addFlash('success', 'Le compte de ' . $username . ' est supprimé ; ses messages du forum et des groupes sont anonymisés.');
+        return $this->redirect($this->adminUrlGenerator->unsetAll()->setRoute('admin')->generateUrl());
+    }
+
+    /** Administrators only, never on themselves, on staff accounts or on the « Membre supprimé » account. */
+    private function canDelete(User $member): bool
+    {
+        return $this->isGranted('ROLE_ADMIN') && $this->isGranted(MemberSanctionVoter::SANCTION, $member) && !$member->isStaff() && !$member->isDeletedMemberAccount();
     }
 
     private function denyUnlessDecisionTokenValid(Report $report, Request $request): void

@@ -1,0 +1,49 @@
+{% extends 'legal/_layout.html.twig' %}
+
+{# Legal notice (article 6-III of the French law « pour la confiance dans l'économie numérique », LCEN). #}
+{% block legal_title %}Mentions légales{% endblock %}
+{% block legal_intro %}Qui édite et héberge {{ legal.site_name }}, et comment nous contacter.{% endblock %}
+
+{% block sections %}
+    {% set publisher = legal.publisher %}
+    {% set host = legal.host %}
+    <section id="editeur" aria-labelledby="editeur-title">
+        <h2 id="editeur-title">Éditeur du site</h2>
+        <dl>
+            <dt>Éditeur</dt><dd>{{ publisher.name }}, nom commercial {{ publisher.trade_name }}</dd>
+            <dt>Statut</dt><dd>{{ publisher.status }}</dd>
+            <dt>SIRET</dt><dd>{{ publisher.siret }}</dd>
+            <dt>Adresse</dt><dd>{{ publisher.address }}</dd>
+            <dt>Téléphone</dt><dd><a href="tel:{{ publisher.phone|replace({' ': ''}) }}">{{ publisher.phone }}</a></dd>
+            <dt>E-mail</dt><dd><a href="mailto:{{ publisher.email }}">{{ publisher.email }}</a></dd>
+            <dt>Directeur de la publication</dt><dd>{{ publisher.publication_director }}</dd>
+        </dl>
+    </section>
+
+    <section id="hebergeur" aria-labelledby="hebergeur-title">
+        <h2 id="hebergeur-title">Hébergeur</h2>
+        <dl>
+            <dt>Société</dt><dd>{{ host.name }} ({{ host.legal_form }})</dd>
+            <dt>Adresse</dt><dd>{{ host.address }}</dd>
+            <dt>Téléphone</dt><dd>{{ host.phone }}</dd>
+            <dt>Site</dt><dd><a href="{{ host.website }}" rel="noopener" target="_blank">{{ host.website|replace({'https://': ''}) }}</a></dd>
+        </dl>
+    </section>
+
+    <section id="contact" aria-labelledby="contact-title">
+        <h2 id="contact-title">Contact et signalement d'un contenu illicite</h2>
+        <p>Pour toute question sur le site, une demande concernant vos données personnelles ou le signalement d'un contenu que vous estimez illicite, écrivez à <a href="mailto:{{ publisher.email }}">{{ publisher.email }}</a>. Ce contact est aussi le point de contact unique prévu par le règlement européen sur les services numériques (DSA), pour les utilisateurs comme pour les autorités ; les échanges se font en français.</p>
+        <p>Les membres connectés peuvent aussi signaler un contenu directement depuis le site (bouton « Signaler »). Un signalement précise le contenu en cause et la raison pour laquelle il pose problème ; la modération le traite dans les meilleurs délais, comme le décrivent les <a href="{{ path('app_terms') }}#moderation">conditions d'utilisation</a>.</p>
+    </section>
+
+    <section id="propriete" aria-labelledby="propriete-title">
+        <h2 id="propriete-title">Propriété intellectuelle</h2>
+        <p>La structure du site, son code, son identité visuelle (logo, icônes, mise en page) et ses textes sont la propriété de l'éditeur, sauf les contenus publiés par les membres, qui restent la propriété de leurs auteurs. Toute reproduction sans autorisation est interdite.</p>
+        <p>{{ legal.site_name }} est un site communautaire de passionnés, indépendant : il n'est ni affilié, ni approuvé, ni soutenu par Games Workshop Limited. Warhammer, Warhammer 40,000, Age of Sigmar, Citadel et les noms, logos et univers associés sont des marques ou des marques déposées de Games Workshop Limited, citées uniquement pour désigner le loisir dont il est question. Les données des listes d'armée proviennent du projet communautaire BSData.</p>
+    </section>
+
+    <section id="donnees" aria-labelledby="donnees-title">
+        <h2 id="donnees-title">Données personnelles et cookies</h2>
+        <p>Le traitement de vos données personnelles et les cookies utilisés sont décrits dans la <a href="{{ path('app_privacy') }}">politique de confidentialité</a>.</p>
+    </section>
+{% endblock %}

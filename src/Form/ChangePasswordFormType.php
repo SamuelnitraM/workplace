@@ -2,12 +2,12 @@
 
 namespace App\Form;
 
+use App\Security\PasswordPolicy;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class ChangePasswordFormType extends AbstractType
@@ -31,10 +31,11 @@ class ChangePasswordFormType extends AbstractType
                 'mapped' => false,
                 'first_options' => [
                     'label' => 'Nouveau mot de passe',
+                    'help' => PasswordPolicy::summary(),
                     'attr' => [
                         'autocomplete' => 'new-password',
-                        'minlength' => RegistrationFormType::PASSWORD_MIN_LENGTH,
-                        'maxlength' => RegistrationFormType::PASSWORD_MAX_LENGTH,
+                        'minlength' => PasswordPolicy::MIN_LENGTH,
+                        'maxlength' => PasswordPolicy::MAX_LENGTH,
                     ],
                 ],
                 'second_options' => [
@@ -42,15 +43,8 @@ class ChangePasswordFormType extends AbstractType
                     'attr' => ['autocomplete' => 'new-password'],
                 ],
                 'invalid_message' => 'Les mots de passe ne correspondent pas.',
-                'constraints' => [
-                    new NotBlank(message: 'Veuillez entrer un nouveau mot de passe'),
-                    new Length(
-                        // Même règle qu'à l'inscription : une seule constante partagée
-                        min: RegistrationFormType::PASSWORD_MIN_LENGTH,
-                        minMessage: 'Votre mot de passe doit contenir au moins {{ limit }} caractères',
-                        max: RegistrationFormType::PASSWORD_MAX_LENGTH,
-                    ),
-                ],
+                // Same rules as the registration (App\Security\PasswordPolicy)
+                'constraints' => PasswordPolicy::constraints('Veuillez entrer un nouveau mot de passe'),
             ])
         ;
     }

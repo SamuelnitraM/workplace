@@ -183,7 +183,7 @@
             <div class="card-body flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="font-medium text-fg">Mot de passe</p>
-                    <p class="text-small text-muted">Choisis une phrase facile à retenir mais difficile à deviner.</p>
+                    <p class="text-small text-muted">Au moins 8 caractères, avec majuscule, minuscule, chiffre et symbole, propre à SprueHub.</p>
                 </div>
                 <a href="{{ path('app_profil_change_password') }}" class="btn btn-secondary shrink-0">{{ ui.icon('lock') }}Changer le mot de passe</a>
             </div>
@@ -196,5 +196,28 @@
         </div>
 
     {{ form_end(form) }}
+
+    {# ─── Suppression du compte (formulaire séparé, confirmé par le mot de passe) ─── #}
+    <section id="suppression" class="card mt-6 border-danger/40" aria-labelledby="settings-delete">
+        <div class="card-header">
+            <h2 id="settings-delete" class="flex items-center gap-2 text-h3 text-danger">{{ ui.icon('trash-2') }}Supprimer mon compte</h2>
+        </div>
+        <div class="card-body">
+            {% if is_granted('ROLE_ADMIN') %}
+                <p class="text-small text-muted">Un compte administrateur ne se supprime pas ici : retire d'abord ton rôle depuis l'administration.</p>
+            {% else %}
+                <p class="text-small text-muted">La suppression est <strong class="text-fg">définitive</strong>. Tes sujets, réponses du forum et messages de groupe restent en ligne, signés « Membre supprimé ». Tout le reste est effacé : profil, photos, listes d'armée, messages privés, amis, badges. Les groupes que tu possèdes passent à leur plus ancien administrateur, sinon à leur plus ancien membre. Détails dans la <a href="{{ path('app_privacy') }}#conservation" class="link">politique de confidentialité</a>.</p>
+                <form method="post" action="{{ path('app_profil_delete') }}" class="mt-4 flex flex-col gap-3" data-turbo="false">
+                    <input type="hidden" name="_token" value="{{ csrf_token(constant('App\\Controller\\ProfilController::DELETE_ACCOUNT_CSRF_ID')) }}">
+                    <div class="field">
+                        <label class="label" for="delete-password">Mot de passe actuel</label>
+                        <input type="password" id="delete-password" name="password" class="input sm:max-w-sm" autocomplete="current-password" required>
+                    </div>
+                    <label class="check"><input type="checkbox" name="confirm" value="1" required><span>Je comprends que mon compte sera supprimé définitivement.</span></label>
+                    <div><button type="submit" class="btn btn-danger">{{ ui.icon('trash-2') }}Supprimer définitivement mon compte</button></div>
+                </form>
+            {% endif %}
+        </div>
+    </section>
 </div>
 {% endblock %}

@@ -1,0 +1,16 @@
+{% extends 'email/layout.html.twig' %}
+
+{# Warning sent before the deletion of an inactive account (App\Account\InactiveAccountPurger). Parameters: deletionDate, inactivityYears. #}
+{% block preheader %}Sans connexion de ta part, ton compte sera supprimé le {{ deletionDate|date('d/m/Y') }}.{% endblock %}
+
+{% block heading %}On ne t'a pas vu depuis longtemps{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 20px 0;">Bonjour {{ recipient.username }},</p>
+    <p style="margin:0 0 20px 0;">Ton compte SprueHub n'a pas été utilisé depuis {{ inactivityYears }} ans. Pour ne pas garder tes données plus longtemps que nécessaire, il sera <strong>supprimé le {{ deletionDate|date('d/m/Y') }}</strong>.</p>
+    <p style="margin:0 0 20px 0;">Pour le garder, il suffit de te connecter avant cette date.</p>
+    {{ include('email/_button.html.twig', {url: url('app_login'), label: 'Me connecter'}) }}
+    <p style="margin:20px 0 0 0;font-size:14px;color:#5b6272;">Sans connexion, ton profil, tes photos, tes listes et tes messages privés seront effacés ; tes messages du forum et des groupes resteront en ligne, signés « Membre supprimé ». Détails dans la <a href="{{ url('app_privacy') }}#conservation" style="color:#4f46e5;">politique de confidentialité</a>.</p>
+{% endblock %}
+
+{% block footer_note %}L'équipe SprueHub{% endblock %}

@@ -52,6 +52,27 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         return array_map('intval', $rows);
     }
 
+    /** « Membre supprimé » account holding the anonymised contributions of deleted members, created at first need. */
+    public function deletedMemberAccount(): User
+    {
+        $account = $this->findOneBy(['email' => User::DELETED_MEMBER_EMAIL]);
+        if ($account !== null) {
+            return $account;
+        }
+        $account = (new User())
+            ->setUsername(User::DELETED_MEMBER_USERNAME)
+            ->setEmail(User::DELETED_MEMBER_EMAIL)
+            ->setPassword('!')
+            ->setRoles([])
+            ->setIsVerified(true)
+            ->setOnboardingCompletedAt(new \DateTimeImmutable());
+        // Suspended for good: never logs in, left out of every list like a banned member (App\Moderation\BannedMembers)
+        $account->suspend(null, 'Compte technique des contributions anonymisées');
+        $this->getEntityManager()->persist($account);
+        $this->getEntityManager()->flush();
+        return $account;
+    }
+
     public function findOneByEmailOrUsername(string $identifier): ?User
     {
         if (str_contains($identifier, '@')) {

@@ -17,6 +17,9 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[UniqueEntity(fields: ['username'], message: 'Ce pseudo est déjà utilisé.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public const DELETED_MEMBER_EMAIL = 'membre-supprime@sprue.invalid';
+    public const DELETED_MEMBER_USERNAME = 'Membre supprimé';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -74,12 +77,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastActivityAt = null;
 
+    /** Warning e-mail sent before the deletion of an inactive account (App\Account\InactiveAccountPurger); cleared by any activity. */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $inactivityWarnedAt = null;
+
     #[ORM\Column]
     private bool $profileBonusAwarded = false;
 
     /**
-     * Présentation guidée (/bienvenue) : NULL tant qu'elle n'est pas terminée (bannière sur l'accueil).
-     * Les comptes existants avant la fonctionnalité ont été marqués « terminés » par la migration.
+     * Guided tour (/bienvenue): NULL until it is completed (banner on the home page).
+     * Accounts older than the guided tour are marked completed by its migration.
      */
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $onboardingCompletedAt = null;
@@ -448,6 +455,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setLoginStreak(int $value): static { $this->loginStreak = max(0, $value); return $this; }
     public function getLastActivityAt(): ?\DateTimeImmutable { return $this->lastActivityAt; }
     public function setLastActivityAt(?\DateTimeImmutable $value): static { $this->lastActivityAt = $value; return $this; }
+    public function getInactivityWarnedAt(): ?\DateTimeImmutable { return $this->inactivityWarnedAt; }
+    public function setInactivityWarnedAt(?\DateTimeImmutable $value): static { $this->inactivityWarnedAt = $value; return $this; }
+    public function isStaff(): bool { return array_intersect(['ROLE_ADMIN', 'ROLE_MODERATOR'], $this->getRoles()) !== []; }
     public function isProfileBonusAwarded(): bool { return $this->profileBonusAwarded; }
     public function setProfileBonusAwarded(bool $value): static { $this->profileBonusAwarded = $value; return $this; }
     public function getOnboardingCompletedAt(): ?\DateTimeImmutable { return $this->onboardingCompletedAt; }
@@ -501,7 +511,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /** Permanently banned: hidden from most of the site, marked « Banni » elsewhere (App\Moderation\BannedMembers). */
     public function isBanned(): bool
     {
-        return $this->isPermanentlySuspended();
+        return $this->isPermanentlySuspended() && !$this->isDeletedMemberAccount();
+    }
+
+    /**
+     * Technical account holding the anonymised contributions of deleted members (App\Account\AccountDeleter).
+     * It never logs in and is hidden like a banned member, without the « Banni » mark.
+     */
+    public function isDeletedMemberAccount(): bool
+    {
+        return $this->email === self::DELETED_MEMBER_EMAIL;
     }
 
     public function getGalleryPhotos(): Collection

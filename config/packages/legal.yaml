@@ -1,0 +1,33 @@
+# Publisher, host and processors named on the legal pages (templates/legal/), in one place:
+# update this file when the details change (professional version of the site, new host…).
+parameters:
+    app.legal:
+        updated_at: '2026-09-28'
+        site_name: 'SprueHub'
+        publisher:
+            name: 'Samuel MARTIN EI'
+            trade_name: 'SMARTDEV'
+            status: 'Entrepreneur individuel (micro-entreprise)'
+            siret: '983 732 330 00011'
+            address: '2 rue du Square, 34130 Saint-Aunès, France'
+            phone: '06 52 87 89 83'
+            email: 'samuelyjmartin@gmail.com'
+            publication_director: 'Samuel MARTIN'
+        host:
+            name: 'alwaysdata'
+            legal_form: 'SARL'
+            address: '91 rue du Faubourg Saint-Honoré, 75008 Paris, France'
+            phone: '+33 1 84 16 23 40'
+            website: 'https://www.alwaysdata.com'
+        processors:
+            - { name: 'alwaysdata', role: 'hébergement du site et de la base de données', location: 'France (Union européenne)' }
+            - { name: 'Mailjet (Sinch)', role: 'envoi des e-mails (confirmation d''adresse, mot de passe oublié, modération)', location: 'Union européenne' }
+            - { name: 'Pusher (MessageBird)', role: 'notifications et messages en temps réel', location: 'serveurs situés dans l''Union européenne, société au Royaume-Uni (pays reconnu adéquat par la Commission européenne)' }
+        minimum_age: 15
+        inactivity_years: 3
+        inactivity_warning_days: 30
+        report_retention_months: 12
+
+twig:
+    globals:
+        legal: '%app.legal%'

@@ -15,7 +15,6 @@
             {{ form_errors(resetForm) }}
             {{ form_row(resetForm.newPassword.first, {
                 attr: resetForm.newPassword.first.vars.attr|merge({autofocus: 'autofocus'}),
-                help: 'Au moins ' ~ constant('App\\Form\\RegistrationFormType::PASSWORD_MIN_LENGTH') ~ ' caractères (une phrase facile à retenir est idéale).'
             }) }}
             {{ form_row(resetForm.newPassword.second) }}
             <button type="submit" class="btn btn-primary btn-lg btn-block">{{ ui.icon('lock') }}Enregistrer le mot de passe</button>

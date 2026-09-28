@@ -32,6 +32,22 @@
                 {% endif %}
             </div>
         </section>
+        {% if canDelete %}
+            <section class="card border-danger mt-4">
+                <div class="card-body">
+                    <h2 class="h6 text-danger">Supprimer le compte</h2>
+                    <p class="small text-muted">Définitif. Les sujets, réponses et messages de groupe restent en ligne, attribués à « Membre supprimé » ; tout le reste est effacé (profil, photos, listes, messages privés, amis). Le membre reçoit un e-mail avec le motif.</p>
+                    <form method="post" action="{{ path('admin_moderation_member_delete', {id: member.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token(deleteCsrfTokenId) }}">
+                        <label class="form-label" for="delete-reason">Motif communiqué au membre (facultatif)</label>
+                        <textarea class="form-control mb-2" id="delete-reason" name="reason" rows="2"></textarea>
+                        <label class="form-label" for="delete-confirm">Recopie le pseudo <strong>{{ member.username }}</strong> pour confirmer</label>
+                        <input class="form-control mb-2" id="delete-confirm" name="confirm_username" autocomplete="off" required>
+                        <button type="submit" class="btn btn-outline-danger"><i class="fa fa-trash"></i> Supprimer définitivement</button>
+                    </form>
+                </div>
+            </section>
+        {% endif %}
     </div>
     <div class="col-lg-7">
         <section class="card">

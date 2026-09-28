@@ -7,7 +7,7 @@
 {% set usernameMin = constant(formType ~ '::USERNAME_MIN_LENGTH') %}
 {% set usernameMax = constant(formType ~ '::USERNAME_MAX_LENGTH') %}
 {% set emailMax = constant(formType ~ '::EMAIL_MAX_LENGTH') %}
-{% set passwordMin = constant(formType ~ '::PASSWORD_MIN_LENGTH') %}
+{% set passwordMin = constant('App\\Security\\PasswordPolicy::MIN_LENGTH') %}
 
 {# Rule shown under a field, updated live by assets/controllers/field_rules_controller.js
    (colour: text-muted → text-success-text, « dot » icon → « check » icon). #}
@@ -111,7 +111,10 @@
                         {{ include('security/_password_toggle.html.twig', {controls: form.plainPassword.vars.id}, with_context = false) }}
                     </div>
                     <ul id="{{ passwordRulesId }}" class="space-y-0.5 text-caption">
-                        {{ reg.rule('minlength', passwordMin, 'Au moins ' ~ passwordMin ~ ' caractères (une phrase facile à retenir est idéale)') }}
+                        {{ reg.rule('minlength', passwordMin, 'Au moins ' ~ passwordMin ~ ' caractères') }}
+                        {% for pattern, label in constant('App\\Security\\PasswordPolicy::RULES') %}
+                            {{ reg.rule('pattern', pattern, label) }}
+                        {% endfor %}
                     </ul>
                     {{ form_errors(form.plainPassword) }}
                 </div>
@@ -120,7 +123,7 @@
                 <div class="field">
                     <label class="check" for="{{ form.agreeTerms.vars.id }}">
                         {{ form_widget(form.agreeTerms) }}
-                        <span class="text-fg-secondary">J'accepte les <a href="{{ path('app_terms') }}" class="link" target="_blank" rel="noopener">conditions d'utilisation</a> de la plateforme.</span>
+                        <span class="text-fg-secondary">J'ai au moins {{ legal.minimum_age }} ans et j'accepte les <a href="{{ path('app_terms') }}" class="link" target="_blank" rel="noopener">conditions d'utilisation</a>. Mes données sont traitées selon la <a href="{{ path('app_privacy') }}" class="link" target="_blank" rel="noopener">politique de confidentialité</a>.</span>
                     </label>
                     {{ form_errors(form.agreeTerms) }}
                 </div>

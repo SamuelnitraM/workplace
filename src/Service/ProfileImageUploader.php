@@ -73,10 +73,19 @@ final class ProfileImageUploader
     public function deleteReplaced(User $user, ProfileImage $kind, ?string $previousFilename): void
     {
         if ($previousFilename && $previousFilename !== $kind->filenameOf($user)) {
-            $previousPath = $this->directoryOf($kind) . '/' . basename($previousFilename);
-            if (is_file($previousPath)) {
-                @unlink($previousPath);
-            }
+            $this->deleteFile($kind, $previousFilename);
+        }
+    }
+
+    /** Removes a stored profile image file, e.g. once its account is deleted. */
+    public function deleteFile(ProfileImage $kind, ?string $filename): void
+    {
+        if (!$filename) {
+            return;
+        }
+        $path = $this->directoryOf($kind) . '/' . basename($filename);
+        if (is_file($path)) {
+            @unlink($path);
         }
     }
 

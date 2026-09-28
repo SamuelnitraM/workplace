@@ -3,6 +3,7 @@
 namespace App\Form;
 
 use App\Entity\User;
+use App\Security\PasswordPolicy;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
@@ -24,8 +25,6 @@ class RegistrationFormType extends AbstractType
     /** Équivalent HTML (attribut pattern, compatible drapeau « v ») de la contrainte Regex du pseudo. */
     public const USERNAME_HTML_PATTERN = '[A-Za-z0-9_.\-]+';
     public const EMAIL_MAX_LENGTH = 180;
-    public const PASSWORD_MIN_LENGTH = 12;
-    public const PASSWORD_MAX_LENGTH = 4096;
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
@@ -71,25 +70,18 @@ class RegistrationFormType extends AbstractType
             ->add('agreeTerms', CheckboxType::class, [
                 'mapped' => false,
                 'constraints' => [
-                    new IsTrue(message: 'Vous devez accepter les conditions d\'utilisation.'),
+                    new IsTrue(message: 'Vous devez avoir l\'âge minimum et accepter les conditions d\'utilisation.'),
                 ],
             ])
 
             ->add('plainPassword', PasswordType::class, [
                 'mapped' => false,
                 'attr' => [
-                    'minlength' => self::PASSWORD_MIN_LENGTH,
-                    'maxlength' => self::PASSWORD_MAX_LENGTH,
+                    'minlength' => PasswordPolicy::MIN_LENGTH,
+                    'maxlength' => PasswordPolicy::MAX_LENGTH,
                     'autocomplete' => 'new-password',
                 ],
-                'constraints' => [
-                    new NotBlank(message: 'Veuillez entrer un mot de passe'),
-                    new Length(
-                        min: self::PASSWORD_MIN_LENGTH,
-                        minMessage: 'Votre mot de passe doit contenir au moins {{ limit }} caractères',
-                        max: self::PASSWORD_MAX_LENGTH,
-                    ),
-                ],
+                'constraints' => PasswordPolicy::constraints('Veuillez entrer un mot de passe'),
             ])
         ;
     }

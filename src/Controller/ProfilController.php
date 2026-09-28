@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Account\AccountDeleter;
 use App\Form\ChangePasswordFormType;
 use App\Form\UserProfileFormType;
 use App\Entity\GalleryPhoto;
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use App\Service\GamificationService;
 use App\Profile\ProfileImage;
@@ -35,6 +37,8 @@ use App\Gamification\ExperienceHistory;
 #[Route('/profil', name: 'app_profil_')]
 class ProfilController extends AbstractController
 {
+    public const DELETE_ACCOUNT_CSRF_ID = 'delete_account';
+
     // Profil public — accessible par tous
 #[Route('/{username}', name: 'show')]
 public function show(
@@ -53,7 +57,7 @@ public function show(
 ): Response {
     $user = $userRepository->findOneBy(['username' => $username]);
 
-    if (!$user) {
+    if (!$user || $user->isDeletedMemberAccount()) {
         throw $this->createNotFoundException('Utilisateur introuvable');
     }
     // A banned member only keeps the photo, the username and the « Banni » mark (App\Moderation\BannedMembers)
@@ -335,5 +339,33 @@ public function show(
         return $this->render('profil/change_password.html.twig', [
             'form' => $form,
         ]);
+    }
+
+    /**
+     * Deletion of the account by its member, confirmed by the password (App\Account\AccountDeleter).
+     * Administrators keep their account: another administrator removes it from the back office.
+     */
+    #[Route('/settings/delete', name: 'delete', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function delete(Request $request, UserPasswordHasherInterface $passwordHasher, AccountDeleter $accountDeleter, Security $security): Response
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+        $settingsUrl = $this->generateUrl('app_profil_edit') . '#suppression';
+        if (!$this->isCsrfTokenValid(self::DELETE_ACCOUNT_CSRF_ID, $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+        if ($this->isGranted('ROLE_ADMIN')) {
+            $this->addFlash('error', 'Un compte administrateur ne se supprime pas depuis les paramètres : retire d\'abord ton rôle depuis l\'administration.');
+            return $this->redirect($settingsUrl);
+        }
+        if ($request->request->get('confirm') !== '1' || !$passwordHasher->isPasswordValid($user, $request->request->getString('password'))) {
+            $this->addFlash('error', 'Mot de passe incorrect ou confirmation manquante : ton compte n\'a pas été supprimé.');
+            return $this->redirect($settingsUrl);
+        }
+        $accountDeleter->delete($user, 'Tu as demandé la suppression de ton compte depuis tes paramètres.');
+        $security->logout(false);
+        $this->addFlash('success', 'Ton compte est supprimé. Merci d\'avoir fait partie de la communauté.');
+        return $this->redirectToRoute('app_home');
     }
 }

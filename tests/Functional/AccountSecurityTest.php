@@ -10,11 +10,17 @@ class AccountSecurityTest extends FunctionalTestCase
     public function testRegistrationSendsAWorkingVerificationLink(): void
     {
         $crawler = $this->client->request('GET', '/register');
-        $this->client->submit($crawler->selectButton('Créer mon compte')->form([
+        $crawler = $this->client->submit($crawler->selectButton('Créer mon compte')->form([
             'registration_form[email]' => 'newbie@example.test',
             'registration_form[username]' => 'newbie',
-            'registration_form[plainPassword]' => self::PASSWORD,
+            'registration_form[plainPassword]' => 'motdepasse',
             'registration_form[agreeTerms]' => true,
+        ]));
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'une lettre majuscule');
+        self::assertSelectorTextContains('body', 'un symbole');
+        $this->client->submit($crawler->selectButton('Créer mon compte')->form([
+            'registration_form[plainPassword]' => 'Figurine-8',
         ]));
         self::assertResponseRedirects('/bienvenue');
         self::assertEmailCount(1);
@@ -41,11 +47,11 @@ class AccountSecurityTest extends FunctionalTestCase
         self::assertResponseRedirects('/mot-de-passe-oublie/reinitialiser');
         $crawler = $this->client->followRedirect();
         $this->client->submit($crawler->selectButton('Enregistrer le mot de passe')->form([
-            'change_password_form[newPassword][first]' => 'a brand new passphrase',
-            'change_password_form[newPassword][second]' => 'a brand new passphrase',
+            'change_password_form[newPassword][first]' => 'Nouveau-mdp7',
+            'change_password_form[newPassword][second]' => 'Nouveau-mdp7',
         ]));
         self::assertResponseRedirects('/login');
-        $this->login('alice', 'a brand new passphrase');
+        $this->login('alice', 'Nouveau-mdp7');
         self::assertResponseRedirects();
         self::assertStringNotContainsString('/login', (string) $this->client->getResponse()->headers->get('Location'));
         $this->client->request('GET', $resetUrl);
