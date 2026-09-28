@@ -3,22 +3,6 @@
 
 {% block title %}Notifications — SprueHub{% endblock %}
 
-{# Icône (jeu SVG) et teinte par type de notification (App\Entity\Notification::TYPE_*) #}
-{% set typeIcons = {
-    friend_request: {icon: 'user-plus', tone: 'primary'},
-    friend_accepted: {icon: 'user-check', tone: 'success'},
-    group_invitation: {icon: 'mail', tone: 'primary'},
-    group_invitation_accepted: {icon: 'users', tone: 'success'},
-    group_message: {icon: 'messages-square', tone: 'info'},
-    forum_reply: {icon: 'message-circle', tone: 'info'},
-    photo_like: {icon: 'heart', tone: 'danger'},
-    photo_comment: {icon: 'message-square', tone: 'info'},
-    badge_earned: {icon: 'medal', tone: 'accent'},
-    level_up: {icon: 'sparkles', tone: 'accent'},
-    forum_mention: {icon: 'at-sign', tone: 'primary'},
-    forum_solution: {icon: 'check-circle', tone: 'success'},
-} %}
-
 {% block body %}
 <div class="container-reading">
 
@@ -47,7 +31,7 @@
         <ul class="card overflow-hidden">
             {% for notification in notifications %}
                 {% set actor = notification.actor %}
-                {% set meta = typeIcons[notification.type] ?? {icon: 'bell', tone: 'primary'} %}
+                {% set meta = {icon: notification_icon(notification), tone: notification_tone(notification)} %}
                 <li class="border-b border-line last:border-b-0">
                     {# Formulaire hors Turbo : la redirection conserve l'ancre (#post-…, #comment-…) #}
                     <form method="post" action="{{ path('app_notification_read', {id: notification.id}) }}" data-turbo="false">

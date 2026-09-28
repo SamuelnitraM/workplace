@@ -45,6 +45,7 @@
 {%- endif %}
 <body class="min-h-screen flex flex-col bg-canvas text-fg has-bottom-bar">
     <a href="#main" class="skip-link">Aller au contenu</a>
+    {{ include('_partials/_icon_sprite.html.twig') }}
 
     {% if app.user %}
     <div data-controller="heartbeat" data-heartbeat-url-value="{{ path('app_heartbeat') }}" data-heartbeat-interval-value="{{ constant('App\\Service\\PresenceService::HEARTBEAT_INTERVAL_MS') }}" hidden></div>

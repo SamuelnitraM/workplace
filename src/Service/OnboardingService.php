@@ -52,7 +52,7 @@ final class OnboardingService
     /**
      * Groupes proposés à l'étape 3 (une seule requête) : groupes publics ouverts dont l'utilisateur n'est pas membre,
      * les plus pertinents d'abord (nom/description contenant la faction choisie), puis les plus peuplés.
-     * Les groupes rejoints pendant la présentation ($joinedIds) restent affichés (« ✓ Rejoint »).
+     * Groups joined during the presentation ($joinedIds) stay listed, marked « Rejoint ».
      *
      * @param int[] $joinedIds
      * @return list<array{group: Group, memberCount: int, joined: bool}>

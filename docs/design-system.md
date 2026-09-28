@@ -150,6 +150,9 @@ Include direct possible : `{{ include('_partials/_icon.html.twig', {name: 'home'
 69 icônes (style Lucide, ISC) : home, compass, search, menu, plus, x, check, chevron-down/up/left/right, arrow-left/right, external-link, more-horizontal/vertical, filter, log-in, log-out, settings, user, user-plus, user-check, users, bell, mail, message-circle, message-square, messages-square, send, heart, thumbs-up, star, pin, trophy, medal, crown, flame, sparkles, sword, swords, shield, shield-check, paintbrush, list-checks, clipboard-list, file-text, folder, image, image-plus, camera, upload, pencil, trash, eye, eye-off, lock, globe, calendar, clock, bar-chart, layout-grid, check-circle, x-circle, alert-circle, alert-triangle, info, help-circle, loader. Alias : edit, trash-2, house, ellipsis, close, brush, circle-check…
 Taille : `size-4` dans le texte courant et les chips, `size-5` dans les boutons-icônes (géré par `.btn > svg`).
 Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_icons` du partial.
+**Badges :** une icône dessinée par badge, `badge-<code>` (tirets à la place des soulignés), référencée par `App\Gamification\BadgeCatalog` ; le titre à côté d'un pseudo n'affiche que le texte, dans la couleur du palier.
+**Icônes dessinées en JavaScript** (notifications, règles du mot de passe) : planche `<symbol>` incluse une fois par page (`_partials/_icon_sprite.html.twig`, liste dans `AppExtension::spriteIcons()`), utilisée par `assets/lib/icon.js` (`icon('bell', 'size-4')`) — mêmes tracés que `ui.icon()`.
+**Pas d'emoji dans l'interface :** icônes SVG uniquement. Seul le contenu écrit par les membres (sélecteur d'émoticônes) garde des emojis.
 
 ## À faire / à éviter
 

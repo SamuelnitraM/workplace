@@ -45,7 +45,7 @@
                     <input type="hidden" name="liked" value="{{ liked ? '0' : '1' }}" data-like-target="intent">
                     <button type="submit" class="btn btn-secondary btn-sm like-toggle like-toggle-compact {{ liked ? 'is-liked' : 'is-not-liked' }}" aria-pressed="{{ liked ? 'true' : 'false' }}"
                             aria-label="J’aime" title="J’aime" data-like-target="button">
-                        <span class="like-toggle-heart" aria-hidden="true">{{ liked ? '♥' : '♡' }}</span>
+                        <span class="like-toggle-heart" aria-hidden="true"></span>
                         <span class="like-toggle-count" data-like-target="count">{{ item.meta.likes ?? 0 }}</span>
                     </button>
                 </form>
@@ -97,7 +97,7 @@
         <ul class="flex flex-wrap gap-2 px-4 pt-3 pb-4 sm:px-5" aria-label="Badges obtenus">
             {% for badge in item.subject|slice(0, 6) %}
                 <li class="user-title badge-tier-{{ badge.tier }} user-title-md" title="{{ badge.description }}">
-                    <span class="user-title-icon" aria-hidden="true">{{ badge.icon }}</span>
+                    <span class="user-title-icon" aria-hidden="true">{{ ui.icon(badge.icon, 'size-3.5') }}</span>
                     <span class="user-title-name">{{ badge.name }}</span>
                 </li>
             {% endfor %}

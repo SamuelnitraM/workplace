@@ -3,14 +3,14 @@ import { Controller } from '@hotwired/stimulus';
 /* stimulusFetch: 'lazy' */
 
 /*
- * Amélioration progressive : like / unlike d'une photo sans rechargement
- * (le formulaire fonctionne aussi sans JS).
+ * Progressive enhancement: like / unlike of a photo without reload (the form also works without JavaScript).
+ * The heart is drawn in CSS (.like-toggle-heart, filled when aria-pressed="true").
  *
- * Usage :
+ * Usage:
  *   <div data-controller="like">
  *     <form … data-like-target="form" data-action="like#submit">
  *       <input type="hidden" name="liked" data-like-target="intent">
- *       <button type="submit" data-like-target="button"><span aria-hidden="true">♡</span>
+ *       <button type="submit" class="like-toggle" data-like-target="button"><span class="like-toggle-heart" aria-hidden="true"></span>
  *         <span data-like-target="label">…</span> <span data-like-target="count">…</span></button>
  *     (the label target is optional: compact buttons show only the heart and the counter)
  *     </form>
@@ -28,7 +28,6 @@ export default class extends Controller {
         const button = this.buttonTarget;
         this.intentTarget.value = liked ? '0' : '1';
         button.setAttribute('aria-pressed', liked ? 'true' : 'false');
-        button.querySelector('[aria-hidden]').textContent = liked ? '♥' : '♡';
         if (this.hasLabelTarget) this.labelTarget.textContent = liked ? 'Je n’aime plus' : 'J’aime';
         this.countTarget.textContent = count;
         ['is-liked'].forEach(c => button.classList.toggle(c, liked));

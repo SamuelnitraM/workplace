@@ -9,11 +9,12 @@
 {% set emailMax = constant(formType ~ '::EMAIL_MAX_LENGTH') %}
 {% set passwordMin = constant(formType ~ '::PASSWORD_MIN_LENGTH') %}
 
-{# Règle affichée sous un champ, mise à jour en direct par assets/controllers/field_rules_controller.js
-   (couleur : text-muted → text-success-text, puce « • » → « ✓ »). #}
+{# Rule shown under a field, updated live by assets/controllers/field_rules_controller.js
+   (colour: text-muted → text-success-text, « dot » icon → « check » icon). #}
 {% macro rule(kind, param, label) %}
+    {% import '_macros/ui.html.twig' as ui %}
     <li class="flex items-start gap-2 text-muted transition-colors" data-field-rules-target="rule" data-rule="{{ kind }}" data-param="{{ param }}">
-        <span data-icon aria-hidden="true" class="w-3 shrink-0 text-center font-bold">•</span>
+        <span data-icon aria-hidden="true" class="mt-0.5 flex shrink-0">{{ ui.icon('dot', 'size-4') }}</span>
         <span>{{ label }}<span data-state class="sr-only"></span></span>
     </li>
 {% endmacro %}

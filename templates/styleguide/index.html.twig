@@ -73,7 +73,7 @@
                         <th scope="row" class="px-4 py-2.5 text-left font-medium"><span class="inline-block size-3 rounded-pill align-middle mr-2" style="background: {{ t.hex }}"></span>text-{{ t.name }} <span class="text-muted font-mono text-caption">{{ t.hex }}</span></th>
                         {% for bgName, ratio in t.ratios %}
                             <td class="px-4 py-2.5" style="background: {{ surfaces[bgName] }}; color: {{ t.hex }}">
-                                Aa {{ ratio|number_format(2, ',') }}{% if ratio < 4.5 %} ✗{% endif %}
+                                Aa {{ ratio|number_format(2, ',') }}{% if ratio < 4.5 %} {{ ui.icon('x', 'size-3 inline', 'Contraste insuffisant') }}{% endif %}
                             </td>
                         {% endfor %}
                     </tr>
@@ -361,12 +361,6 @@
             hint: '+20 XP pour la première photo',
             cta: {label: 'Ajouter une photo', url: '#exemples', icon: 'image-plus'},
             secondary: {label: 'Voir des exemples', url: '#exemples'},
-        }) }}
-        {{ include('_partials/_empty_state.html.twig', {
-            icon: '💬',
-            title: 'Aucune conversation',
-            text: 'Emoji historique converti automatiquement en icône SVG.',
-            compact: true,
         }) }}
     </div>
 </section>

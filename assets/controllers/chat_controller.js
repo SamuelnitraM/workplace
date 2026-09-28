@@ -215,21 +215,17 @@ export default class extends Controller {
         return link;
     }
 
-    /** Author's title ({name, tier, icon}), same rendering as templates/gamification/_user_title.html.twig. */
+    /** Author's title ({name, tier}), same rendering as templates/gamification/_user_title.html.twig. */
     buildTitle(title) {
         if (!title || !title.name) return null;
         const tier = ['bronze', 'silver', 'gold', 'premium', 'honorary'].includes(title.tier) ? title.tier : 'bronze';
         const pill = document.createElement('span');
         pill.className = `user-title badge-tier-${tier}`;
         pill.title = `Titre : ${title.name}`;
-        const icon = document.createElement('span');
-        icon.className = 'user-title-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = String(title.icon ?? '');
         const name = document.createElement('span');
         name.className = 'user-title-name';
         name.textContent = String(title.name);
-        pill.append(icon, name);
+        pill.append(name);
         return pill;
     }
 }

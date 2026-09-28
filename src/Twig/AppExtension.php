@@ -15,6 +15,9 @@ use Twig\TwigFunction;
 
 class AppExtension extends AbstractExtension
 {
+    /** Icons drawn by JavaScript besides the notification icons: like hearts, password rules. */
+    private const SCRIPT_ICONS = ['heart', 'check', 'dot'];
+
     private ?int $unreadNotifications = null;
 
     public function __construct(
@@ -31,6 +34,8 @@ class AppExtension extends AbstractExtension
             new TwigFunction('notification_unread_count', $this->unreadNotificationCount(...)),
             new TwigFunction('notification_text', $this->notificationRenderer->text(...)),
             new TwigFunction('notification_icon', $this->notificationRenderer->icon(...)),
+            new TwigFunction('notification_tone', $this->notificationRenderer->tone(...)),
+            new TwigFunction('sprite_icons', $this->spriteIcons(...)),
             new TwigFunction('album_cover', GalleryAlbumManager::coverOf(...)),
             new TwigFunction('requested_tour', $this->tourLauncher->requested(...)),
         ];
@@ -68,5 +73,15 @@ class AppExtension extends AbstractExtension
             $seconds < 7 * 86400 => sprintf('il y a %d j', intdiv($seconds, 86400)),
             default => 'le ' . $date->format('d/m/Y'),
         };
+    }
+
+    /**
+     * Icons of the SVG sprite of the page (_partials/_icon_sprite.html.twig), used by JavaScript through <use href="#icon-NAME">.
+     *
+     * @return list<string>
+     */
+    public function spriteIcons(): array
+    {
+        return array_values(array_unique([...NotificationRenderer::iconNames(), ...self::SCRIPT_ICONS]));
     }
 }

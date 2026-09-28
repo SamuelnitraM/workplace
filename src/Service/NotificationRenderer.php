@@ -5,9 +5,9 @@ namespace App\Service;
 use App\Entity\Notification;
 
 /**
- * Rendu (texte brut, en français) des notifications : utilisé à la fois par les pages Twig
- * et par la charge utile temps réel. Le texte n'est JAMAIS du HTML : il est échappé par Twig
- * côté serveur et inséré via textContent côté client.
+ * Rendering of the notifications (plain French text, icon and tone), used by the Twig pages and by the
+ * real-time payload. The text is NEVER HTML: Twig escapes it on the server and it is inserted
+ * with textContent in the browser.
  */
 class NotificationRenderer
 {
@@ -49,8 +49,8 @@ class NotificationRenderer
             Notification::TYPE_PHOTO_COMMENT => $this->photoComment($data, $actor, $count),
 
             Notification::TYPE_BADGE_EARNED => $count > 1
-                ? sprintf('%d nouveaux badges obtenus, dont %s %s', $count, $this->str($data, 'badgeIcon'), $this->str($data, 'badge'))
-                : sprintf('Nouveau badge obtenu : %s %s', $this->str($data, 'badgeIcon'), $this->str($data, 'badge')),
+                ? sprintf('%d nouveaux badges obtenus, dont %s', $count, $this->str($data, 'badge'))
+                : sprintf('Nouveau badge obtenu : %s', $this->str($data, 'badge')),
 
             Notification::TYPE_LEVEL_UP => sprintf('Niveau %d atteint !', (int) ($data['level'] ?? 0)),
 
@@ -77,25 +77,43 @@ class NotificationRenderer
         };
     }
 
-    /** Icône (emoji) affichée à côté de la notification. */
+    /**
+     * SVG icon (name in templates/_partials/_icon.html.twig) and tone (design system colour) of each type.
+     * The icons are also in the SVG sprite used by the notification menu (_partials/_icon_sprite.html.twig).
+     */
+    private const PRESENTATION = [
+        Notification::TYPE_FRIEND_REQUEST => ['user-plus', 'primary'],
+        Notification::TYPE_FRIEND_ACCEPTED => ['user-check', 'success'],
+        Notification::TYPE_GROUP_INVITATION => ['mail', 'primary'],
+        Notification::TYPE_GROUP_INVITATION_ACCEPTED => ['users', 'success'],
+        Notification::TYPE_GROUP_MESSAGE => ['messages-square', 'info'],
+        Notification::TYPE_FORUM_REPLY => ['message-circle', 'info'],
+        Notification::TYPE_PHOTO_LIKE => ['heart', 'danger'],
+        Notification::TYPE_PHOTO_COMMENT => ['message-square', 'info'],
+        Notification::TYPE_BADGE_EARNED => ['medal', 'accent'],
+        Notification::TYPE_LEVEL_UP => ['sparkles', 'accent'],
+        Notification::TYPE_FORUM_MENTION => ['at-sign', 'primary'],
+        Notification::TYPE_FORUM_SOLUTION => ['check-circle', 'success'],
+        Notification::TYPE_MODERATION_NOTICE => ['shield', 'danger'],
+        Notification::TYPE_GROUP_MENTION => ['at-sign', 'primary'],
+        Notification::TYPE_TODO_ASSIGNMENT => ['clipboard-list', 'primary'],
+    ];
+    private const DEFAULT_PRESENTATION = ['bell', 'primary'];
+
     public function icon(Notification $notification): string
     {
-        return match ($notification->getType()) {
-            Notification::TYPE_FRIEND_REQUEST, Notification::TYPE_FRIEND_ACCEPTED => '👥',
-            Notification::TYPE_GROUP_INVITATION, Notification::TYPE_GROUP_INVITATION_ACCEPTED => '📨',
-            Notification::TYPE_GROUP_MESSAGE => '💬',
-            Notification::TYPE_FORUM_REPLY => '🗨️',
-            Notification::TYPE_PHOTO_LIKE => '❤️',
-            Notification::TYPE_PHOTO_COMMENT => '📝',
-            Notification::TYPE_BADGE_EARNED => '🏅',
-            Notification::TYPE_LEVEL_UP => '⬆️',
-            Notification::TYPE_FORUM_MENTION => '📣',
-            Notification::TYPE_FORUM_SOLUTION => '✅',
-            Notification::TYPE_MODERATION_NOTICE => '🛡️',
-            Notification::TYPE_GROUP_MENTION => '📣',
-            Notification::TYPE_TODO_ASSIGNMENT => '📋',
-            default => '🔔',
-        };
+        return (self::PRESENTATION[$notification->getType()] ?? self::DEFAULT_PRESENTATION)[0];
+    }
+
+    public function tone(Notification $notification): string
+    {
+        return (self::PRESENTATION[$notification->getType()] ?? self::DEFAULT_PRESENTATION)[1];
+    }
+
+    /** @return list<string> every icon a notification can show */
+    public static function iconNames(): array
+    {
+        return array_values(array_unique([...array_column(self::PRESENTATION, 0), self::DEFAULT_PRESENTATION[0]]));
     }
 
     /** Task assignment: "outcome" is requested, accepted, refused or assigned. */

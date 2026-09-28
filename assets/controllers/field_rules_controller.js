@@ -1,10 +1,11 @@
 import { Controller } from '@hotwired/stimulus';
+import { icon } from '../lib/icon.js';
 
 /*
- * Retour en direct sur les règles d'un champ (formulaire d'inscription) : chaque règle passe de « • » gris
- * à « ✓ » (text-success-text) dès qu'elle est respectée. Purement indicatif : la validation serveur reste la référence.
+ * Live feedback on the rules of a field (registration form): each rule goes from a grey « dot » icon
+ * to a « check » icon (text-success-text) as soon as it is met. Indicative only: the server validation remains the reference.
  *
- * Usage :
+ * Usage:
  *   <div data-controller="field-rules">
  *     <input data-field-rules-target="input" data-action="input->field-rules#check">
  *     <ul>
@@ -59,9 +60,9 @@ export default class extends Controller {
         rule.classList.add(...(met ? this.constructor.metClasses : this.constructor.unmetClasses));
         rule.dataset.met = met ? 'true' : 'false';
 
-        const icon = rule.querySelector('[data-icon]');
-        if (icon) {
-            icon.textContent = met ? '✓' : '•';
+        const iconSlot = rule.querySelector('[data-icon]');
+        if (iconSlot) {
+            iconSlot.replaceChildren(icon(met ? 'check' : 'dot', 'size-4'));
         }
         const state = rule.querySelector('[data-state]');
         if (state) {

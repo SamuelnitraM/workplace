@@ -31,15 +31,15 @@ class LeaderboardService
     /** Nombre maximal de membres affichés dans le classement (pagination). */
     public const MAX_RANKED = 100;
 
-    /** @var array<string, array{label: string, icon: string}> */
+    /** @var array<string, array{label: string}> */
     public const SORTS = [
-        'niveau' => ['label' => 'Plus haut niveau', 'icon' => '⭐'],
-        'semaine' => ['label' => 'XP de la semaine', 'icon' => '📅'],
-        'mois' => ['label' => 'XP du mois', 'icon' => '🗓️'],
-        'badges' => ['label' => 'Plus de badges', 'icon' => '🏅'],
-        'serie' => ['label' => 'Meilleure série', 'icon' => '🔥'],
-        'sujets' => ['label' => 'Plus de sujets', 'icon' => '📝'],
-        'votes' => ['label' => 'Plus de votes reçus', 'icon' => '👍'],
+        'niveau' => ['label' => 'Plus haut niveau'],
+        'semaine' => ['label' => 'XP de la semaine'],
+        'mois' => ['label' => 'XP du mois'],
+        'badges' => ['label' => 'Plus de badges'],
+        'serie' => ['label' => 'Meilleure série'],
+        'sujets' => ['label' => 'Plus de sujets'],
+        'votes' => ['label' => 'Plus de votes reçus'],
     ];
 
     public function __construct(private EntityManagerInterface $entityManager) {}

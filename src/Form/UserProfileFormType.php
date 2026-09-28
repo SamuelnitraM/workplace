@@ -102,7 +102,7 @@ class UserProfileFormType extends AbstractType
                     $repository,
                     $options['data'] instanceof User ? $options['data'] : null,
                 ),
-                'choice_label' => static fn (Badge $badge) => sprintf('%s %s (%s)', $badge->getIcon(), $badge->getName(), $badge->getTierLabel()),
+                'choice_label' => static fn (Badge $badge) => sprintf('%s (%s)', $badge->getName(), $badge->getTierLabel()),
                 'invalid_message' => 'Ce badge n’est pas débloqué : il ne peut pas servir de titre.',
             ])
             ->add('avatarFile', FileType::class, [

@@ -1331,11 +1331,13 @@
     width: 3.75rem;
     height: 3.75rem;
     border-radius: 9999px;
-    font-size: 1.75rem;
-    line-height: 1;
+    color: #fff;
     background: var(--badge-medal);
     box-shadow: inset 0 2px 4px rgb(255 255 255 / .25), inset 0 -3px 6px rgb(0 0 0 / .35), 0 0 0 3px rgb(17 24 39 / .9), 0 0 0 5px var(--badge-accent);
 }
+
+/* Badge icon (SVG « badge-* ») engraved on the medal */
+.badge-medal svg { filter: drop-shadow(0 1px 1px rgb(0 0 0 / .5)); }
 
 .badge-tier-pill {
     display: inline-block;
@@ -1456,7 +1458,7 @@
     align-items: center;
     gap: .25rem;
     max-width: 100%;
-    padding: .05rem .45rem .05rem .3rem;
+    padding: .05rem .5rem;
     border: 1px solid transparent;
     border-radius: 9999px;
     font-size: .68rem;
@@ -1474,11 +1476,11 @@
 .user-title-md {
     font-size: .8rem;
     line-height: 1.5rem;
-    padding: .1rem .6rem .1rem .4rem;
+    padding: .1rem .6rem;
 }
 
 .user-title-icon {
-    font-size: .95em;
+    display: inline-flex;
     line-height: 1;
 }
 
@@ -2653,8 +2655,7 @@
         height: 2rem;
         border-radius: var(--radius-pill);
         background: var(--color-surface-raised);
-        font-size: 1rem;
-        line-height: 1;
+        color: var(--color-accent-text);
     }
 
     /* ---------- Page photo ---------- */

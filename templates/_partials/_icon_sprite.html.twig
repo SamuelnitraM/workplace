@@ -1,0 +1,4 @@
+{# SVG sprite of the icons drawn by JavaScript (AppExtension::spriteIcons), same paths as ui.icon(); used through assets/lib/icon.js. #}
+<svg xmlns="http://www.w3.org/2000/svg" class="hidden" aria-hidden="true" focusable="false">
+    {%- for name in sprite_icons() %}{{ include('_partials/_icon.html.twig', {name: name, symbol: true}, with_context = false) }}{% endfor -%}
+</svg>

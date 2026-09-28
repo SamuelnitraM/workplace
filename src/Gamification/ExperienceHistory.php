@@ -65,12 +65,12 @@ class ExperienceHistory
         [$type, $detail] = array_pad(explode(':', $actionKey, 2), 2, '');
 
         return match ($type) {
-            'daily' => ['Connexion quotidienne', '📅'],
-            'streak' => [sprintf('Bonus de série (%d jours)', GamificationService::STREAK_BONUS_EVERY), '🔥'],
-            'badge' => ['Badge ' . (BadgeCatalog::get($detail)['name'] ?? $detail), BadgeCatalog::get($detail)['icon'] ?? '🏅'],
-            'level' => ['Niveau ' . $detail, '⭐'],
-            'solution' => ['Réponse choisie comme solution', '✅'],
-            default => [ucfirst(str_replace(['_', ':'], [' ', ' — '], $actionKey)), '✨'],
+            'daily' => ['Connexion quotidienne', 'calendar'],
+            'streak' => [sprintf('Bonus de série (%d jours)', GamificationService::STREAK_BONUS_EVERY), 'flame'],
+            'badge' => ['Badge ' . (BadgeCatalog::get($detail)['name'] ?? $detail), BadgeCatalog::get($detail)['icon'] ?? 'medal'],
+            'level' => ['Niveau ' . $detail, 'star'],
+            'solution' => ['Réponse choisie comme solution', 'check-circle'],
+            default => [ucfirst(str_replace(['_', ':'], [' ', ' — '], $actionKey)), 'sparkles'],
         };
     }
 }

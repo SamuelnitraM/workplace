@@ -1,17 +1,19 @@
 {#
-  Icône SVG inline (style Lucide : trait 2 px, currentColor, grille 24 × 24).
+  Inline SVG icon (Lucide style: 2 px stroke, currentColor, 24 × 24 grid).
 
-  Usage :
+  Usage:
     {{ include('_partials/_icon.html.twig', {name: 'home', class: 'size-5'}) }}
     {% import '_macros/ui.html.twig' as ui %}{{ ui.icon('bell', 'size-5') }}
-    {{ ui.icon('trash', 'size-4', 'Supprimer') }}   ← avec libellé : role="img" + aria-label (icône seule porteuse de sens)
+    {{ ui.icon('trash', 'size-4', 'Supprimer') }}   ← with a label: role="img" + aria-label (icon alone carrying the meaning)
 
-  Paramètres : name (obligatoire), class (défaut « size-5 »), label (facultatif), stroke (défaut 2).
-  Sans label, l'icône est décorative : aria-hidden="true" (le texte voisin ou l'aria-label du bouton porte le sens).
-  Nom inconnu : cercle « ? » + commentaire HTML (repérable dans /_styleguide).
-  Liste des noms : include avec name: '__names' (renvoie les noms séparés par des virgules — utilisé par le styleguide).
+  Parameters: name (required), class (default « size-5 »), label (optional), stroke (default 2),
+  symbol (optional): renders a <symbol id="icon-NAME"> for the SVG sprite used by JavaScript (_partials/_icon_sprite.html.twig).
+  Without a label the icon is decorative: aria-hidden="true" (the text next to it or the aria-label of the button carries the meaning).
+  Unknown name: « ? » circle + HTML comment (visible in /_styleguide).
+  List of the names: include with name: '__names' (names separated by commas, used by the styleguide).
+  The « badge-* » icons are drawn for the badges of App\Gamification\BadgeCatalog.
 
-  Tracés issus de Lucide (https://lucide.dev) — licence ISC :
+  Paths from Lucide (https://lucide.dev), ISC license:
   Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT).
   All other copyright (c) for Lucide are held by Lucide Contributors 2022.
   Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee
@@ -118,6 +120,24 @@
     'volume-2': '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>',
     'play': '<polygon points="6 3 20 12 6 21 6 3"/>',
     'rss': '<path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
+    'badge-pioneer-1': '<path d="M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/>',
+    'badge-pioneer-2': '<path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>',
+    'badge-pioneer-3': '<path d="M2 16V4a2 2 0 0 1 2-2h11"/><path d="M22 18H11a2 2 0 1 0 0 4h10.5a.5.5 0 0 0 .5-.5v-15a.5.5 0 0 0-.5-.5H11a2 2 0 0 0-2 2v12"/><path d="M5 14H4a2 2 0 1 0 0 4h1"/>',
+    'badge-popular-1': '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>',
+    'badge-popular-2': '<path d="M12 5.5l1.9 3.85 4.25.62-3.08 3 .73 4.23L12 15.2l-3.8 2 .73-4.23-3.08-3 4.25-.62z"/><path d="M12 1v1.5"/><path d="M20.5 5.5l-1.1 1.1"/><path d="M3.5 5.5l1.1 1.1"/><path d="M22 14h-1.5"/><path d="M2 14h1.5"/>',
+    'badge-popular-3': '<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/><path d="M12 11.5v.01"/>',
+    'badge-devoted-1': '<path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/>',
+    'badge-devoted-2': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 16.5s-3.2-1.9-3.2-4.2a1.7 1.7 0 0 1 3.2-.85 1.7 1.7 0 0 1 3.2.85c0 2.3-3.2 4.2-3.2 4.2z"/>',
+    'badge-devoted-3': '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>',
+    'badge-master-blacksmith': '<path d="M2 9h13a4 4 0 0 1 4 4H9.5A6.5 6.5 0 0 1 3 9.5z"/><path d="M10 13v3.5"/><path d="M15 13v3.5"/><path d="M7 21a3.5 3.5 0 0 1 3.5-3.5h4A3.5 3.5 0 0 1 18 21z"/><path d="m15.5 6.5 5-5"/><path d="m18.5 0.8 3.7 3.7"/>',
+    'badge-curious': '<circle cx="12" cy="12" r="10"/><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/>',
+    'badge-jurist': '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+    'badge-archaeologist': '<path d="M10 2v5.632c0 .424-.272.795-.653.982A6 6 0 0 0 6 14c.006 4 3 7 5 8"/><path d="M10 5H8a2 2 0 0 0 0 4h.68"/><path d="M14 2v5.632c0 .424.272.795.652.982A6 6 0 0 1 18 14c0 4-3 7-5 8"/><path d="M14 5h2a2 2 0 0 1 0 4h-.68"/><path d="M18 22H6"/><path d="M9 2h6"/>',
+    'badge-heroic': '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="m5 14 4 4"/><path d="m7 17-3 3"/><path d="m3 19 2 2"/>',
+    'badge-legendary': '<path d="M2 12s4-6.5 10-6.5S22 12 22 12s-4 6.5-10 6.5S2 12 2 12z"/><path d="M12 8.2c-1.1 2.4-1.1 5.2 0 7.6 1.1-2.4 1.1-5.2 0-7.6z"/><path d="M6 6.2 4.5 3.5"/><path d="M18 6.2l1.5-2.7"/><path d="M12 5.5V2.5"/>',
+    'badge-immortal': '<path d="m12.5 17-.5-1-.5 1h1z"/><path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="12" r="1"/>',
+    'badge-vanguard': '<path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/>',
+    'dot': '<circle cx="12" cy="12" r="2.5"/>',
 } -%}
 {%- set _aliases = {
     'house': 'home', 'edit': 'pencil', 'trash-2': 'trash', 'circle-check': 'check-circle', 'triangle-alert': 'alert-triangle',
@@ -125,9 +145,11 @@
 } -%}
 {%- if name == '__names' -%}
     {{- _icons|keys|join(',') -}}
+{%- elseif symbol ?? false -%}
+    <symbol id="icon-{{ name }}" viewBox="0 0 24 24">{{ (_icons[_aliases[name] ?? name] ?? _icons['help-circle'])|raw }}</symbol>
 {%- else -%}
     {%- set _key = _aliases[name] ?? name -%}
     {%- set _label = label ?? null -%}
-    {%- if _icons[_key] is not defined %}<!-- icône inconnue : {{ name }} -->{% endif -%}
+    {%- if _icons[_key] is not defined %}<!-- unknown icon: {{ name }} -->{% endif -%}
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="{{ stroke ?? 2 }}" stroke-linecap="round" stroke-linejoin="round" class="{{ class ?? 'size-5' }}"{% if _label %} role="img" aria-label="{{ _label }}"{% else %} aria-hidden="true" focusable="false"{% endif %}>{{ (_icons[_key] ?? _icons['help-circle'])|raw }}</svg>
 {%- endif -%}

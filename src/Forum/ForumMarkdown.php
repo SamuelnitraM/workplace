@@ -159,7 +159,7 @@ final class ForumMarkdown
                 }
             }
             $link = new Link($url, null, $node->getTitle());
-            $link->appendChild(new Text('🖼 ' . ($alt !== '' ? $alt : 'image externe')));
+            $link->appendChild(new Text('Image : ' . ($alt !== '' ? $alt : 'image externe')));
             $node->replaceWith($link);
         }
     }

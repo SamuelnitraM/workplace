@@ -31,7 +31,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class OnboardingController extends AbstractController
 {
     public const CSRF_TOKEN_ID = 'onboarding';
-    /** Groupes rejoints pendant la présentation : restent affichés « ✓ Rejoint » à l'étape 3. */
+    /** Groups joined during the presentation, still listed as « Rejoint » at step 3. */
     private const SESSION_JOINED_GROUPS = 'onboarding_joined_groups';
 
     public function __construct(

@@ -30,8 +30,9 @@ class Badge
 	#[ORM\Column(type: Types::TEXT)]
 	private string $hiddenDescription = 'Condition secrète à découvrir';
 
-	#[ORM\Column(length: 20)]
-	private string $icon = '🏅';
+	/** Name of the icon in the icon set of the site (templates/_partials/_icon.html.twig), « badge-* » drawings. */
+	#[ORM\Column(length: 40)]
+	private string $icon = 'medal';
 
 	#[ORM\Column]
 	private bool $hidden = false;

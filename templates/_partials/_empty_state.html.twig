@@ -1,28 +1,21 @@
-{# État vide transformé en appel à l'action (rendu commun à tout le site — design system : .empty-state).
-   Paramètres :
-     icon        (string, facultatif) nom d'icône du jeu SVG (ex. 'camera', 'users' — voir /_styleguide) ;
-                 les anciens emojis sont convertis automatiquement (📷 → camera…), sinon affichés tels quels
-     title       (string, obligatoire)                text  (string, facultatif)
-     hint        (string, facultatif — ex. récompense XP réelle, affichée en couleur accent)
-     cta         ({label, url}, {label, for} ou {label, tab} — `for` = id d'un champ de la page : rend un <label> qui le focalise ;
-                  `tab` = nom d'un onglet du contrôleur Stimulus « tabs » englobant : rend un bouton qui l'affiche ;
-                  clé facultative `icon` : nom d'icône affichée avant le libellé)
-     secondary   (même forme que cta, facultatif — bouton discret)
-     variant     ('card' par défaut : carte autonome ; 'plain' : sans cadre, à l'intérieur d'un panneau existant)
-     compact     (bool, défaut false : marges réduites)
-     heading     (niveau de titre, défaut 2)
-   Tout le texte est échappé (autoescape). #}
+{# Empty state turned into a call to action (shared rendering of the whole site, design system: .empty-state).
+   Parameters:
+     icon        (string, optional) name of an icon of the SVG set (e.g. 'camera', 'users', see /_styleguide)
+     title       (string, required)                  text  (string, optional)
+     hint        (string, optional, e.g. real XP reward, shown in the accent colour)
+     cta         ({label, url}, {label, for} or {label, tab}; `for` = id of a field of the page: renders a <label> focusing it;
+                  `tab` = name of a tab of the enclosing « tabs » Stimulus controller: renders a button showing it;
+                  optional key `icon`: name of the icon shown before the label)
+     secondary   (same shape as cta, optional, discreet button)
+     variant     ('card' by default: standalone card; 'plain': no frame, inside an existing panel)
+     compact     (bool, default false: smaller margins)
+     heading     (heading level, default 2)
+   All the text is escaped (autoescape). #}
 {% import '_macros/ui.html.twig' as ui %}
 {% set variant = variant ?? 'card' %}
 {% set compact = compact ?? false %}
 {% set heading = heading ?? 2 %}
-{% set _legacy_icons = {
-    '◷': 'clock', '⚔️': 'swords', '✉️': 'mail', '✏️': 'pencil', '🌍': 'globe', '🏅': 'medal', '👋': 'sparkles',
-    '👥': 'users', '💬': 'message-circle', '📂': 'folder', '📋': 'clipboard-list', '📢': 'message-square', '📬': 'mail',
-    '📷': 'camera', '🔒': 'lock', '🔔': 'bell', '🛡️': 'shield', '🤝': 'user-plus', '🏆': 'trophy', '⭐': 'star',
-} %}
-{% set _icon_names = include('_partials/_icon.html.twig', {name: '__names'}, with_context = false)|split(',') %}
-{% set _icon = (icon ?? null) ? (_legacy_icons[icon] ?? icon) : null %}
+{% set _icon = icon ?? null %}
 
 {% macro action(item, classes) %}
     {%- import '_macros/ui.html.twig' as ui -%}
@@ -39,7 +32,7 @@
 <div class="empty-state{{ compact ? ' empty-state-compact' : '' }}{{ variant == 'card' ? ' card' : '' }}" data-empty-state>
     {% if _icon %}
         <div class="empty-state-icon" aria-hidden="true">
-            {%- if _icon in _icon_names %}{{ ui.icon(_icon) }}{% else %}{{ _icon }}{% endif -%}
+            {{- ui.icon(_icon) -}}
         </div>
     {% endif %}
     <h{{ heading }} class="empty-state-title">{{ title }}</h{{ heading }}>

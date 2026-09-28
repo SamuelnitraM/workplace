@@ -478,18 +478,14 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 
 **Accès :** `ROLE_ADMIN` pour tout le back-office ; `ROLE_MODERATOR` voit uniquement la section Modération (voir 7).
 
-**Tableau de bord** (`/admin`, `ROLE_ADMIN`) :
-- **Compteurs :** signalements en attente, utilisateurs, sujets, réponses, catégories, tâches, amitiés.
-- **Statistiques d'activité** (`AdminStatsService`, `RetentionService`), sur **24 h / 7 j / 30 j** :
-  - rétention des utilisateurs ;
-  - utilisateurs actifs, avec les **connectés en ce moment** ;
-  - nouvelles inscriptions ;
-  - réponses publiées, messages envoyés ;
-  - groupes (total et nouveaux) ;
-  - listes d'armée créées.
-- **Graphiques en bâtons sur 30 jours** (`App\Statistics\DailyActivityHistory`, table `member_daily_activity` et date d'inscription) : membres actifs par jour, nouvelles inscriptions, **rétention d'un jour sur l'autre** (part des membres actifs la veille revenus ce jour-là). Valeur du jour au survol ou au clavier, tableau des valeurs dans « Voir le tableau » (`templates/admin/_bar_chart.html.twig`, `App\Statistics\BarChart`).
-- **Modération** (`App\Moderation\ModerationStatistics`) : temps moyen de traitement des signalements (30 derniers jours et depuis le début), motifs les plus fréquents, contenus les plus signalés, décisions prises (chaque décision d'un traitement combiné compte), avec le code couleur des sanctions.
-- **Accès rapides :** nouvelle catégorie, badges, voir le forum, voir les groupes, retour au site.
+**Tableau de bord** (`/admin`, `ROLE_ADMIN`), de ce qui demande une action vers l'historique (couleurs du site, mode clair ou sombre d'EasyAdmin, styles dans `assets/styles/admin.css`) :
+1. **À traiter :** signalements et réclamations en attente (en rouge ou orange s'il y en a), membres connectés en ce moment.
+2. **Chiffres clés :** membres (et nouveaux sur 7 jours), actifs sur 7 jours, réponses et messages sur 30 jours.
+3. **Graphiques en bâtons sur 30 jours** (`App\Statistics\DailyActivityHistory`, table `member_daily_activity` et date d'inscription) : membres actifs par jour, nouvelles inscriptions, **rétention d'un jour sur l'autre** (part des membres actifs la veille revenus ce jour-là). Valeur du jour au survol ou au clavier, tableau des valeurs dans « Voir le tableau » (`templates/admin/_bar_chart.html.twig`, `App\Statistics\BarChart`).
+4. **Modération** (`App\Moderation\ModerationStatistics`) : temps moyen de traitement des signalements (30 derniers jours et depuis le début), motifs les plus fréquents, contenus les plus signalés, décisions prises (chaque décision d'un traitement combiné compte), avec le code couleur des sanctions.
+5. **Activité par période** (`AdminStatsService`, `RetentionService`) : un tableau 24 h / 7 jours / 30 jours / total (nouveaux membres, actifs, réponses, messages privés et de groupe, groupes, listes d'armée, rétention) ; **contenu du site** (compteurs cliquables).
+6. **Derniers inscrits** et **sujets récents**.
+- **Accès rapides** (en-tête) : nouvelle catégorie, badges, voir le site.
 
 **Menu :**
 - Modération : Signalements (badge rouge du nombre en attente) ;

@@ -361,7 +361,7 @@
                         {% elseif not badge.unlocked %}
                             <span class="badge-lock" aria-hidden="true">{{ ui.icon('lock', 'size-3.5') }}</span>
                         {% endif %}
-                        <div class="badge-medal mb-1" aria-hidden="true">{{ badge.icon }}</div>
+                        <div class="badge-medal mb-1" aria-hidden="true">{{ ui.icon(badge.icon, 'size-7') }}</div>
                         <h4 class="badge-name font-semibold text-fg">{{ badge.name }}</h4>
                         <span class="badge-tier-pill">{{ badge.tierLabel }}</span>
                         <p class="mt-1 text-caption text-fg-secondary">{{ badge.description }}</p>

@@ -63,7 +63,7 @@ class UserTitleManager
         return true;
     }
 
-    /** Données du titre pour le client (temps réel du chat) : null si aucun titre. */
+    /** Title data for the client (real-time chat), NULL without title. */
     public static function payload(?User $user): ?array
     {
         $badge = $user?->getTitleBadge();
@@ -71,6 +71,6 @@ class UserTitleManager
             return null;
         }
 
-        return ['name' => $badge->getName(), 'tier' => $badge->getTier(), 'icon' => $badge->getIcon()];
+        return ['name' => $badge->getName(), 'tier' => $badge->getTier()];
     }
 }

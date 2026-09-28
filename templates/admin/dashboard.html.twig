@@ -1,117 +1,194 @@
 {% extends '@EasyAdmin/page/content.html.twig' %}
 
-{% block main %}
-<style>
-    .hf-admin-dashboard { color: #253044; }
-    .hf-admin-dashboard .hf-card { border: 1px solid #e7eaf0; border-radius: 14px; background: #fff; box-shadow: 0 4px 18px rgba(37, 48, 68, .06); }
-    .hf-admin-dashboard .hf-stat { transition: transform .18s ease, box-shadow .18s ease; }
-    .hf-admin-dashboard .hf-stat:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(37, 48, 68, .11); }
-    .hf-admin-dashboard .hf-icon { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; }
-    .hf-admin-dashboard .hf-indigo { color: #4f46e5; background: #eef2ff; }
-    .hf-admin-dashboard .hf-blue { color: #2563eb; background: #eff6ff; }
-    .hf-admin-dashboard .hf-emerald { color: #059669; background: #ecfdf5; }
-    .hf-admin-dashboard .hf-amber { color: #d97706; background: #fffbeb; }
-    .hf-admin-dashboard .hf-violet { color: #7c3aed; background: #f5f3ff; }
-    .hf-admin-dashboard .hf-rose { color: #e11d48; background: #fff1f2; }
-    .hf-admin-dashboard .hf-list-row { border-top: 1px solid #eef0f4; }
-    .hf-admin-dashboard .hf-list-row:first-child { border-top: 0; }
-    .hf-admin-dashboard .hf-action { min-height: 44px; }
-    @media (max-width: 575px) {
-        .hf-admin-dashboard { margin: -1rem; }
-        .hf-admin-dashboard .hf-card { border-radius: 10px; }
-    }
-</style>
+{#
+    Admin dashboard, from what needs action to the history:
+    1. to handle (pending reports and appeals, members online);
+    2. key figures;
+    3. 30-day charts (App\Statistics\DailyActivityHistory);
+    4. moderation (App\Moderation\ModerationStatistics);
+    5. activity by period (AdminStatsService) and content of the site;
+    6. latest members and threads.
+    Styles: assets/styles/admin.css (.hf-dash), in the colours of the site, following the light or dark mode of EasyAdmin.
+#}
+{% set periodLabels = {1: '24 h', 7: '7 jours', 30: '30 jours'} %}
+{% set users = activity.users %}
+{% set online = activity.online %}
 
-<div class="hf-admin-dashboard p-3 p-md-4">
-    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+{% block main %}
+<div class="hf-dash">
+    <header class="hf-dash-header">
         <div>
-            <p class="text-uppercase text-muted small fw-semibold mb-1">Vue d'ensemble</p>
-            <h1 class="h2 fw-bold mb-1">Bonjour, administrateur</h1>
-            <p class="text-muted mb-0">Suivez l'activité de la communauté depuis un seul endroit.</p>
+            <p class="hf-dash-eyebrow">Tableau de bord</p>
+            <h1 class="hf-dash-title">SprueHub en un coup d'œil</h1>
         </div>
-        <a href="{{ path('app_home') }}" class="btn btn-outline-secondary hf-action d-inline-flex align-items-center gap-2 align-self-start align-self-md-center">
-            <i class="fa fa-arrow-up-right-from-square"></i> Voir le site
-        </a>
+        <nav class="hf-dash-actions" aria-label="Accès rapides">
+            {% for action in quickActions %}
+                <a href="{{ action.url }}" class="btn btn-secondary"><i class="fa {{ action.icon }}"></i> {{ action.label }}</a>
+            {% endfor %}
+        </nav>
     </header>
 
-    <section class="row g-3 mb-4" aria-label="Statistiques principales">
-        {% for stat in stats %}
-            <div class="col-12 col-sm-6 col-xl-4">
-                <a href="{{ stat.url|default('#') }}" class="hf-card hf-stat d-flex align-items-center gap-3 p-3 p-lg-4 text-decoration-none h-100">
-                    <span class="hf-icon hf-{{ stat.tone }}"><i class="fa {{ stat.icon }}"></i></span>
-                    <span class="min-w-0">
-                        <span class="d-block text-muted small">{{ stat.label }}</span>
-                        <strong class="d-block fs-3 lh-1 mt-1 text-dark">{{ stat.value|number_format(0, ',', ' ') }}</strong>
+    {# 1. À TRAITER #}
+    <section class="hf-dash-section" aria-labelledby="dash-todo-title">
+        <h2 id="dash-todo-title" class="hf-dash-section-title">À traiter</h2>
+        <div class="hf-dash-grid hf-dash-grid-3">
+            {% for item in toHandle %}
+                <a href="{{ item.url }}" class="hf-tile hf-tile-link {{ item.value > 0 ? 'is-' ~ item.tone }}">
+                    <span class="hf-tile-icon"><i class="fa {{ item.icon }}"></i></span>
+                    <span class="hf-tile-body">
+                        <span class="hf-tile-label">{{ item.label }}</span>
+                        <strong class="hf-tile-value">{{ item.value|number_format(0, ',', ' ') }}</strong>
+                        <span class="hf-tile-note">{{ item.value > 0 ? 'Ouvrir la file' : 'Rien en attente' }}</span>
                     </span>
-                    <i class="fa fa-chevron-right text-muted ms-auto"></i>
+                    <i class="fa fa-chevron-right hf-tile-arrow"></i>
                 </a>
+            {% endfor %}
+            <div class="hf-tile {{ online.count > 0 ? 'is-success' }}" title="Onglet du site ouvert et visible il y a moins de {{ online.windowSeconds }} secondes.">
+                <span class="hf-tile-icon"><i class="fa fa-signal"></i></span>
+                <span class="hf-tile-body">
+                    <span class="hf-tile-label">Connectés en ce moment</span>
+                    <strong class="hf-tile-value">{{ online.count|number_format(0, ',', ' ') }}</strong>
+                    <span class="hf-online-list">
+                        {% for member in online.users %}<a href="{{ path('app_profil_show', {username: member.username}) }}" target="_blank" rel="noopener">{{ member.username }}</a>{% else %}<span class="hf-tile-note">Personne pour l'instant</span>{% endfor %}
+                        {% if online.count > online.users|length %}<span>+{{ online.count - online.users|length }}</span>{% endif %}
+                    </span>
+                </span>
             </div>
-        {% endfor %}
+        </div>
     </section>
 
-    {% include 'admin/_activity_stats.html.twig' %}
-
-    <section class="mb-4" aria-labelledby="daily-charts-title">
-        <h2 id="daily-charts-title" class="h5 fw-bold mb-1">Les 30 derniers jours</h2>
-        <p class="text-muted small mb-3">Survolez une barre pour lire la valeur du jour.</p>
-        <div class="row g-3">
-            {% for chart in charts %}
-                <div class="col-12 col-xl-4">{{ include('admin/_bar_chart.html.twig', {chart: chart}) }}</div>
+    {# 2. CHIFFRES CLÉS #}
+    <section class="hf-dash-section" aria-labelledby="dash-kpi-title">
+        <h2 id="dash-kpi-title" class="hf-dash-section-title">Chiffres clés</h2>
+        {% set activeRate = users.total > 0 ? users.active[7] * 100 / users.total : 0 %}
+        {% set kpis = [
+            {label: 'Membres', value: users.total, note: '+' ~ users.new[7]|number_format(0, ',', ' ') ~ ' sur 7 jours', icon: 'fa-users'},
+            {label: 'Actifs sur 7 jours', value: users.active[7], note: activeRate|number_format(0, ',', ' ') ~ ' % des membres', icon: 'fa-user-check'},
+            {label: 'Réponses sur 30 jours', value: activity.posts[30], note: activity.posts.total|number_format(0, ',', ' ') ~ ' au total', icon: 'fa-message'},
+            {label: 'Messages sur 30 jours', value: activity.messages.sum[30], note: activity.messages.private[30] ~ ' privés · ' ~ activity.messages.group[30] ~ ' en groupe', icon: 'fa-paper-plane'},
+        ] %}
+        <div class="hf-dash-grid hf-dash-grid-4">
+            {% for kpi in kpis %}
+                <div class="hf-tile">
+                    <span class="hf-tile-icon"><i class="fa {{ kpi.icon }}"></i></span>
+                    <span class="hf-tile-body">
+                        <span class="hf-tile-label">{{ kpi.label }}</span>
+                        <strong class="hf-tile-value">{{ kpi.value|number_format(0, ',', ' ') }}</strong>
+                        <span class="hf-tile-note">{{ kpi.note }}</span>
+                    </span>
+                </div>
             {% endfor %}
         </div>
     </section>
 
+    {# 3. GRAPHIQUES #}
+    <section class="hf-dash-section" aria-labelledby="daily-charts-title">
+        <h2 id="daily-charts-title" class="hf-dash-section-title">Les 30 derniers jours <span class="hf-dash-hint">Survolez une barre pour lire la valeur du jour.</span></h2>
+        <div class="hf-dash-grid hf-dash-grid-3">
+            {% for chart in charts %}
+                {{ include('admin/_bar_chart.html.twig', {chart: chart}) }}
+            {% endfor %}
+        </div>
+    </section>
+
+    {# 4. MODÉRATION #}
     {% include 'admin/_moderation_stats.html.twig' %}
 
-    <section class="hf-card p-3 p-md-4 mb-4">
-        <h2 class="h5 fw-bold mb-1">Actions rapides</h2>
-        <p class="text-muted small mb-3">Accédez directement aux tâches courantes.</p>
-        <div class="row g-2">
-            {% for action in quickActions %}
-                <div class="col-12 col-md-4">
-                    <a href="{{ action.url }}" class="btn btn-light border hf-action w-100 d-flex align-items-center justify-content-center gap-2">
-                        <i class="fa {{ action.icon }} text-primary"></i>{{ action.label }}
-                    </a>
-                </div>
-            {% endfor %}
-        </div>
-    </section>
-
-    <div class="row g-4">
-        <section class="col-12 col-xl-6">
-            <div class="hf-card p-3 p-md-4 h-100">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2 class="h5 fw-bold mb-0">Derniers inscrits</h2>
-                    <a href="{{ usersIndexUrl }}" class="small text-primary text-decoration-none">Tout voir</a>
-                </div>
-                {% for user in recentUsers %}
-                    <div class="hf-list-row d-flex align-items-center gap-3 py-3">
-                        <span class="hf-icon hf-indigo flex-shrink-0"><i class="fa fa-user"></i></span>
-                        <span class="min-w-0 flex-grow-1"><strong class="d-block text-truncate">{{ user.username }}</strong><small class="text-muted text-truncate d-block">{{ user.email }}</small></span>
-                        <small class="text-muted text-nowrap">{{ user.createdAt|date('d/m/Y') }}</small>
-                    </div>
-                {% else %}
-                    <p class="text-muted text-center py-4 mb-0">Aucun utilisateur récent.</p>
-                {% endfor %}
+    {# 5. ACTIVITÉ PAR PÉRIODE ET CONTENU #}
+    <div class="hf-dash-split">
+        <section class="hf-card" aria-labelledby="dash-periods-title">
+            <h2 id="dash-periods-title" class="hf-card-title">Activité par période</h2>
+            <p class="hf-dash-hint mb-3">Périodes glissantes calculées à partir de maintenant.</p>
+            <div class="table-responsive">
+                <table class="table hf-table mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col"></th>
+                            {% for n in activity.periods %}<th scope="col" class="text-end">{{ periodLabels[n] }}</th>{% endfor %}
+                            <th scope="col" class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in [
+                            {label: 'Nouveaux membres', values: users.new, total: users.total},
+                            {label: 'Membres actifs', values: users.active, total: null},
+                            {label: 'Réponses publiées', values: activity.posts, total: activity.posts.total},
+                            {label: 'Messages privés', values: activity.messages.private, total: activity.messages.private.total},
+                            {label: 'Messages de groupe', values: activity.messages.group, total: activity.messages.group.total},
+                            {label: 'Groupes créés', values: activity.groups, total: activity.groups.total},
+                            {label: 'Listes d\'armée créées', values: activity.armyLists, total: activity.armyLists.total},
+                        ] %}
+                            <tr>
+                                <th scope="row">{{ row.label }}</th>
+                                {% for n in activity.periods %}<td class="text-end">{{ row.values[n]|number_format(0, ',', ' ') }}</td>{% endfor %}
+                                <td class="text-end hf-table-total">{{ row.total is null ? '—' : row.total|number_format(0, ',', ' ') }}</td>
+                            </tr>
+                        {% endfor %}
+                        <tr>
+                            <th scope="row">Rétention</th>
+                            {% for n in activity.periods %}
+                                {% set retention = users.retention[n] %}
+                                <td class="text-end">{{ retention.rate is null ? '—' : retention.rate|number_format(1, ',', ' ') ~ ' %' }}{% if retention.rate is not null %}<span class="hf-table-sub">{{ retention.retained }}/{{ retention.cohort }}</span>{% endif %}</td>
+                            {% endfor %}
+                            <td class="text-end hf-table-total">—</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
+            <p class="hf-dash-hint mt-2 mb-0">Rétention : parmi les inscrits depuis au moins N jours, part de ceux revenus au moins N jours après leur inscription.</p>
         </section>
 
-        <section class="col-12 col-xl-6">
-            <div class="hf-card p-3 p-md-4 h-100">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2 class="h5 fw-bold mb-0">Sujets récents</h2>
-                    <a href="{{ threadsIndexUrl }}" class="small text-primary text-decoration-none">Tout voir</a>
-                </div>
-                {% for thread in recentThreads %}
-                    <div class="hf-list-row d-flex align-items-center gap-3 py-3">
-                        <span class="hf-icon hf-blue flex-shrink-0"><i class="fa fa-comments"></i></span>
-                        <span class="min-w-0 flex-grow-1"><strong class="d-block text-truncate">{{ thread.title }}</strong><small class="text-muted text-truncate d-block">par {{ thread.author.username }}</small></span>
-                        <small class="text-muted text-nowrap">{{ thread.createdAt|date('d/m/Y') }}</small>
-                    </div>
-                {% else %}
-                    <p class="text-muted text-center py-4 mb-0">Aucun sujet récent.</p>
+        <section class="hf-card" aria-labelledby="dash-content-title">
+            <h2 id="dash-content-title" class="hf-card-title">Contenu du site</h2>
+            <ul class="hf-count-list">
+                {% for item in contentCounts %}
+                    <li>
+                        <a href="{{ item.url }}">
+                            <span class="hf-count-icon"><i class="fa {{ item.icon }}"></i></span>
+                            <span class="hf-count-label">{{ item.label }}</span>
+                            <strong>{{ item.value|number_format(0, ',', ' ') }}</strong>
+                        </a>
+                    </li>
                 {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    {# 6. DERNIERS ARRIVÉS #}
+    <div class="hf-dash-split hf-dash-split-even">
+        <section class="hf-card" aria-labelledby="dash-users-title">
+            <div class="hf-card-head">
+                <h2 id="dash-users-title" class="hf-card-title">Derniers inscrits</h2>
+                <a href="{{ usersIndexUrl }}">Tout voir</a>
             </div>
+            <ul class="hf-recent-list">
+                {% for user in recentUsers %}
+                    <li>
+                        <span class="hf-count-icon"><i class="fa fa-user"></i></span>
+                        <span class="hf-recent-main"><strong>{{ user.username }}</strong><small>{{ user.email }}</small></span>
+                        <small>{{ user.createdAt|date('d/m/Y') }}</small>
+                    </li>
+                {% else %}
+                    <li class="hf-dash-hint">Aucun inscrit récent.</li>
+                {% endfor %}
+            </ul>
+        </section>
+        <section class="hf-card" aria-labelledby="dash-threads-title">
+            <div class="hf-card-head">
+                <h2 id="dash-threads-title" class="hf-card-title">Sujets récents</h2>
+                <a href="{{ threadsIndexUrl }}">Tout voir</a>
+            </div>
+            <ul class="hf-recent-list">
+                {% for thread in recentThreads %}
+                    <li>
+                        <span class="hf-count-icon"><i class="fa fa-comments"></i></span>
+                        <span class="hf-recent-main"><strong>{{ thread.title }}</strong><small>par {{ thread.author.username }}</small></span>
+                        <small>{{ thread.createdAt|date('d/m/Y') }}</small>
+                    </li>
+                {% else %}
+                    <li class="hf-dash-hint">Aucun sujet récent.</li>
+                {% endfor %}
+            </ul>
         </section>
     </div>
 </div>

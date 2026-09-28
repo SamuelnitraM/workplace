@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { icon } from '../lib/icon.js';
 import { listen, userChannelName, setCount, getCount, getActive, postJson, visit } from '../lib/realtime.js';
 import { playNotificationSound } from '../lib/sounds.js';
 
@@ -193,7 +194,11 @@ export default class extends Controller {
         } else {
             const initial = document.createElement('span');
             initial.setAttribute('aria-hidden', 'true');
-            initial.textContent = item.actor?.username ? item.actor.username.charAt(0).toUpperCase() : (item.icon || '🔔');
+            if (item.actor?.username) {
+                initial.textContent = item.actor.username.charAt(0).toUpperCase();
+            } else {
+                initial.append(icon(item.icon || 'bell', 'size-4'));
+            }
             avatar.appendChild(initial);
         }
 
@@ -203,8 +208,8 @@ export default class extends Controller {
         text.className = `text-sm break-words ${item.read ? 'text-fg-secondary' : 'text-fg'}`;
         text.textContent = item.text;
         const meta = document.createElement('p');
-        meta.className = 'text-xs text-muted mt-0.5';
-        meta.textContent = `${item.icon || ''} ${timeAgo(item.updatedAt || item.createdAt)}`.trim();
+        meta.className = 'flex items-center gap-1 text-xs text-muted mt-0.5';
+        meta.append(icon(item.icon || 'bell', 'size-3.5'), timeAgo(item.updatedAt || item.createdAt));
         body.append(text, meta);
 
         link.append(avatar, body);

@@ -42,26 +42,33 @@ class DashboardController extends AbstractDashboardController
         $moderationStats = $this->moderationStatistics->summary($now);
         $moderationStats['averageHandling'] = ModerationStatistics::formatDuration($moderationStats['averageHandling']);
         $moderationStats['recentAverageHandling'] = ModerationStatistics::formatDuration($moderationStats['recentAverageHandling']);
+        $activity = $this->adminStatsService->getDashboardStats();
         return $this->render('admin/dashboard.html.twig', [
+            'activity' => $activity,
             'charts' => $this->dailyActivityHistory->charts($now),
             'moderationStats' => $moderationStats,
             'recentDays' => ModerationStatistics::RECENT_DAYS,
-            'stats' => [
-                ['label' => 'Signalements en attente', 'value' => $this->reportRepository->countPending(), 'icon' => 'fa-flag', 'tone' => 'rose', 'url' => $this->crudUrl(ReportCrudController::class, 'index')],
-                ['label' => 'Utilisateurs', 'value' => $this->count(\App\Entity\User::class), 'icon' => 'fa-users', 'tone' => 'indigo', 'url' => $this->crudUrl(UserCrudController::class, 'index')],
-                ['label' => 'Sujets', 'value' => $this->count(\App\Entity\Thread::class), 'icon' => 'fa-comments', 'tone' => 'blue', 'url' => $this->crudUrl(ThreadCrudController::class, 'index')],
-                ['label' => 'Réponses', 'value' => $this->count(\App\Entity\Post::class), 'icon' => 'fa-message', 'tone' => 'emerald', 'url' => $this->crudUrl(PostCrudController::class, 'index')],
-                ['label' => 'Catégories', 'value' => $this->count(\App\Entity\Category::class), 'icon' => 'fa-folder', 'tone' => 'amber', 'url' => $this->crudUrl(CategoryCrudController::class, 'index')],
-                ['label' => 'Tâches', 'value' => $this->count(\App\Entity\TodoNode::class), 'icon' => 'fa-list-check', 'tone' => 'violet', 'url' => $this->crudUrl(TodoNodeCrudController::class, 'index')],
-                ['label' => 'Amitiés', 'value' => $this->count(\App\Entity\Friendship::class), 'icon' => 'fa-heart', 'tone' => 'rose', 'url' => $this->crudUrl(FriendshipCrudController::class, 'index')],
+            // Waiting for the team: shown first, in the colour of their urgency when not empty
+            'toHandle' => [
+                ['label' => 'Signalements en attente', 'value' => $this->reportRepository->countPending(), 'icon' => 'fa-flag', 'tone' => 'danger', 'url' => $this->crudUrl(ReportCrudController::class, 'index')],
+                ['label' => 'Réclamations en attente', 'value' => $this->appealRepository->countPending(), 'icon' => 'fa-scale-balanced', 'tone' => 'warning', 'url' => $this->crudUrl(AppealCrudController::class, 'index')],
+            ],
+            'contentCounts' => [
+                ['label' => 'Membres', 'value' => $activity['users']['total'], 'icon' => 'fa-users', 'url' => $this->crudUrl(UserCrudController::class, 'index')],
+                ['label' => 'Sujets', 'value' => $this->count(\App\Entity\Thread::class), 'icon' => 'fa-comments', 'url' => $this->crudUrl(ThreadCrudController::class, 'index')],
+                ['label' => 'Réponses', 'value' => $activity['posts']['total'], 'icon' => 'fa-message', 'url' => $this->crudUrl(PostCrudController::class, 'index')],
+                ['label' => 'Catégories', 'value' => $this->count(\App\Entity\Category::class), 'icon' => 'fa-folder', 'url' => $this->crudUrl(CategoryCrudController::class, 'index')],
+                ['label' => 'Groupes', 'value' => $activity['groups']['total'], 'icon' => 'fa-users-rectangle', 'url' => $this->generateUrl('app_group_public')],
+                ['label' => 'Listes d\'armée', 'value' => $activity['armyLists']['total'], 'icon' => 'fa-shield-halved', 'url' => $this->generateUrl('app_army_explorer')],
+                ['label' => 'Tâches', 'value' => $this->count(\App\Entity\TodoNode::class), 'icon' => 'fa-list-check', 'url' => $this->crudUrl(TodoNodeCrudController::class, 'index')],
+                ['label' => 'Amitiés', 'value' => $this->count(\App\Entity\Friendship::class), 'icon' => 'fa-heart', 'url' => $this->crudUrl(FriendshipCrudController::class, 'index')],
             ],
             // No creation shortcut for users, threads or badges: creation is disabled in those CRUDs (badges are defined in App\Gamification\BadgeCatalog)
             'quickActions' => [
                 ['label' => 'Nouvelle catégorie', 'url' => $this->crudUrl(CategoryCrudController::class, 'new'), 'icon' => 'fa-folder-plus'],
-                ['label' => 'Badges (lecture seule)', 'url' => $this->crudUrl(BadgeCrudController::class, 'index'), 'icon' => 'fa-award'],
-                ['label' => 'Voir le forum', 'url' => $this->generateUrl('app_forum_index'), 'icon' => 'fa-arrow-up-right-from-square'],
+                ['label' => 'Badges', 'url' => $this->crudUrl(BadgeCrudController::class, 'index'), 'icon' => 'fa-award'],
+                ['label' => 'Voir le site', 'url' => $this->generateUrl('app_home'), 'icon' => 'fa-arrow-up-right-from-square'],
             ],
-            'activity' => $this->adminStatsService->getDashboardStats(),
             'usersIndexUrl' => $this->crudUrl(UserCrudController::class, 'index'),
             'threadsIndexUrl' => $this->crudUrl(ThreadCrudController::class, 'index'),
             'recentUsers' => $this->doctrine->getRepository(\App\Entity\User::class)->findBy([], ['createdAt' => 'DESC'], 5),

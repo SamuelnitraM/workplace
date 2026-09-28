@@ -421,7 +421,7 @@ class GamificationService
             return false;
         }
 
-        $this->notify($user, Notification::TYPE_BADGE_EARNED, ['badge' => $badge['name'], 'badgeIcon' => $badge['icon'], 'badgeCode' => $code], 'badges');
+        $this->notify($user, Notification::TYPE_BADGE_EARNED, ['badge' => $badge['name'], 'badgeCode' => $code], 'badges');
         if ($badge['xp'] > 0) {
             $this->reloadUserState($user);
             $this->afterExperienceGain($user, $oldLevel);
