@@ -175,11 +175,19 @@ class ModerationTest extends FunctionalTestCase
         $this->client->request('GET', '/forum/');
         self::assertResponseRedirects('/login');
         $this->client->followRedirect();
-        self::assertSelectorTextContains('.toast-error', 'Insultes répétées');
+        self::assertSelectorTextContains('#suspension-notice', 'Insultes répétées');
+        $this->client->request('GET', '/login');
+        self::assertSelectorTextContains('#suspension-notice', 'Insultes répétées');
+        $this->client->getCookieJar()->clear();
         $crawler = $this->client->request('GET', '/login');
+        self::assertSelectorNotExists('#suspension-notice');
         $this->client->submit($crawler->selectButton('Se connecter')->form(['_username' => 'bob', '_password' => self::PASSWORD]));
         $this->client->followRedirect();
-        self::assertSelectorTextContains('.alert-danger', 'suspendu');
+        self::assertSelectorTextContains('#suspension-notice', 'suspendu');
+        self::assertSelectorCount(1, '.alert-danger');
+        $this->client->getContainer()->get(\App\Moderation\ModerationService::class)->liftSuspension($this->reload($bob));
+        $this->client->request('GET', '/login');
+        self::assertSelectorNotExists('#suspension-notice');
     }
 
     public function testBackOfficePagesRender(): void
@@ -197,7 +205,7 @@ class ModerationTest extends FunctionalTestCase
             $this->client->request('GET', $url);
             self::assertResponseIsSuccessful($url);
         }
-        self::assertSelectorTextContains('body', 'Suspendu définitivement');
+        self::assertSelectorTextContains('.sanction-ban', 'Banni définitivement');
         $this->client->request('GET', '/admin/report');
         self::assertSelectorTextContains('body', 'Spam ou publicité');
     }

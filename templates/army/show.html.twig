@@ -50,9 +50,7 @@
                     <a href="{{ path('app_army_print', {id: armyList.id}) }}" class="menu-item" target="_blank" rel="noopener">{{ ui.icon('file-text') }}Imprimer / PDF</a>
                     {% if armyList.isPublic %}
                         <div class="menu-separator"></div>
-                        <div data-controller="clipboard" data-clipboard-text-value="{{ url('app_army_show', {id: armyList.id}) }}" data-clipboard-done-value="Lien copié !">
-                            <button type="button" class="menu-item w-full" data-action="clipboard#copy">{{ ui.icon('link') }}<span data-clipboard-target="label">Copier le lien de partage</span></button>
-                        </div>
+                        {{ include('_partials/_share_button.html.twig', {url: url('app_army_show', {id: armyList.id}), title: armyList.name, class: 'menu-item w-full', label: 'Partager la liste'}) }}
                     {% endif %}
                 </div>
             </div>

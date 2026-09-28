@@ -3029,3 +3029,6 @@
 .tour-popover .driver-popover-arrow-side-right { border-right-color: var(--color-surface-raised); }
 .tour-popover-links { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.75rem; font-size: 0.8125rem; }
 .tour-popover-links a { color: var(--color-primary-text); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Floating messenger dock (templates/base.html.twig): sticky at the bottom of the screen, stopped above the footer */
+.messenger-dock { position: sticky; bottom: 0; height: 0; z-index: var(--z-messenger); }

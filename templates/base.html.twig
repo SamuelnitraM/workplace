@@ -62,12 +62,16 @@
         {% block body %}{% endblock %}
     </main>
 
+    {% if app.user %}
+        {# Zero-height sticky dock: the messenger stays at the bottom of the screen and stops above the footer when it scrolls into view #}
+        <div class="messenger-dock">{{ include('_partials/shell/_messenger.html.twig') }}</div>
+    {% endif %}
+
     {{ include('_partials/shell/_footer.html.twig') }}
 
     {{ include('_partials/shell/_bottom_bar.html.twig') }}
 
     {% if app.user %}
-        {{ include('_partials/shell/_messenger.html.twig') }}
         {# Guided tour requested by ?visite=<key> (App\Tour\TourLauncher, assets/controllers/tour_controller.js) #}
         {% set requested = requested_tour() %}
         {% if requested %}

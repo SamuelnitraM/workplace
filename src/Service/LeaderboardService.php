@@ -30,15 +30,15 @@ class LeaderboardService
     /** Nombre maximal de membres affichés dans le classement (pagination). */
     public const MAX_RANKED = 100;
 
-    /** @var array<string, array{label: string, icon: string, description: string}> */
+    /** @var array<string, array{label: string, icon: string}> */
     public const SORTS = [
-        'niveau' => ['label' => 'Plus haut niveau', 'icon' => '⭐', 'description' => 'Classement par expérience totale (qui détermine le niveau).'],
-        'semaine' => ['label' => 'XP de la semaine', 'icon' => '📅', 'description' => 'Expérience gagnée depuis lundi (heure de Paris). Seuls les membres ayant gagné de l\'XP apparaissent.'],
-        'mois' => ['label' => 'XP du mois', 'icon' => '🗓️', 'description' => 'Expérience gagnée depuis le 1er du mois (heure de Paris). Seuls les membres ayant gagné de l\'XP apparaissent.'],
-        'badges' => ['label' => 'Plus de badges', 'icon' => '🏅', 'description' => 'Nombre de badges obtenus.'],
-        'serie' => ['label' => 'Meilleure série', 'icon' => '🔥', 'description' => 'Série de connexions quotidiennes en cours (une série est perdue après plus de 3 jours d\'absence consécutifs).'],
-        'sujets' => ['label' => 'Plus de sujets', 'icon' => '📝', 'description' => 'Nombre de sujets créés sur le forum.'],
-        'votes' => ['label' => 'Plus de votes reçus', 'icon' => '👍', 'description' => 'Votes (positifs et « aide ») reçus sur les réponses du forum.'],
+        'niveau' => ['label' => 'Plus haut niveau', 'icon' => '⭐'],
+        'semaine' => ['label' => 'XP de la semaine', 'icon' => '📅'],
+        'mois' => ['label' => 'XP du mois', 'icon' => '🗓️'],
+        'badges' => ['label' => 'Plus de badges', 'icon' => '🏅'],
+        'serie' => ['label' => 'Meilleure série', 'icon' => '🔥'],
+        'sujets' => ['label' => 'Plus de sujets', 'icon' => '📝'],
+        'votes' => ['label' => 'Plus de votes reçus', 'icon' => '👍'],
     ];
 
     public function __construct(private EntityManagerInterface $entityManager) {}

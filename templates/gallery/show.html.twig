@@ -67,8 +67,9 @@
                             </div>
                             <p class="text-caption text-muted"><time datetime="{{ photo.createdAt|date('c') }}">Publiée le {{ photo.createdAt|date('d/m/Y à H:i') }}</time></p>
                         </div>
+                        <span class="ml-auto">{{ include('_partials/_share_button.html.twig', {url: url('app_gallery_photo_show', {username: owner.username, id: photo.id}), title: 'Photo de ' ~ owner.username ~ ' sur SprueHub'}) }}</span>
                         {% if app.user and not isPhotoOwner %}
-                            <a href="{{ path('app_report', {type: 'photo', id: photo.id}) }}" class="btn btn-ghost btn-icon btn-sm ml-auto text-muted" rel="nofollow" aria-label="Signaler la photo" title="Signaler la photo">{{ ui.icon('flag', 'size-4') }}</a>
+                            <a href="{{ path('app_report', {type: 'photo', id: photo.id}) }}" class="btn btn-ghost btn-icon btn-sm text-muted" rel="nofollow" aria-label="Signaler la photo" title="Signaler la photo">{{ ui.icon('flag', 'size-4') }}</a>
                         {% endif %}
                     </div>
 

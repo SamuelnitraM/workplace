@@ -23,16 +23,6 @@
                 <a class="link" href="{{ path('app_group_index') }}">Groupes</a>{{ ui.icon('chevron-right', 'size-4') }}<a class="link truncate" href="{{ path('app_group_show', {slug: group.slug}) }}">{{ group.name }}</a>
             </p>
             <h1 class="page-header-title">Tâches du groupe</h1>
-            <p class="page-header-subtitle">
-                {% if is_granted('TODO_WRITE', group) %}
-                    Une liste par projet, des catégories, puis des tâches à assigner et à faire avancer par paliers de 25 %.
-                    La progression des catégories et des listes se calcule à partir des tâches.
-                {% elseif is_granted('TODO_VIEW_ALL', group) %}
-                    Suivez l'avancement des projets du groupe.
-                {% else %}
-                    Les tâches qui vous sont assignées.
-                {% endif %}
-            </p>
             <div class="mt-2">
                 {% if is_granted('TODO_WRITE', group) %}
                     <span class="chip chip-primary">{{ ui.icon('pencil', 'size-4') }}Vous pouvez modifier les tâches</span>

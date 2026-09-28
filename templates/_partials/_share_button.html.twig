@@ -1,0 +1,16 @@
+{#
+    Share button (assets/controllers/share_controller.js): the share sheet of the system when the browser has one,
+    otherwise the link is copied. A share by a member counts for the « share » badge activity.
+    Parameters: url (absolute), title, class (classes of the button, default « btn btn-ghost btn-sm »), label (default « Partager »).
+#}
+{% import '_macros/ui.html.twig' as ui %}
+<span class="contents" {{ stimulus_controller('share', {
+    url: url,
+    title: title,
+    activityUrl: app.user ? path('app_gamification_activity', {key: 'share'}) : '',
+    token: app.user ? csrf_token('gamification_share') : '',
+}) }}>
+    <button type="button" class="{{ class|default('btn btn-ghost btn-sm') }}" data-action="share#share">
+        {{- ui.icon('share') }}<span data-share-target="label">{{ label|default('Partager') }}</span>
+    </button>
+</span>

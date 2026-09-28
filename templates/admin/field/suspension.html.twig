@@ -1,0 +1,9 @@
+{# Suspension of a member in the users list, with the colour code of the sanctions: red for a permanent ban, orange for a temporary suspension. #}
+{% set member = entity.instance %}
+{% if member.permanentlySuspended %}
+    <span class="badge sanction sanction-ban">Banni définitivement</span>
+{% elseif member.suspended %}
+    <span class="badge sanction sanction-suspension">Suspendu jusqu'au {{ member.suspendedUntil|date('d/m/Y H:i', 'Europe/Paris') }}</span>
+{% else %}
+    <span class="text-muted">—</span>
+{% endif %}

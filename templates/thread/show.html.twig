@@ -49,10 +49,7 @@
                                 {{- ui.icon(isSubscribed ? 'bell' : 'bell-off') }}{{ isSubscribed ? 'Suivi' : 'Suivre' -}}
                             </button>
                         </form>
-                        <form method="post" action="{{ path('app_gamification_activity', {key: 'share'}) }}">
-                            <input type="hidden" name="_token" value="{{ csrf_token('gamification_share') }}">
-                            <button type="submit" class="btn btn-ghost btn-sm">{{ ui.icon('external-link') }}Partager</button>
-                        </form>
+                        {{ include('_partials/_share_button.html.twig', {url: url('app_thread_show', {slug: thread.slug}), title: thread.title}) }}
                     </div>
                 {% endif %}
             </div>

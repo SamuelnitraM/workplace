@@ -109,7 +109,7 @@ class ModerationService
         $this->em->flush();
     }
 
-    /** The member is logged out at the next request (App\EventSubscriber\SuspendedUserSubscriber). */
+    /** The member is logged out at the next request (App\EventSubscriber\SuspensionSubscriber). */
     public function suspend(User $member, SuspensionDuration $duration, string $reason): void
     {
         $until = $duration->endsAt(new \DateTimeImmutable());

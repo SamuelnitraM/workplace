@@ -241,14 +241,13 @@
     {% set publish_url = app.user ? path('app_profil_show', {username: app.user.username}) ~ '#gallery' : path('app_register') %}
     <section class="space-y-4" aria-label="Galerie de la communauté">
         {% if showcasePhotos is not empty %}
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <p class="text-small text-fg-secondary">Les figurines peintes, converties et exposées par la communauté.</p>
+            <div>
                 <a href="{{ publish_url }}" class="btn btn-primary">{{ ui.icon('image-plus') }}Publier une photo</a>
             </div>
             <div class="grid gap-6 {{ trendingPhotos is not empty ? 'lg:grid-cols-2' }}">
-                {{ include('home/_photo_carousel.html.twig', {id: 'showcase', title: 'Dernières créations de la communauté', icon: 'camera', subtitle: 'Les dernières photos publiées.', photos: showcasePhotos, photoStats: photoStats}, with_context = false) }}
+                {{ include('home/_photo_carousel.html.twig', {id: 'showcase', title: 'Dernières créations de la communauté', icon: 'camera', photos: showcasePhotos, photoStats: photoStats}, with_context = false) }}
                 {% if trendingPhotos is not empty %}
-                    {{ include('home/_photo_carousel.html.twig', {id: 'trending', title: 'Tendances de la semaine', icon: 'flame', subtitle: 'Les photos les plus aimées du moment.', photos: trendingPhotos, photoStats: photoStats}, with_context = false) }}
+                    {{ include('home/_photo_carousel.html.twig', {id: 'trending', title: 'Tendances de la semaine', icon: 'flame', photos: trendingPhotos, photoStats: photoStats}, with_context = false) }}
                 {% endif %}
             </div>
         {% else %}

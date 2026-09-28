@@ -3,7 +3,7 @@
    l'icône « Messages » de l'en-tête et le menu du compte (la barre d'onglets occupe le bas de l'écran). #}
 {% import '_macros/ui.html.twig' as ui %}
 <div id="messenger"
-     class="fixed bottom-0 right-4 z-(--z-messenger) hidden md:flex items-end gap-2 max-w-[calc(100vw-2rem)]"
+     class="absolute bottom-0 right-4 hidden md:flex items-end gap-2 max-w-[calc(100vw-2rem)]"
      data-controller="messenger"
      data-messenger-conversations-url-value="{{ path('app_message_ajax_conversations') }}"
      data-messenger-messages-url-value="{{ path('app_message_ajax_messages', {username: '__USER__'}) }}"

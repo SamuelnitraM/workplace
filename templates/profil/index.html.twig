@@ -24,6 +24,7 @@
                 <div class="profile-actions">
                     {% if isOwner %}
                         <a href="{{ path('app_profil_edit') }}" class="btn btn-primary" data-tour="profile-edit">{{ ui.icon('pencil') }}Modifier le profil</a>
+                        {{ include('_partials/_share_button.html.twig', {url: url('app_profil_show', {username: user.username}), title: 'Profil de ' ~ user.username ~ ' sur SprueHub', class: 'btn btn-secondary'}) }}
 
                     {% elseif app.user %}
                         {% set blocked_between = blockedByMe or blockedMe %}
@@ -102,6 +103,7 @@
                                         {{- ui.icon(blockedByMe ? 'lock' : 'ban') }}{{ blockedByMe ? 'Débloquer' : 'Bloquer' -}}
                                     </button>
                                 </form>
+                                {{ include('_partials/_share_button.html.twig', {url: url('app_profil_show', {username: user.username}), title: 'Profil de ' ~ user.username ~ ' sur SprueHub', class: 'menu-item w-full', label: 'Partager le profil'}) }}
                                 <a href="{{ path('app_report', {type: 'profil', id: user.id}) }}" class="menu-item" rel="nofollow">{{ ui.icon('flag') }}Signaler le profil</a>
                             </div>
                         </div>

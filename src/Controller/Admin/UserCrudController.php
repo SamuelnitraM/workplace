@@ -59,10 +59,6 @@ class UserCrudController extends AbstractCrudController
             ->hideOnForm();
         yield DateTimeField::new('suspendedAt', 'Sanction')
             ->hideOnForm()
-            ->formatValue(static fn ($value, User $user): string => match (true) {
-                !$user->isSuspended() => '-',
-                $user->isPermanentlySuspended() => 'Suspendu définitivement',
-                default => 'Suspendu jusqu\'au ' . $user->getSuspendedUntil()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('d/m/Y H:i'),
-            });
+            ->setTemplatePath('admin/field/suspension.html.twig');
     }
 }

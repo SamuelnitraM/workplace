@@ -14,6 +14,14 @@
     <div class="card">
         <div class="card-body space-y-5 sm:p-8">
 
+            {# SUSPENSION: reason shown at every visit while it lasts (App\Moderation\SuspensionNoticeCookie) #}
+            {% if suspensionNotice %}
+                <div class="alert alert-danger" role="alert" id="suspension-notice">
+                    {{ ui.icon('shield-alert') }}
+                    <p>{{ suspensionNotice }}</p>
+                </div>
+            {% endif %}
+
             {# ERREUR #}
             {% if error %}
                 <div class="alert alert-danger" role="alert">

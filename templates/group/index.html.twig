@@ -16,7 +16,6 @@
             <p class="page-header-subtitle">Votre club, votre table de jeu ou votre projet d'armée : discutez dans des salons et suivez vos tâches ensemble.</p>
         </div>
         <div class="page-header-actions">
-            <a href="{{ path('app_group_public') }}" class="btn btn-ghost">{{ ui.icon('globe') }}Groupes publics</a>
             {% if app.user %}<a href="{{ path('app_group_new') }}" class="btn btn-primary" data-tour="group-create">{{ ui.icon('plus') }}Créer un groupe</a>{% endif %}
         </div>
     </header>

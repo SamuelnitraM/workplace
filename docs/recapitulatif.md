@@ -151,7 +151,8 @@
   - liens légaux ;
   - bouton **« Continuer la présentation »**, affiché seulement tant que la présentation n'est pas terminée ;
   - à droite, une marge réservée à la messagerie flottante (pas de chevauchement).
-- **Messagerie flottante :** une fenêtre de discussion ouverte depuis n'importe quelle page.
+- **Messagerie flottante :** une fenêtre de discussion ouverte depuis n'importe quelle page ; la barre reste en bas de l'écran et s'arrête au-dessus du pied de page (`.messenger-dock`, position collante sans JavaScript).
+- **Partager** (sujets, photos, profils, listes d'armée publiques ; `_partials/_share_button.html.twig`, contrôleur `share`) : feuille de partage du système quand le navigateur en a une, sinon copie du lien ; le partage compte pour le badge correspondant.
 - **Toasts :** les messages flash et les notifications en direct.
 
 ---
@@ -534,6 +535,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | `clipboard` | Copie dans le presse-papiers (export texte, lien de partage) |
 | `print` | Fenêtre d'impression du navigateur (version imprimable) |
 | `photo_viewer` | Page photo : agrandissement, flèches du clavier |
+| `share` | Partage d'une page (feuille de partage du système ou copie du lien) |
 | `markdown_editor` | Éditeur Markdown du forum |
 | `mention_suggest` | Suggestions de mention `@pseudo` |
 | `emoji_picker` | Sélecteur d'émoticônes |
@@ -574,7 +576,7 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
   - `ROLE_MODERATOR` : accès à la modération seulement (file des signalements, décisions, sanctions des membres). `/admin` le redirige vers la file ; les autres CRUD lui répondent 403 ;
   - `ROLE_ADMIN` : tout le back-office, et hérite de `ROLE_MODERATOR` (`role_hierarchy`).
 - **Sanctions** (`MemberSanctionVoter`) : un modérateur sanctionne les membres ordinaires, un administrateur sanctionne aussi les modérateurs ; personne ne sanctionne un administrateur ni soi-même.
-- **Connexion :** `App\Security\UserChecker` refuse les comptes suspendus (formulaire et cookie « Se souvenir de moi ») ; `SuspendedUserSubscriber` ferme la session d'un membre suspendu pendant qu'il est connecté ; 5 échecs de connexion par minute au maximum.
+- **Connexion :** `App\Security\UserChecker` refuse les comptes suspendus (formulaire et cookie « Se souvenir de moi », `SuspendedAccountException`) ; `App\EventSubscriber\SuspensionSubscriber` ferme la session d'un membre suspendu pendant qu'il est connecté. Chacun de ces cas laisse un cookie signé (`App\Moderation\SuspensionNoticeCookie`) : la page de connexion affiche le motif de la sanction à chaque visite tant qu'elle dure, puis retire le cookie ; une connexion réussie le retire aussi. 5 échecs de connexion par minute au maximum.
 - **Anti-spam :** limites d'envoi centralisées (voir 3.15).
 - **Voters** (`src/Security/Voter/`) : ils centralisent les règles d'accès, au lieu de vérifications répétées dans les contrôleurs.
   - `GroupVoter` : `VIEW`, `MEMBER`, `MANAGE`, `OWNER`, `INVITE`, `JOIN`, `TODO_WRITE`, `TODO_VIEW_ALL` ;
