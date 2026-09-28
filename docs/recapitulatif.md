@@ -476,6 +476,19 @@ Chaque envoi passe par `App\Security\SubmissionThrottle` (`config/packages/rate_
 
 Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 
+### 3.16 Compte, données personnelles et pages légales
+- **Pages légales** (`LegalController`, `templates/legal/`) : mentions légales (`/mentions-legales`), confidentialité et cookies (`/confidentialite`), conditions d'utilisation (`/conditions-utilisation`), liées depuis le pied de page et l'inscription. Éditeur, hébergeur, sous-traitants, âge minimum (15 ans) et durées de conservation sont réunis dans `config/packages/legal.yaml` (variable Twig globale `legal`) : c'est le seul fichier à modifier quand ces informations changent.
+- **Cookies :** uniquement des cookies strictement nécessaires ou demandés (session, « Se souvenir de moi », jeton CSRF, thème, motif de suspension) : pas de bandeau de consentement. Les statistiques du tableau de bord sont calculées sur le serveur, sans traceur.
+- **Mot de passe** (`App\Security\PasswordPolicy`, règle unique pour l'inscription, le changement et la réinitialisation) : 8 caractères minimum avec majuscule, minuscule, chiffre et symbole (recommandation CNIL avec limitation des tentatives de connexion).
+- **Suppression du compte** (`App\Account\AccountDeleter`, point d'entrée unique) :
+  - par le membre : Paramètres › « Supprimer mon compte » (`POST /profil/settings/delete`), mot de passe et case de confirmation ; un administrateur ne supprime pas son propre compte ;
+  - par un administrateur : fiche Sanctions du membre, en recopiant son pseudo ; jamais un membre de l'équipe ;
+  - sujets, réponses du forum, messages et tâches de groupe passent au compte technique **« Membre supprimé »** (`UserRepository::deletedMemberAccount()`, créé au premier besoin, suspendu définitivement, connexion impossible, profil introuvable, sans mention « Banni ») ;
+  - un groupe possédé passe à son plus ancien administrateur, sinon à son plus ancien membre ; sans autre membre, il est supprimé ;
+  - tout le reste est effacé (profil et images, galerie, listes d'armée, conversations privées, amis, invitations, adhésions, tâches personnelles ; badges, notifications, votes… par `ON DELETE CASCADE`) ; un e-mail confirme la suppression.
+- **Comptes inactifs** (`App\Account\InactiveAccountPurger`, commande `app:accounts:purge-inactive`) : sans activité depuis 3 ans (dernière activité, sinon date d'inscription), un e-mail de prévenance annonce la suppression 30 jours plus tard (`User::inactivityWarnedAt`) ; toute activité annule la prévenance (`PresenceService::touch()`). L'équipe n'est jamais concernée.
+- **Signalements et réclamations** (`App\Moderation\ModerationRecordPurger`, commande `app:moderation:purge`) : supprimés 12 mois après la décision, sauf tant que le membre visé est encore suspendu ou banni.
+
 ---
 
 ## 4. Administration (EasyAdmin)
@@ -514,7 +527,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | Base de données | MariaDB, Doctrine ORM 3, migrations écrites à la main |
 | Gabarits | Twig, thème de formulaire global `templates/form/theme.html.twig` |
 | Styles | Tailwind CSS v4 (`symfonycasts/tailwind-bundle`), design system documenté dans `docs/design-system.md` |
-| JavaScript | AssetMapper et importmap (sans Node), Stimulus, Turbo Drive, Alpine (déclaratif uniquement) |
+| JavaScript | AssetMapper et importmap (sans Node), Stimulus, Turbo Drive, Alpine (déclaratif uniquement). Toutes les bibliothèques, Alpine et Pusher compris, sont servies par le site (`importmap:install`) : aucun CDN |
 | Temps réel | Pusher (canaux privés, `pusher/pusher-php-server`) |
 | Administration | EasyAdmin 5 |
 | Pagination | KnpPaginator |
@@ -560,7 +573,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | `sound_preview` | Écoute des sons de notification |
 | `tour` | Visites guidées du didacticiel (driver.js) |
 
-`assets/lib/realtime.js` centralise la connexion Pusher. Il lit sa configuration dans les balises `<meta name="hf-…">` de `base.html.twig`.
+`assets/lib/realtime.js` centralise la connexion Pusher (bibliothèque `pusher-js` de l'importmap). Il lit sa configuration dans les balises `<meta name="hf-…">` de `base.html.twig`.
 
 ---
 
@@ -630,6 +643,8 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 | `app:gamification:sync-badges` | Aligne la table `badge` sur `BadgeCatalog` |
 | `app:gamification:recompute [--resum]` | Réévalue badges et XP (rattrapage) ; `--resum` recalcule l'XP à partir du grand livre |
 | `app:notifications:purge` | Supprime les notifications lues de plus de N jours (90 par défaut) |
+| `app:accounts:purge-inactive` | Prévient puis supprime les comptes inactifs (durées de `config/packages/legal.yaml`) |
+| `app:moderation:purge` | Supprime les signalements et réclamations dont la durée de conservation est écoulée |
 
 Les liens de mot de passe oublié expirés sont supprimés automatiquement à chaque nouvelle demande (pas de commande à planifier).
 
@@ -752,6 +767,8 @@ php bin/console importmap:install && php bin/console asset-map:compile && php bi
 |---|---|
 | `army:sync-bsdata` | Chaque semaine, ou après une mise à jour des règles |
 | `app:notifications:purge` | Chaque nuit |
+| `app:accounts:purge-inactive` | Chaque nuit |
+| `app:moderation:purge` | Chaque nuit |
 | Sauvegarde de la base (`mysqldump`) | Chaque nuit, en gardant 7 jours |
 
 ---

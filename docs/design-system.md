@@ -286,3 +286,13 @@ Les bulles de driver.js prennent les couleurs du site via la classe `tour-popove
 
 - Changement de page : barre de progression de Turbo (`.turbo-progress-bar`), aux couleurs du site.
 - Zones chargées en arrière-plan : lignes squelettes (`_partials/_skeleton_rows.html.twig`) ; JavaScript clone la même structure depuis `<template id="skeleton-rows">` (`assets/lib/skeleton.js`). Utilisées par la recherche, les notifications, la messagerie flottante, l'aperçu Markdown et la page suivante du fil d'actualité (`turbo-frame[busy]`). Pas de squelette devant un contenu déjà rendu par le serveur.
+
+## Lien « Retour »
+
+`templates/_partials/_back_link.html.twig` (résolu par `App\Navigation\BackLinkResolver`) : le lien pointe vers la page d'où vient le visiteur, avec un libellé qui la nomme (« Retour à l'accueil », « Retour au sujet »…), sinon vers la page parente donnée en `fallback_url` / `fallback_label`. Une page précédente sur la même route (photo suivante, formulaire envoyé) ou d'un autre site n'est pas retenue. Quand la page précédente est la dernière de l'historique, le clic revient en arrière (`back_link_controller.js`, `assets/lib/navigation_history.js`) : la page retrouve sa position de défilement. Les fils d'Ariane restent hiérarchiques.
+
+```twig
+{{ include('_partials/_back_link.html.twig', {fallback_url: path('app_group_show', {slug: group.slug}), fallback_label: 'Retour au groupe'}) }}
+```
+
+Options : `class` (par défaut `btn btn-ghost`), `icon_only` (le libellé devient le nom accessible du bouton icône).

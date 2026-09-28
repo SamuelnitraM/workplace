@@ -3,6 +3,7 @@
 namespace App\Twig;
 
 use App\Entity\User;
+use App\Navigation\BackLinkResolver;
 use App\Repository\NotificationRepository;
 use App\Service\GalleryAlbumManager;
 use App\Service\NotificationRenderer;
@@ -32,6 +33,7 @@ class AppExtension extends AbstractExtension
         private MentionResolver $mentionResolver,
         private TourLauncher $tourLauncher,
         private RequestStack $requestStack,
+        private BackLinkResolver $backLinkResolver,
     ) {}
 
     public function getFunctions(): array
@@ -45,6 +47,7 @@ class AppExtension extends AbstractExtension
             new TwigFunction('theme_preference', $this->themePreference(...)),
             new TwigFunction('album_cover', GalleryAlbumManager::coverOf(...)),
             new TwigFunction('requested_tour', $this->tourLauncher->requested(...)),
+            new TwigFunction('back_link', $this->backLinkResolver->resolve(...)),
         ];
     }
 

@@ -11,7 +11,7 @@
     {% set previous_url = previousPhoto ? path('app_gallery_photo_show', {username: owner.username, id: previousPhoto.id}) : '' %}
     {% set next_url = nextPhoto ? path('app_gallery_photo_show', {username: owner.username, id: nextPhoto.id}) : '' %}
     <nav class="mb-4 flex flex-wrap items-center gap-2" aria-label="Fil d'Ariane">
-        <a href="{{ path('app_profil_show', {username: owner.username}) }}" class="btn btn-ghost btn-sm -ml-2">{{ ui.icon('arrow-left') }}Profil de {{ owner.username }}</a>
+        {{ include('_partials/_back_link.html.twig', {fallback_url: path('app_profil_show', {username: owner.username}), fallback_label: 'Profil de ' ~ owner.username, class: 'btn btn-ghost btn-sm -ml-2'}) }}
         {% if photo.album %}
             {{ ui.icon('chevron-right', 'size-4 text-muted') }}
             <a href="{{ path('app_gallery_album_show', {username: owner.username, id: photo.album.id}) }}" class="btn btn-ghost btn-sm">{{ ui.icon('folder') }}Album « {{ photo.album.name }} »</a>

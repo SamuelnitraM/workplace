@@ -33,7 +33,7 @@
             <p class="page-header-subtitle">Informations, membres, salons et droits de « {{ group.name }} ».</p>
         </div>
         <div class="page-header-actions">
-            <a href="{{ path('app_group_show', {slug: group.slug}) }}" class="btn btn-ghost">{{ ui.icon('arrow-left') }}Retour au groupe</a>
+            {{ include('_partials/_back_link.html.twig', {fallback_url: path('app_group_show', {slug: group.slug}), fallback_label: 'Retour au groupe'}) }}
         </div>
     </header>
 

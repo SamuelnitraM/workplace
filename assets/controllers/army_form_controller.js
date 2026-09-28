@@ -1,14 +1,15 @@
 import { Controller } from '@hotwired/stimulus';
+import Alpine from '../lib/alpine.js';
 
 /* stimulusFetch: 'lazy' */
 
 /*
  * Army list builder (creation and edition), rendered by the Alpine.js component "armyForm".
  *
- * Alpine is loaded from the CDN and starts before the modules: a component declared in the initial HTML would be
- * initialised before "armyForm" is registered. The form therefore sits in a <template>: this controller registers
- * the component (Alpine.data) then inserts the form, which Alpine initialises (MutationObserver, or Alpine.start()
- * when it has not started yet). Same after each Turbo visit; before the Turbo cache snapshot the rendered form is
+ * Alpine starts with the application (assets/lib/alpine.js), before this lazy controller is loaded: a component
+ * declared in the initial HTML would be initialised before "armyForm" is registered. The form therefore sits in a
+ * <template>: this controller registers the component (Alpine.data) then inserts the form, which Alpine initialises
+ * through its MutationObserver. Same after each Turbo visit; before the Turbo cache snapshot the rendered form is
  * removed, so a restored page starts again from the <template>.
  *
  * Usage:
@@ -445,7 +446,7 @@ function armyForm() {
 
 let registered = false;
 
-function register(Alpine) {
+function register() {
     if (registered) return;
     Alpine.data('armyForm', armyForm);
     registered = true;
@@ -474,26 +475,17 @@ export default class extends Controller {
         this.onBeforeCache = () => this.removeRendered();
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
 
-        if (window.Alpine) {
-            this.mount(window.Alpine);
-        } else {
-            // Alpine pas encore chargé : on insère le formulaire juste avant son démarrage
-            this.onAlpineInit = () => this.mount(window.Alpine);
-            document.addEventListener('alpine:init', this.onAlpineInit, { once: true });
-        }
+        this.mount();
     }
 
     disconnect() {
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
-        if (this.onAlpineInit) document.removeEventListener('alpine:init', this.onAlpineInit);
-        this.onAlpineInit = null;
         this.removeRendered();
     }
 
-    mount(Alpine) {
-        this.onAlpineInit = null;
+    mount() {
         if (!this.element.isConnected) return;
-        register(Alpine);
+        register();
 
         const root = this.templateTarget.content.firstElementChild.cloneNode(true);
         configs.set(root, {

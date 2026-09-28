@@ -18,7 +18,7 @@
     <div class="print-toolbar mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-surface-raised p-3">
         <p class="text-small text-fg-secondary">Dans la fenêtre d'impression, choisis « Enregistrer au format PDF » pour obtenir un fichier.</p>
         <div class="flex gap-2">
-            <a href="{{ path('app_army_show', {id: armyList.id}) }}" class="btn btn-ghost">{{ ui.icon('arrow-left') }}Retour</a>
+            {{ include('_partials/_back_link.html.twig', {fallback_url: path('app_army_show', {id: armyList.id}), fallback_label: 'Retour à la liste'}) }}
             <button type="button" class="btn btn-primary" data-controller="print" data-action="print#print">{{ ui.icon('file-text') }}Imprimer / PDF</button>
         </div>
     </div>

@@ -7,8 +7,10 @@
  *
  * Configuration lue dans les balises <meta> du <head> (rendues uniquement pour un utilisateur connecté) :
  *   hf-user-id, hf-pusher-key, hf-pusher-cluster, hf-pusher-auth, hf-csrf-<id>
- * La bibliothèque Pusher est chargée depuis le CDN (global window.Pusher).
+ * The Pusher library is served by the importmap from the site itself.
  */
+
+import Pusher from 'pusher-js';
 
 /** Délai avant un désabonnement effectif : lors d'une visite Turbo, la nouvelle page se réabonne aussitôt. */
 const UNSUBSCRIBE_DELAY = 1000;
@@ -66,8 +68,8 @@ export function userChannelName(userId = currentUserId()) {
 function pusherFor(s) {
     if (!s.pusher) {
         const key = meta('hf-pusher-key');
-        if (typeof window.Pusher !== 'function' || !key) return null;
-        s.pusher = new window.Pusher(key, {
+        if (!key) return null;
+        s.pusher = new Pusher(key, {
             cluster: meta('hf-pusher-cluster'),
             channelAuthorization: { endpoint: meta('hf-pusher-auth'), transport: 'ajax' },
         });

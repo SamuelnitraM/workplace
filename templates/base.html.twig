@@ -9,10 +9,10 @@
     {% for scheme, color in theme_colors %}
         <meta name="theme-color" media="(prefers-color-scheme: {{ scheme }})" content="{{ theme == 'auto' ? color : theme_colors[theme] }}" data-scheme-color="{{ color }}">
     {% endfor %}
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>[x-cloak] { display: none !important; }</style>
-    <link rel="icon" type="image/png" href="{{ asset('images/SprueHub-W-1-min.png') }}">
+    {# Logo in the colour of the browser interface: white on a dark tab bar, black on a light one (/favicon.ico for the rest) #}
+    <link rel="icon" href="{{ asset('images/SprueHub-W-1-min.ico') }}" sizes="any" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="{{ asset('images/SprueHub-B-1-min.ico') }}" sizes="any" media="(prefers-color-scheme: light)">
     <title>{% block title %}SprueHub{% endblock %}</title>
     {# Pas de préchargement au survol (Turbo 8) : l'affichage de certaines pages marque des éléments comme lus
        (notifications, conversations), ce qui ne doit arriver que si l'utilisateur ouvre réellement la page. #}

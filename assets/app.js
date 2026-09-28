@@ -1,3 +1,5 @@
+import './lib/alpine.js';
+import './lib/navigation_history.js';
 import './stimulus_bootstrap.js';
 /*
  * Welcome to your app's main JavaScript file!

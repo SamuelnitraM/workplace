@@ -378,7 +378,7 @@ export default class extends Controller {
 
             return `
                 <div class="w-64">
-                    <div class="bg-surface border border-line border-b-0 rounded-t-xl shadow-lg">
+                    <div class="bg-surface border border-line border-b-0 rounded-t-xl">
                         <div class="flex justify-between items-center px-3 py-2 cursor-pointer hover:bg-surface-raised rounded-t-xl transition"
                              data-toggle-conv="${conv.key}">
                             <div class="flex items-center gap-2">

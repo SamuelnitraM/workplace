@@ -13,9 +13,7 @@
 
     {# EN-TÊTE DE LA CONVERSATION #}
     <header class="mb-4 flex items-center gap-2 sm:gap-3">
-        <a href="{{ path('app_message_index') }}" class="btn btn-ghost btn-icon shrink-0" aria-label="Retour aux messages">
-            {{- ui.icon('arrow-left') -}}
-        </a>
+        {{ include('_partials/_back_link.html.twig', {fallback_url: path('app_message_index'), fallback_label: 'Retour aux messages', class: 'btn btn-ghost btn-icon shrink-0', icon_only: true}) }}
         <a href="{{ path('app_profil_show', {username: targetUser.username}) }}" class="flex min-w-0 items-center gap-3 rounded-control">
             {{- ui.avatar(targetUser, 'md') -}}
             <div class="min-w-0">

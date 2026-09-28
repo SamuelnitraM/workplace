@@ -1,0 +1,16 @@
+{#
+    « Retour » link to the page the visitor comes from, else to the parent page (App\Navigation\BackLinkResolver).
+    Coming from that page, the click goes back in the history (assets/controllers/back_link_controller.js):
+    the previous page comes back where it was scrolled.
+    Parameters: fallback_url, fallback_label (required); class (optional, default « btn btn-ghost »);
+    icon_only (optional): the label becomes the accessible name of an icon button.
+    Example: {{ include('_partials/_back_link.html.twig', {fallback_url: path('app_group_show', {slug: group.slug}), fallback_label: 'Retour au groupe'}) }}
+#}
+{% import '_macros/ui.html.twig' as ui %}
+{% set back = back_link(fallback_url, fallback_label) %}
+<a href="{{ back.url }}" class="{{ class ?? 'btn btn-ghost' }}"
+   {%- if back.fromHistory %} data-controller="back-link" data-action="back-link#return"{% endif %}
+   {%- if icon_only ?? false %} aria-label="{{ back.label }}" title="{{ back.label }}"{% endif %}>
+    {{- ui.icon('arrow-left') -}}
+    {%- if not (icon_only ?? false) %}{{ back.label }}{% endif -%}
+</a>

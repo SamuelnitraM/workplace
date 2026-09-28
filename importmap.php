@@ -32,6 +32,12 @@ return [
         'version' => '1.8.0',
         'type' => 'css',
     ],
+    'alpinejs' => [
+        'version' => '3.17.4',
+    ],
+    'pusher-js' => [
+        'version' => '8.6.0',
+    ],
     'cropperjs' => [
         'version' => '1.6.2',
     ],
