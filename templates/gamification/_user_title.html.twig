@@ -1,14 +1,21 @@
 {#
-    Titre d'un membre : badge débloqué choisi comme titre (User.titleBadge), pastille aux couleurs du palier.
-    Ne rend rien si le membre n'a pas de titre.
-    Paramètres : user (App\Entity\User, requis) ; size (optionnel) : 'sm' (défaut) ou 'md'.
-    Pensez à charger la relation (leftJoin … titleBadge + addSelect) dans les listes d'auteurs (pas de N+1).
-    Ex. : {{ include('gamification/_user_title.html.twig', {user: post.author}) }}
+    Title of a member: unlocked badge chosen as title (User.titleBadge), chip in the colours of its tier.
+    A permanently banned member gets the « Banni » mark instead (App\Moderation\BannedMembers).
+    Renders nothing when the member has no title.
+    Parameters: user (App\Entity\User, required); size (optional): 'sm' (default) or 'md'.
+    Load the relation (leftJoin … titleBadge + addSelect) in lists of authors (no N+1).
+    Example: {{ include('gamification/_user_title.html.twig', {user: post.author}) }}
 #}
-{% set title_badge = user is defined and user ? user.titleBadge : null %}
-{% if title_badge %}
-    <span class="user-title badge-tier-{{ title_badge.tier }}{% if (size ?? 'sm') == 'md' %} user-title-md{% endif %}" title="Titre : {{ title_badge.name }} (badge {{ title_badge.tierLabel }})">
-        <span class="user-title-icon" aria-hidden="true">{{ title_badge.icon }}</span>
-        <span class="user-title-name">{{ title_badge.name }}</span>
+{% if user is defined and user and user.banned %}
+    <span class="user-title user-title-banned{% if (size ?? 'sm') == 'md' %} user-title-md{% endif %}" title="Membre banni définitivement">
+        <span class="user-title-name">Banni</span>
     </span>
+{% else %}
+    {% set title_badge = user is defined and user ? user.titleBadge : null %}
+    {% if title_badge %}
+        <span class="user-title badge-tier-{{ title_badge.tier }}{% if (size ?? 'sm') == 'md' %} user-title-md{% endif %}" title="Titre : {{ title_badge.name }} (badge {{ title_badge.tierLabel }})">
+            <span class="user-title-icon" aria-hidden="true">{{ title_badge.icon }}</span>
+            <span class="user-title-name">{{ title_badge.name }}</span>
+        </span>
+    {% endif %}
 {% endif %}

@@ -93,6 +93,7 @@
 /todo/                              Mes tâches personnelles
 /didacticiel                        Didacticiel : visites guidées de chaque fonctionnalité (?visite=<clé> sur la page visitée)
 /signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil, groupe, message-groupe)
+/reclamation/{id}                   Réclamation d'un membre suspendu (lien signé donné sur la page de connexion)
 /army/                              Mes listes d'armée
 ├── /army/new                       Créer une liste
 ├── /army/import                    Importer une liste au format texte
@@ -103,6 +104,8 @@
 ```
 /admin                              Tableau de bord (statistiques)
 ├── /admin/report                   File de modération (signalements)
+├── /admin/appeal                   Réclamations des membres sanctionnés
+├── /admin/moderation/appeal/{id}   Décision sur une réclamation
 ├── /admin/moderation/report/{id}   Décision sur un signalement
 ├── /admin/moderation/member/{id}   Sanctions d'un membre
 ├── /admin/user                     Utilisateurs
@@ -270,7 +273,8 @@ La présentation sert à compléter le profil ; le **didacticiel** explique le f
 - **Émoticônes** : sélecteur commun (contrôleur `emoji-picker`, icône de casque de Space Marine), dans l'éditeur du forum et la messagerie.
 - **Citer** : le bouton « Citer » d'un message insère la citation (sans les citations imbriquées) dans la réponse.
 - **Abonnements** (`ThreadSubscription`) : l'auteur du sujet et chaque membre qui répond suivent automatiquement le sujet ; bouton « Suivre / Suivi » pour les autres. Chaque nouvelle réponse notifie les abonnés (un membre mentionné reçoit la mention plutôt que la réponse).
-- **Sujet résolu** : l'auteur du sujet (ou un administrateur) choisit la réponse « solution » (`ThreadVoter::SOLVE`). Le sujet affiche « Résolu » (liste du forum, fil d'actualité, en-tête avec lien vers la solution) ; l'auteur de la réponse gagne **+50 XP** (une fois par sujet) et reçoit une notification.
+- **Sujet résolu** : l'auteur du sujet (ou un administrateur) choisit la réponse « solution » (`ThreadVoter::SOLVE`). Le sujet affiche « Résolu » (liste du forum, fil d'actualité, en-tête avec lien vers la solution) ; l'auteur de la réponse gagne **+50 XP** (une fois par sujet) et reçoit une notification. Un sujet résolu reste ouvert : la discussion peut continuer.
+- **Sujets anciens** : au-delà de 6 mois sans activité (`Thread::STALE_AFTER`, `Thread::isStale()`), le formulaire de réponse prévient que la réponse fera remonter le sujet. Aucun sujet n'est fermé automatiquement.
 - **Accueil :** affiche les catégories racines. Le compteur de membres n'apparaît qu'à partir de 100 membres (preuve sociale).
 
 ### 3.6 Amis et messagerie privée
@@ -441,7 +445,16 @@ La présentation sert à compléter le profil ; le **didacticiel** explique le f
   - toutes les décisions sont enregistrées (`Report::resolutions`, la plus grave dans `Report::resolution`) et affichées avec leur code couleur ; l'avertissement, la suspension et la note sont gardés dans l'historique ;
   - **Rétablir le contenu** reste possible après un masquage.
 - Une décision clôt tous les signalements en attente du même contenu. L'auteur reçoit **une seule** notification et un e-mail réunissant le sort du contenu et l'avertissement ; une suspension a son propre e-mail.
-- **Sanctions :** depuis la fiche d'un membre (`/admin/moderation/member/{id}`, action « Sanctions » de la liste des utilisateurs) : suspendre ou lever la sanction. Une suspension temporaire expirée ne compte plus, sans tâche planifiée (`User::isSuspended()`).
+- **Sanctions :** depuis la fiche d'un membre (`/admin/moderation/member/{id}`, action « Sanctions » de la liste des utilisateurs) : suspendre ou lever la sanction. Une suspension temporaire expirée ne compte plus, sans tâche planifiée (`User::isSuspended()`). La liste des utilisateurs affiche la sanction avec le code couleur (rouge : banni définitivement, orange : suspendu).
+- **Réclamations** (`Appeal`, `ModerationService::submitAppeal()` / `decideAppeal()`) :
+  - sous le motif affiché à la connexion, un membre suspendu (définitivement ou non) a un bouton **« Réclamation »** : lien signé valable 2 heures (`App\Moderation\AppealLink`), puisqu'il ne peut pas se connecter ; une seule réclamation par sanction ;
+  - la réclamation garde le motif et la fin de la sanction au moment de l'envoi ;
+  - EasyAdmin : menu **Réclamations** (badge du nombre en attente), une page par réclamation avec le message, la sanction contestée et l'**historique des signalements** visant le membre (chaque entrée ouvre sa fiche et le contenu signalé) ;
+  - décision : **Lever la sanction** ou **Maintenir la sanction**, avec une réponse envoyée par e-mail au membre.
+- **Membre banni définitivement** (`App\Moderation\BannedMembers`, critère unique ; `MemberContentVoter`) :
+  - **masqué** : fil d'actualité, classement, suggestions d'amis, de groupes et de mentions, recherche, carrousels de photos, explorateur et classements de listes d'armée ; ses photos, albums, listes d'armée publiques et sa liste d'amis ne s'ouvrent plus ; son profil ne montre que sa photo, son pseudo et la mention **BANNI** ;
+  - **conservé** : ses sujets et réponses du forum, ses messages de groupe, ses tâches et assignations, avec la mention « Banni » à côté de son pseudo ;
+  - l'équipe de modération voit toujours tout ; rien n'est supprimé, tout réapparaît si la sanction est levée ; une suspension temporaire ne masque rien.
 
 ### 3.15 Limites anti-spam
 Chaque envoi passe par `App\Security\SubmissionThrottle` (`config/packages/rate_limiter.yaml`, fenêtre glissante) :
@@ -563,7 +576,7 @@ Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
 | Armées | `ArmyList` (format officiel ou liste libre, compteurs de vues, d'exports et de duplications), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
 | Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
 | Notifications | `Notification` (type, données, auteurs regroupés, lue) |
-| Modération | `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décisions : la plus grave et la liste complète) |
+| Modération | `Appeal` (réclamation d'un membre sanctionné : message, sanction contestée, décision et réponse), `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décisions : la plus grave et la liste complète) |
 
 Le schéma de la base correspond exactement aux entités (plus aucune table orpheline).
 
@@ -580,6 +593,7 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 - **Anti-spam :** limites d'envoi centralisées (voir 3.15).
 - **Voters** (`src/Security/Voter/`) : ils centralisent les règles d'accès, au lieu de vérifications répétées dans les contrôleurs.
   - `GroupVoter` : `VIEW`, `MEMBER`, `MANAGE`, `OWNER`, `INVITE`, `JOIN`, `TODO_WRITE`, `TODO_VIEW_ALL` ;
+  - `MemberContentVoter` : `MEMBER_CONTENT_VIEW` (contenu d'un membre banni réservé à l'équipe de modération) ;
   - `TodoNodeVoter` : `TODO_VIEW`, `TODO_EDIT`, `TODO_DELETE`, `TODO_PROGRESS`, `TODO_ASSIGN`, `TODO_REQUEST_ASSIGNMENT`, `TODO_WITHDRAW_REQUEST`, `TODO_CREATE_CHILD` ;
   - `GroupMembershipResolver` met en cache les adhésions pendant la requête.
 - **CSRF** sur **toutes** les actions POST, formulaires et AJAX.

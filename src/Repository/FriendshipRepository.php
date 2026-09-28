@@ -5,6 +5,7 @@ namespace App\Repository;
 use Doctrine\DBAL\ParameterType;
 use App\Entity\Friendship;
 use App\Entity\User;
+use App\Moderation\BannedMembers;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -84,24 +85,26 @@ class FriendshipRepository extends ServiceEntityRepository
 
     /**
      * Friend suggestions: friends of the member's friends, the most mutual friends first. Members already linked
-     * to the member by a friendship (accepted or pending) and members blocked either way are left out.
+     * to the member by a friendship (accepted or pending), members blocked either way and banned members are left out.
      *
      * @return list<array{user: User, mutual: int}>
      */
     public function findSuggestions(User $user, int $limit): array
     {
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            "SELECT candidates.candidate_id, COUNT(*) AS mutual
+            'SELECT candidates.candidate_id, COUNT(*) AS mutual
              FROM (
                  SELECT CASE WHEN other.requester_id = mine.friend_id THEN other.receiver_id ELSE other.requester_id END AS candidate_id
                  FROM (
                      SELECT CASE WHEN requester_id = :member THEN receiver_id ELSE requester_id END AS friend_id
                      FROM friendship
-                     WHERE status = 'accepted' AND (requester_id = :member OR receiver_id = :member)
+                     WHERE status = \'accepted\' AND (requester_id = :member OR receiver_id = :member)
                  ) mine
-                 INNER JOIN friendship other ON other.status = 'accepted' AND (other.requester_id = mine.friend_id OR other.receiver_id = mine.friend_id)
+                 INNER JOIN friendship other ON other.status = \'accepted\' AND (other.requester_id = mine.friend_id OR other.receiver_id = mine.friend_id)
              ) candidates
+             INNER JOIN user candidate ON candidate.id = candidates.candidate_id
              WHERE candidates.candidate_id <> :member
+               AND ' . BannedMembers::notBannedSql('candidate') . '
                AND NOT EXISTS (
                    SELECT 1 FROM friendship existing
                    WHERE (existing.requester_id = :member AND existing.receiver_id = candidates.candidate_id)
@@ -114,7 +117,7 @@ class FriendshipRepository extends ServiceEntityRepository
                )
              GROUP BY candidates.candidate_id
              ORDER BY mutual DESC, candidates.candidate_id DESC
-             LIMIT :limit",
+             LIMIT :limit',
             ['member' => $user->getId(), 'limit' => $limit],
             ['limit' => ParameterType::INTEGER]
         );

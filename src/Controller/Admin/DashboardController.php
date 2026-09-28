@@ -3,6 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Moderation\ModerationStatistics;
+use App\Repository\AppealRepository;
 use App\Repository\ReportRepository;
 use App\Service\AdminStatsService;
 use App\Statistics\DailyActivityHistory;
@@ -27,6 +28,7 @@ class DashboardController extends AbstractDashboardController
         private readonly ReportRepository $reportRepository,
         private readonly DailyActivityHistory $dailyActivityHistory,
         private readonly ModerationStatistics $moderationStatistics,
+        private readonly AppealRepository $appealRepository,
     ) {
     }
 
@@ -103,6 +105,9 @@ class DashboardController extends AbstractDashboardController
         $pendingReports = $this->reportRepository->countPending();
         $reportsMenuItem = MenuItem::linkTo(ReportCrudController::class, 'Signalements', 'fa fa-flag');
         yield $pendingReports > 0 ? $reportsMenuItem->setBadge($pendingReports, 'danger') : $reportsMenuItem;
+        $pendingAppeals = $this->appealRepository->countPending();
+        $appealsMenuItem = MenuItem::linkTo(AppealCrudController::class, 'Réclamations', 'fa fa-scale-balanced');
+        yield $pendingAppeals > 0 ? $appealsMenuItem->setBadge($pendingAppeals, 'warning') : $appealsMenuItem;
         yield MenuItem::section('Site')->setPermission('ROLE_ADMIN');
         yield MenuItem::linkTo(UserCrudController::class, 'Utilisateurs', 'fa fa-users')->setPermission('ROLE_ADMIN');
         yield MenuItem::linkTo(FriendshipCrudController::class, 'Amitiés', 'fa fa-heart')->setPermission('ROLE_ADMIN');

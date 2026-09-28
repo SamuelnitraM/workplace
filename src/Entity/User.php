@@ -498,6 +498,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->suspendedAt !== null && $this->suspendedUntil === null;
     }
 
+    /** Permanently banned: hidden from most of the site, marked « Banni » elsewhere (App\Moderation\BannedMembers). */
+    public function isBanned(): bool
+    {
+        return $this->isPermanentlySuspended();
+    }
+
     public function getGalleryPhotos(): Collection
     {
         return $this->galleryPhotos;

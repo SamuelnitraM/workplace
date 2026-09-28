@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Profil — {{ user.username }}{% endblock %}
+
+{#
+    Profile of a permanently banned member (App\Moderation\BannedMembers): photo, username and the « Banni » mark only.
+    Gallery, army lists, badges, friends and activity are hidden until the sanction is lifted.
+#}
+{% block body %}
+<div class="mx-auto max-w-xl">
+    <section class="card card-body flex flex-col items-center gap-4 py-10 text-center" aria-labelledby="banned-profile-title">
+        {{ ui.avatar(user, 'xl', 'avatar-ring') }}
+        <div class="space-y-2">
+            <h1 id="banned-profile-title" class="text-h1 text-fg break-words">{{ user.username }}</h1>
+            {{ include('gamification/_user_title.html.twig', {user: user, size: 'md'}) }}
+        </div>
+        <p class="text-small text-muted">Ce membre a été banni définitivement par la modération : son profil et ses publications ne sont plus affichés.</p>
+    </section>
+</div>
+{% endblock %}

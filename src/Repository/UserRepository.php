@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\User;
+use App\Moderation\BannedMembers;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
@@ -60,10 +61,15 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         return $this->findOneBy(['username' => $identifier]);
     }
 
+    /**
+     * Members whose username contains the query, banned members left out.
+     *
+     * @return User[]
+     */
     public function searchByUsername(string $query): array
     {
-        return $this->createQueryBuilder('u')
-            ->where('u.username LIKE :query')
+        return BannedMembers::exclude($this->createQueryBuilder('u'), 'u')
+            ->andWhere('u.username LIKE :query')
             ->setParameter('query', '%' . addcslashes($query, '%_\\') . '%')
             ->setMaxResults(10)
             ->getQuery()
@@ -71,15 +77,16 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Suggestions de mention (@pseudo) : pseudos COMMENÇANT par la saisie, triés par longueur puis ordre alphabétique.
+     * Mention suggestions (@username): usernames STARTING with the input, shortest first then alphabetically;
+     * banned members are left out.
      *
      * @return User[]
      */
     public function findMentionSuggestions(string $prefix, int $limit = 8): array
     {
-        return $this->createQueryBuilder('u')
+        return BannedMembers::exclude($this->createQueryBuilder('u'), 'u')
             ->addSelect('LENGTH(u.username) AS HIDDEN usernameLength')
-            ->where('u.username LIKE :prefix')
+            ->andWhere('u.username LIKE :prefix')
             ->setParameter('prefix', addcslashes($prefix, '%_\\') . '%')
             ->orderBy('usernameLength', 'ASC')
             ->addOrderBy('u.username', 'ASC')
@@ -89,7 +96,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Membres correspondant à des pseudos (comparaison insensible à la casse, selon la collation de la base).
+     * Members matching usernames (case-insensitive comparison, according to the database collation).
      *
      * @param string[] $usernames
      * @return User[]

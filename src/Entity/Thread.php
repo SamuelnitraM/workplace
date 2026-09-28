@@ -10,6 +10,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ThreadRepository::class)]
 class Thread
 {
+    /** Inactivity after which the reply form shows the « old thread » notice. */
+    public const STALE_AFTER = 'P6M';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -123,6 +126,22 @@ class Thread
         $this->updatedAt = $updatedAt;
 
         return $this;
+    }
+
+    /** Date of the latest reply, or of the opening post without reply. */
+    public function getLastActivityAt(): ?\DateTimeImmutable
+    {
+        return $this->updatedAt ?? $this->createdAt;
+    }
+
+    /**
+     * Inactive for STALE_AFTER: the reply form warns that an answer brings the thread back up.
+     * The thread is never locked for that reason.
+     */
+    public function isStale(?\DateTimeImmutable $now = null): bool
+    {
+        $lastActivity = $this->getLastActivityAt();
+        return $lastActivity !== null && $lastActivity < ($now ?? new \DateTimeImmutable())->sub(new \DateInterval(self::STALE_AFTER));
     }
 
     public function isPinned(): ?bool

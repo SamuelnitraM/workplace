@@ -2,6 +2,7 @@
 
 namespace App\Moderation;
 
+use App\Entity\Appeal;
 use App\Entity\GalleryPhoto;
 use App\Entity\Notification;
 use App\Entity\Post;
@@ -9,6 +10,7 @@ use App\Entity\Report;
 use App\Entity\Thread;
 use App\Entity\User;
 use App\Mailer\TransactionalMailer;
+use App\Repository\AppealRepository;
 use App\Repository\PostRepository;
 use App\Repository\ReportRepository;
 use App\Service\GalleryPhotoUploader;
@@ -32,6 +34,7 @@ class ModerationService
         private readonly NotificationService $notificationService,
         private readonly TransactionalMailer $mailer,
         private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly AppealRepository $appealRepository,
     ) {
     }
 
@@ -124,6 +127,47 @@ class ModerationService
     {
         $member->liftSuspension();
         $this->em->flush();
+    }
+
+    /**
+     * Whether the suspended member may still appeal: one appeal per sanction, sent after it started.
+     * The appeal already sent against the current sanction, if any, is returned instead.
+     */
+    public function appealAgainstCurrentSanction(User $member): ?Appeal
+    {
+        $latest = $this->appealRepository->findForMember($member)[0] ?? null;
+        $sanctionStart = $member->getSuspendedAt();
+        return $latest !== null && $sanctionStart !== null && $latest->getCreatedAt() >= $sanctionStart ? $latest : null;
+    }
+
+    /** @throws \LogicException when the member is not suspended or already appealed against the current sanction */
+    public function submitAppeal(User $member, string $message): Appeal
+    {
+        if (!$member->isSuspended() || $this->appealAgainstCurrentSanction($member) !== null) {
+            throw new \LogicException('The member cannot appeal.');
+        }
+        $appeal = new Appeal($member, $message);
+        $this->em->persist($appeal);
+        $this->em->flush();
+        return $appeal;
+    }
+
+    /** Lifts or upholds the sanction, then e-mails the answer of the moderation to the member. */
+    public function decideAppeal(Appeal $appeal, User $moderator, bool $liftSanction, string $response): void
+    {
+        if (!$appeal->isPending()) {
+            throw new \LogicException('The appeal has already been decided.');
+        }
+        $member = $appeal->getMember();
+        $appeal->decide($liftSanction, $moderator, $response);
+        if ($liftSanction) {
+            $member->liftSuspension();
+        }
+        $this->em->flush();
+        $this->mailer->send($member, 'Réponse à ta réclamation', 'email/appeal_decision.html.twig', [
+            'appeal' => $appeal,
+            'notice' => $liftSanction ? null : SuspensionNotice::describe($member),
+        ]);
     }
 
     public function isTargetAvailable(Report $report): bool

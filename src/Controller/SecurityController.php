@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Moderation\AppealLink;
+use App\Moderation\ModerationService;
 use App\Moderation\SuspensionNotice;
 use App\Moderation\SuspensionNoticeCookie;
 use App\Security\SuspendedAccountException;
@@ -15,10 +17,17 @@ class SecurityController extends AbstractController
 {
     /**
      * Login page. A suspended member recognised by the suspension notice cookie sees the reason of the
-     * suspension at every visit while it lasts; a cookie naming nobody suspended anymore is removed.
+     * suspension at every visit while it lasts, with the appeal link or the appeal already sent;
+     * a cookie naming nobody suspended anymore is removed.
      */
     #[Route(path: '/login', name: 'app_login')]
-    public function login(Request $request, AuthenticationUtils $authenticationUtils, SuspensionNoticeCookie $noticeCookie): Response
+    public function login(
+        Request $request,
+        AuthenticationUtils $authenticationUtils,
+        SuspensionNoticeCookie $noticeCookie,
+        AppealLink $appealLink,
+        ModerationService $moderation,
+    ): Response
     {
         $error = $authenticationUtils->getLastAuthenticationError();
         $suspendedMember = $noticeCookie->memberFrom($request);
@@ -27,6 +36,8 @@ class SecurityController extends AbstractController
             'error' => $suspendedMember !== null && $error instanceof SuspendedAccountException ? null : $error,
             'suspendedMember' => $suspendedMember,
             'suspensionNotice' => $suspendedMember !== null ? SuspensionNotice::describe($suspendedMember) : null,
+            'appeal' => $suspendedMember !== null ? $moderation->appealAgainstCurrentSanction($suspendedMember) : null,
+            'appealUrl' => $suspendedMember !== null ? $appealLink->urlFor($suspendedMember) : null,
         ]);
         if ($suspendedMember === null && $noticeCookie->isPresent($request)) {
             $response->headers->setCookie($noticeCookie->clear());

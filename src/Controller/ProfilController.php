@@ -14,6 +14,7 @@ use App\Repository\GroupRepository;
 use App\Repository\UserRepository;
 use App\Security\Voter\GalleryPhotoVoter;
 use App\Security\Voter\GroupVoter;
+use App\Security\Voter\MemberContentVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -54,6 +55,10 @@ public function show(
 
     if (!$user) {
         throw $this->createNotFoundException('Utilisateur introuvable');
+    }
+    // A banned member only keeps the photo, the username and the « Banni » mark (App\Moderation\BannedMembers)
+    if (!$this->isGranted(MemberContentVoter::VIEW, $user)) {
+        return $this->render('profil/banned.html.twig', ['user' => $user]);
     }
 
     $isOwner = $this->getUser() && $this->getUser()->getUserIdentifier() === $user->getEmail();
@@ -146,7 +151,7 @@ public function show(
     ]);
 }
 
-    /** Friends of a member, public like the profile; unavailable when either member blocked the other. */
+    /** Friends of a member, public like the profile; unavailable when either member blocked the other, or for a banned member. */
     #[Route('/{username}/amis', name: 'friends', methods: ['GET'])]
     public function friends(string $username, UserRepository $userRepository, FriendshipRepository $friendshipRepository, MemberBlocker $memberBlocker): Response
     {
@@ -156,7 +161,7 @@ public function show(
         if ($viewer !== null && $viewer->getId() === $user->getId()) {
             return $this->redirectToRoute('app_friendship_list');
         }
-        if ($viewer !== null && $memberBlocker->isBlockedEitherWay($viewer, $user)) {
+        if (($viewer !== null && $memberBlocker->isBlockedEitherWay($viewer, $user)) || !$this->isGranted(MemberContentVoter::VIEW, $user)) {
             throw $this->createNotFoundException('Liste d\'amis indisponible');
         }
         $viewerFriendIds = $viewer !== null

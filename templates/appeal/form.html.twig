@@ -1,0 +1,49 @@
+{% extends 'base.html.twig' %}
+{% import '_macros/ui.html.twig' as ui %}
+
+{% block title %}Réclamation — SprueHub{% endblock %}
+
+{#
+    Appeal of a suspended member (AppealController, signed link of the login page).
+    The message goes to the moderation with the sanction and the history of the member; the answer comes by e-mail.
+#}
+{% block body %}
+<div class="container-form">
+    <header class="mb-6 text-center">
+        <h1 class="text-h1 text-fg">Réclamation</h1>
+        <p class="mt-2 text-fg-secondary">Explique à la modération pourquoi ta sanction devrait être levée.</p>
+    </header>
+
+    <div class="card">
+        <div class="card-body space-y-5 sm:p-8">
+            <div class="alert alert-danger" role="status">
+                {{ ui.icon('shield-alert') }}
+                <p>{{ notice }}</p>
+            </div>
+
+            {% if existingAppeal %}
+                <div class="alert alert-info" role="status">
+                    {{ ui.icon('info') }}
+                    <p>Ta réclamation du {{ existingAppeal.createdAt|date('d/m/Y') }} : <strong>{{ existingAppeal.statusLabel|lower }}</strong>. Une seule réclamation est possible par sanction.</p>
+                </div>
+                <a href="{{ path('app_login') }}" class="btn btn-secondary">{{ ui.icon('arrow-left') }}Retour à la connexion</a>
+            {% else %}
+                <form method="post" action="{{ app.request.uri }}" class="space-y-5">
+                    <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+                    <div class="field">
+                        <label class="label" for="appeal-message">Ton message pour {{ member.username }}</label>
+                        <textarea id="appeal-message" name="message" class="textarea" rows="7" minlength="{{ minLength }}" maxlength="{{ maxLength }}" required
+                                  aria-describedby="appeal-message-help{{ error ? ' appeal-message-error' }}"{% if error %} aria-invalid="true"{% endif %}>{{ message }}</textarea>
+                        <p id="appeal-message-help" class="help">Entre {{ minLength }} et {{ maxLength }} caractères. Reste factuel : la modération voit l'historique de tes sanctions.</p>
+                        {% if error %}<p id="appeal-message-error" class="field-error">{{ error }}</p>{% endif %}
+                    </div>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="submit" class="btn btn-primary">{{ ui.icon('send') }}Envoyer la réclamation</button>
+                        <a href="{{ path('app_login') }}" class="btn btn-ghost">Annuler</a>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

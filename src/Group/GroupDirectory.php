@@ -5,6 +5,7 @@ namespace App\Group;
 use App\Entity\Group;
 use App\Entity\GroupMember;
 use App\Entity\User;
+use App\Moderation\BannedMembers;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -73,9 +74,12 @@ final class GroupDirectory
     public function suggestionsFor(User $member): array
     {
         $connection = $this->entityManager->getConnection();
+        // Friends shown in the suggestions, banned members left out (App\Moderation\BannedMembers)
         $friendIds = array_map('intval', $connection->fetchFirstColumn(
-            "SELECT CASE WHEN requester_id = :member THEN receiver_id ELSE requester_id END FROM friendship
-             WHERE status = 'accepted' AND (requester_id = :member OR receiver_id = :member)",
+            "SELECT friend.id FROM friendship
+             INNER JOIN `user` friend ON friend.id = CASE WHEN friendship.requester_id = :member THEN friendship.receiver_id ELSE friendship.requester_id END
+             WHERE friendship.status = 'accepted' AND (friendship.requester_id = :member OR friendship.receiver_id = :member)
+               AND " . BannedMembers::notBannedSql('friend'),
             ['member' => $member->getId()]
         ));
         $excluded = 'grp.id NOT IN (SELECT own.usergroup_id FROM group_member own WHERE own.user_id = :member)';

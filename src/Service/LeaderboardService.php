@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Moderation\BannedMembers;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -58,7 +59,9 @@ class LeaderboardService
     public function getLeaderboard(string $sort, int $page, ?User $viewer, ?\DateTimeImmutable $now = null): array
     {
         $sort = self::normalizeSort($sort);
-        [$metricSql, $params] = $this->metricQuery($sort, $now ?? new \DateTimeImmutable());
+        [$rawMetricSql, $params] = $this->metricQuery($sort, $now ?? new \DateTimeImmutable());
+        // Banned members are not ranked (App\Moderation\BannedMembers)
+        $metricSql = sprintf('SELECT ranked.user_id, ranked.metric FROM (%s) ranked INNER JOIN `user` member ON member.id = ranked.user_id WHERE %s', $rawMetricSql, BannedMembers::notBannedSql('member'));
         $connection = $this->entityManager->getConnection();
 
         $total = min(self::MAX_RANKED, (int) $connection->fetchOne("SELECT COUNT(*) FROM ($metricSql) m", $params));

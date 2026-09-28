@@ -2,6 +2,7 @@
 
 namespace App\Controller\Admin;
 
+use App\Entity\Appeal;
 use App\Entity\Report;
 use App\Entity\User;
 use App\Moderation\ContentAction;
@@ -9,6 +10,7 @@ use App\Moderation\ModerationDecision;
 use App\Moderation\ModerationService;
 use App\Moderation\ReportResolution;
 use App\Moderation\SuspensionDuration;
+use App\Repository\AppealRepository;
 use App\Repository\ReportRepository;
 use App\Security\Voter\MemberSanctionVoter;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
@@ -20,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Moderation pages of the back office: decision on a report and sanctions of a member.
+ * Moderation pages of the back office: decision on a report, appeal of a suspended member and sanctions of a member.
  */
 #[IsGranted('ROLE_MODERATOR')]
 #[AdminRoute('/moderation', name: 'moderation')]
@@ -28,11 +30,13 @@ class ModerationController extends AbstractController
 {
     private const DECISION_CSRF_PREFIX = 'moderation_report_';
     private const SANCTION_CSRF_PREFIX = 'moderation_member_';
+    private const APPEAL_CSRF_PREFIX = 'moderation_appeal_';
 
     public function __construct(
         private readonly ModerationService $moderation,
         private readonly ReportRepository $reportRepository,
         private readonly AdminUrlGenerator $adminUrlGenerator,
+        private readonly AppealRepository $appealRepository,
     ) {
     }
 
@@ -123,6 +127,48 @@ class ModerationController extends AbstractController
             }
         }
         return $this->redirectToRoute('admin_moderation_member', ['id' => $member->getId()]);
+    }
+
+    #[AdminRoute('/appeal/{id}', name: 'appeal', options: ['methods' => ['GET'], 'requirements' => ['id' => '\d+']])]
+    public function appeal(#[MapEntity(id: 'id')] Appeal $appeal): Response
+    {
+        $member = $appeal->getMember();
+        return $this->render('admin/moderation/appeal.html.twig', [
+            'appeal' => $appeal,
+            'member' => $member,
+            'reports' => $this->reportRepository->findForTargetAuthor($member),
+            'otherAppeals' => array_filter($this->appealRepository->findForMember($member), static fn (Appeal $other): bool => $other !== $appeal),
+            'canSanction' => $this->isGranted(MemberSanctionVoter::SANCTION, $member),
+            'csrfTokenId' => self::APPEAL_CSRF_PREFIX . $appeal->getId(),
+            'appealsUrl' => $this->adminUrlGenerator->unsetAll()->setController(AppealCrudController::class)->setAction('index')->generateUrl(),
+        ]);
+    }
+
+    #[AdminRoute('/appeal/{id}/decision', name: 'appeal_decision', options: ['methods' => ['POST'], 'requirements' => ['id' => '\d+']])]
+    public function decideAppeal(#[MapEntity(id: 'id')] Appeal $appeal, Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid(self::APPEAL_CSRF_PREFIX . $appeal->getId(), $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+        /** @var User $moderator */
+        $moderator = $this->getUser();
+        $response = trim($request->request->getString('response'));
+        $liftSanction = $request->request->getString('decision') === 'lift';
+        $error = match (true) {
+            !$appeal->isPending() => 'Cette réclamation a déjà été traitée.',
+            !$this->isGranted(MemberSanctionVoter::SANCTION, $appeal->getMember()) => 'Tu ne peux pas décider de la sanction de ce membre.',
+            $response === '' => 'Rédige la réponse envoyée au membre.',
+            default => null,
+        };
+        if ($error !== null) {
+            $this->addFlash('danger', $error);
+            return $this->redirectToRoute('admin_moderation_appeal', ['id' => $appeal->getId()]);
+        }
+        $this->moderation->decideAppeal($appeal, $moderator, $liftSanction, $response);
+        $this->addFlash('success', $liftSanction
+            ? 'Sanction levée : ' . $appeal->getMember()->getUsername() . ' peut à nouveau se connecter.'
+            : 'Sanction maintenue, la réponse a été envoyée à ' . $appeal->getMember()->getUsername() . '.');
+        return $this->redirectToRoute('admin_moderation_appeal', ['id' => $appeal->getId()]);
     }
 
     private function denyUnlessDecisionTokenValid(Report $report, Request $request): void

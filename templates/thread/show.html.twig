@@ -202,6 +202,12 @@
             </div>
             {{ form_start(form) }}
                 <div class="card-body">
+                    {% if thread.stale %}
+                        <div class="alert alert-info mb-4" role="note">
+                            {{ ui.icon('clock') }}
+                            <p>Ce sujet est inactif depuis plus de 6 mois (dernière activité le {{ thread.lastActivityAt|date('d/m/Y') }}) : votre réponse le fera remonter en tête des discussions.</p>
+                        </div>
+                    {% endif %}
                     {{ form_errors(form) }}
                     {{ include('forum/_editor.html.twig', {field: form.content, label: 'Votre réponse'}) }}
                     {{ form_errors(form.content) }}

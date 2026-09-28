@@ -18,7 +18,14 @@
             {% if suspensionNotice %}
                 <div class="alert alert-danger" role="alert" id="suspension-notice">
                     {{ ui.icon('shield-alert') }}
-                    <p>{{ suspensionNotice }}</p>
+                    <div class="space-y-3">
+                        <p>{{ suspensionNotice }}</p>
+                        {% if appeal %}
+                            <p class="text-small">Ta réclamation du {{ appeal.createdAt|date('d/m/Y') }} : <strong>{{ appeal.statusLabel|lower }}</strong>.{{ appeal.pending ? ' La réponse te sera envoyée par e-mail.' }}</p>
+                        {% else %}
+                            <a href="{{ appealUrl }}" class="btn btn-secondary btn-sm">{{ ui.icon('message-square') }}Réclamation</a>
+                        {% endif %}
+                    </div>
                 </div>
             {% endif %}
 

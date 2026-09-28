@@ -8,6 +8,7 @@ use App\Entity\GalleryPhoto;
 use App\Entity\Post;
 use App\Entity\Thread;
 use App\Entity\User;
+use App\Moderation\BannedMembers;
 use App\Repository\GalleryPhotoRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -237,7 +238,8 @@ final class FeedService
             'SELECT ub.user_id, DATE(ub.unlocked_at) AS day, MAX(ub.unlocked_at) AS last_at,
                     GROUP_CONCAT(ub.badge_id ORDER BY ub.unlocked_at DESC, ub.badge_id DESC) AS badge_ids
              FROM user_badge ub
-             WHERE ub.user_id <> :me' . $actorSql . '
+             INNER JOIN user member ON member.id = ub.user_id
+             WHERE ub.user_id <> :me AND ' . BannedMembers::notBannedSql('member') . $actorSql . '
              GROUP BY ub.user_id, DATE(ub.unlocked_at)
              HAVING MAX(ub.unlocked_at) <= :before
              ORDER BY last_at DESC
@@ -272,8 +274,10 @@ final class FeedService
         return $items;
     }
 
+    /** Activity of the given members only (NULL = everyone), never of a banned member. */
     private function restrictActors(\Doctrine\ORM\QueryBuilder $qb, string $alias, ?array $actorIds): void
     {
+        BannedMembers::exclude($qb, $alias);
         if ($actorIds !== null) {
             $qb->andWhere($alias . '.id IN (:actors)')->setParameter('actors', $actorIds);
         }

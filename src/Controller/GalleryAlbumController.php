@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Http\SafeReferer;
 use App\Repository\GalleryAlbumRepository;
 use App\Repository\GalleryPhotoRepository;
+use App\Security\Voter\MemberContentVoter;
 use App\Service\GalleryAlbumManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,6 +31,9 @@ class GalleryAlbumController extends AbstractController
     public function show(string $username, int $id, GalleryPhotoRepository $photoRepository): Response
     {
         $album = $this->findAlbum($username, $id);
+        if (!$this->isGranted(MemberContentVoter::VIEW, $album->getOwner())) {
+            throw $this->createNotFoundException('Album introuvable');
+        }
         $isOwner = $this->getUser() === $album->getOwner();
         $photos = array_values(array_filter($album->getPhotos()->toArray(), static fn ($photo) => $isOwner || $photo->isVisible()));
         return $this->render('gallery/album.html.twig', [

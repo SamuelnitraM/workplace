@@ -5,9 +5,11 @@ namespace App\Repository;
 use App\Army\ArmyListCounter;
 use App\Army\BattleSize;
 use App\Entity\ArmyList;
+use App\Moderation\BannedMembers;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
+
 
 /**
  * @extends ServiceEntityRepository<ArmyList>
@@ -25,7 +27,7 @@ class ArmyListRepository extends ServiceEntityRepository
     }
 
     /**
-     * Public lists matching the Explorer filters, most recent first (owner loaded with the lists).
+     * Public lists matching the Explorer filters, most recent first (owner loaded with the lists); banned members left out.
      */
     public function createPublicSearchQuery(string $faction, string $detachment, ?BattleSize $battleSize, string $search): Query
     {
@@ -33,6 +35,7 @@ class ArmyListRepository extends ServiceEntityRepository
             ->addSelect('o')
             ->innerJoin('l.owner', 'o')
             ->where('l.isPublic = true')
+            ->andWhere(BannedMembers::notBanned('o'))
             ->orderBy('l.createdAt', 'DESC')
             ->addOrderBy('l.id', 'DESC');
         if ($faction !== '') {
@@ -52,7 +55,7 @@ class ArmyListRepository extends ServiceEntityRepository
     }
 
     /**
-     * Public lists with the highest value of a counter (lists never counted are left out), owner loaded.
+     * Public lists with the highest value of a counter (lists never counted and banned members left out), owner loaded.
      *
      * @return ArmyList[]
      */
@@ -64,6 +67,7 @@ class ArmyListRepository extends ServiceEntityRepository
             ->innerJoin('armyList.owner', 'owner')
             ->where('armyList.isPublic = true')
             ->andWhere($property . ' > 0')
+            ->andWhere(BannedMembers::notBanned('owner'))
             ->orderBy($property, 'DESC')
             ->addOrderBy('armyList.createdAt', 'DESC')
             ->setMaxResults($limit)
