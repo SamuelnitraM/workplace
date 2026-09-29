@@ -215,7 +215,7 @@ Barre de l'en-tête, résultats instantanés : membres, groupes publics, section
 - **Pendant une sanction** : connexion refusée et session fermée ; la page de connexion affiche le motif tant que la sanction dure (cookie signé).
 - **Réclamations** : un bouton sous le motif ouvre un formulaire (lien signé 2 heures, une réclamation par sanction) ; l'équipe lève ou maintient la sanction et répond par e-mail.
 - **Membre banni définitivement** (`App\Moderation\BannedMembers`) : masqué partout (fil, classement, suggestions, recherche, carrousels, Explorer) ; son profil ne montre que photo, pseudo et « Banni » ; ses messages du forum et des groupes restent visibles avec la mention « Banni ».
-- **Limites anti-spam** (`App\Security\SubmissionThrottle`, `config/packages/rate_limiter.yaml`) : inscription 3/heure, mot de passe oublié 5/heure, renvoi du lien de confirmation 3/heure, message privé 20/minute, sujet 5/heure, réponse 6/minute, commentaire 6/minute, signalement 10/heure.
+- **Limites anti-spam** (`App\Security\SubmissionThrottle`, `config/packages/rate_limiter.yaml`) : inscription 3/heure, mot de passe oublié 5/heure, renvoi du lien de confirmation 3/heure, message privé 20/minute, message de salon 20/minute, sujet 5/heure, réponse 6/minute, commentaire 6/minute, envoi de photo 20/heure, import de liste d'armée 20/heure, signalement 10/heure. Les messages du forum sont limités à 20 000 caractères, la description d'un groupe à 2 000.
 
 ### 3.14 Données personnelles et pages légales
 - **Pages légales** (`templates/legal/`) : mentions légales, confidentialité et cookies, conditions d'utilisation. Toutes les informations variables sont dans `config/packages/legal.yaml`.
@@ -371,7 +371,7 @@ Après toute modification : vider le cache (`php bin/console cache:clear`) ; apr
 |---|---|---|
 | Éditeur, SIRET, adresse, téléphone, e-mail de contact, hébergeur, sous-traitants, âge minimum, durées de conservation, date de mise à jour des pages légales | `config/packages/legal.yaml` | Utilisé par les pages légales, l'inscription, les e-mails et les purges |
 | Textes des mentions légales, confidentialité, conditions | `templates/legal/notice.html.twig`, `privacy.html.twig`, `terms.html.twig` | Mettre à jour `updated_at` dans `legal.yaml` |
-| Page d'accueil (visiteur et membre) | `templates/home/index.html.twig`, `_first_steps.html.twig` | Image de fond : `public/images/bgHome.png` |
+| Page d'accueil (visiteur et membre) | `templates/home/index.html.twig`, `_first_steps.html.twig` | Image de fond : `public/images/bgHome.webp` |
 | En-tête, barre du bas, menu du compte, bouton « Publier », pied de page | `templates/_partials/shell/_header.html.twig`, `_bottom_bar.html.twig`, `_account_items.html.twig`, `_publish_items.html.twig`, `_footer.html.twig` | |
 | Titre des onglets du navigateur, balises du `<head>`, favicon | `templates/base.html.twig` | Icônes : `public/images/SprueHub-*-1-min.ico`, `public/favicon.ico` |
 | Logo de l'en-tête | `public/images/SprueHub-W-0.png` | |

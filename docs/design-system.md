@@ -52,7 +52,7 @@ Après modification du CSS : `php bin/console tailwind:build`.
 Aplats (texte dessus) : primary 6,29 · primary-hover 5,25 · accent 8,05 · success 5,02 · success-hover 7,13 · warning 8,67 · danger 4,83 · danger-hover 6,47 · info 5,93 · notify 4,70.
 Fonds `-soft` : texte `-text` correspondant ≥ 4,8:1 (sur surface et overlay). `line-strong` / surface : 3,1:1 ; focus / canvas : 9,55:1.
 
-> Les anciennes classes `text-gray-500` (#6b7280 : 3,6:1 sur gray-800) et `text-gray-600` ne passent **pas** AA : remplacer par `text-muted`.
+> Les classes `text-gray-500` (#6b7280 : 3,6:1 sur gray-800) et `text-gray-600` ne passent **pas** AA : utiliser `text-muted`.
 
 ### Typographie (`text-*` : taille + interligne + graisse)
 
@@ -120,7 +120,7 @@ Police : `Inter` si installée, sinon police système (aucun téléchargement).
 </div>
 <label class="check"><input type="checkbox" class="checkbox"> Afficher mon activité</label>
 
-{# Onglets (tabs_controller : aria-selected suffit, plus besoin de data-tabs-active-class) #}
+{# Onglets (tabs_controller : l'état actif vient de aria-selected) #}
 <div data-controller="tabs">
   <div class="tabs" role="tablist">
     <button type="button" role="tab" class="tab" aria-selected="true" data-tab="gallery" data-tabs-target="tab" data-action="tabs#select">{{ ui.icon('camera') }}Galerie</button>
@@ -168,9 +168,9 @@ Ajouter une icône : copier les éléments SVG de lucide.dev dans le tableau `_i
 | `z-(--z-dropdown)` | `z-50` en dur |
 | `aria-current="page"` / `aria-selected` pour l'état actif | classes d'état dupliquées en JS |
 
-## Carte de migration (ancien → nouveau)
+## Équivalences (utilitaires bruts → composants)
 
-| Ancien | Nouveau |
+| À éviter | À utiliser |
 |---|---|
 | `bg-indigo-600 hover:bg-indigo-700 (text-white) px-4 py-2 rounded-lg` | `btn btn-primary` |
 | `… px-3 py-1.5 text-sm rounded` (petit bouton) | `btn btn-primary btn-sm` |
