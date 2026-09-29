@@ -241,6 +241,7 @@ Une erreur 500 dès l'accueil vient presque toujours d'un `.env.local` absent ou
 | Symptôme | Cause | Solution |
 |---|---|---|
 | `Attempted to load class "DebugBundle"` (ou `WebProfilerBundle`, `MakerBundle`) pendant `composer install` ou une commande | Le serveur démarre en `dev` alors que les outils de développement ne sont pas installés | Vérifier `~/www/.env.local` : il doit exister et contenir `APP_ENV=prod` et `APP_DEBUG=0` ; un fichier `.env.local.php` éventuel passe avant lui (le supprimer ou le régénérer). Contrôle : `php bin/console about` affiche `prod`. Puis relancer toutes les commandes de A3 à partir de `composer install` |
+| Les clés (base, Pusher, e-mails) disparaissent après une mise en production et le site repasse en `dev` | Les secrets ont été écrits dans `~/www/.env` : ce fichier fait partie du dépôt et il est remplacé à chaque envoi | Les mettre dans `~/www/.env.local` (`cp .env .env.local` si le `.env` du serveur les contient), puis remettre le `.env` du dépôt |
 | Erreur 500 sur tout le site | Même cause, ou fichier supprimé du dépôt resté sur le serveur | Même contrôle, puis `tail -n 50 var/log/prod.log` |
 | Site sans mise en forme ni interactivité | `importmap:install` ou `asset-map:compile` non lancés, ou CSS Tailwind absent | Envoyer `var/tailwind/app.built.css`, relancer les deux commandes et `cache:clear` |
 | Administration sans mise en forme | `public/bundles` absent | `php bin/console assets:install public` |
