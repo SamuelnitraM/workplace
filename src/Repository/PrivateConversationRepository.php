@@ -28,9 +28,17 @@ class PrivateConversationRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * Conversations of a member, most recently active first, both participants loaded by the same query.
+     *
+     * @return PrivateConversation[]
+     */
     public function findUserConversations(User $user): array
     {
         return $this->createQueryBuilder('c')
+            ->addSelect('participant1', 'participant2')
+            ->innerJoin('c.participant1', 'participant1')
+            ->innerJoin('c.participant2', 'participant2')
             ->where('c.participant1 = :user OR c.participant2 = :user')
             ->setParameter('user', $user)
             ->orderBy('c.updatedAt', 'DESC')

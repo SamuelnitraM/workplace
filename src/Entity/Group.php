@@ -194,10 +194,7 @@ class Group
 
     public function setTodoWriteRole(string $todoWriteRole): static
     {
-        if (!array_key_exists($todoWriteRole, GroupMember::ROLE_LEVELS)) {
-            throw new \InvalidArgumentException(sprintf('Rôle todo invalide : "%s".', $todoWriteRole));
-        }
-        $this->todoWriteRole = $todoWriteRole;
+        $this->todoWriteRole = self::assertRole($todoWriteRole);
 
         return $this;
     }
@@ -209,10 +206,7 @@ class Group
 
     public function setTodoViewRole(string $todoViewRole): static
     {
-        if (!array_key_exists($todoViewRole, GroupMember::ROLE_LEVELS)) {
-            throw new \InvalidArgumentException(sprintf('Rôle todo invalide : "%s".', $todoViewRole));
-        }
-        $this->todoViewRole = $todoViewRole;
+        $this->todoViewRole = self::assertRole($todoViewRole);
 
         return $this;
     }
@@ -224,10 +218,7 @@ class Group
 
     public function setPinRole(string $pinRole): static
     {
-        if (!array_key_exists($pinRole, GroupMember::ROLE_LEVELS)) {
-            throw new \InvalidArgumentException(sprintf('Rôle d\'épinglage invalide : "%s".', $pinRole));
-        }
-        $this->pinRole = $pinRole;
+        $this->pinRole = self::assertRole($pinRole);
 
         return $this;
     }
@@ -239,7 +230,7 @@ class Group
 
     public function setInviteRole(string $inviteRole): static
     {
-        $this->inviteRole = $inviteRole;
+        $this->inviteRole = self::assertRole($inviteRole);
 
         return $this;
     }
@@ -257,7 +248,7 @@ class Group
 
     public function setAssignmentRole(string $assignmentRole): static
     {
-        $this->assignmentRole = $assignmentRole;
+        $this->assignmentRole = self::assertRole($assignmentRole);
 
         return $this;
     }
@@ -358,17 +349,6 @@ class Group
         return $this;
     }
 
-    public function removeMessage(GroupMessage $message): static
-    {
-        if ($this->messages->removeElement($message)) {
-            if ($message->getUsergroup() === $this) {
-                $message->setUsergroup(null);
-            }
-        }
-
-        return $this;
-    }
-
     /**
      * @return Collection<int, TodoNode>
      */
@@ -377,56 +357,12 @@ class Group
         return $this->todoNodes;
     }
 
-    public function addTodoNode(TodoNode $todoNode): static
-    {
-        if (!$this->todoNodes->contains($todoNode)) {
-            $this->todoNodes->add($todoNode);
-            $todoNode->setUsergroup($this);
-        }
-
-        return $this;
-    }
-
-    public function removeTodoNode(TodoNode $todoNode): static
-    {
-        if ($this->todoNodes->removeElement($todoNode)) {
-            // set the owning side to null (unless already changed)
-            if ($todoNode->getUsergroup() === $this) {
-                $todoNode->setUsergroup(null);
-            }
-        }
-
-        return $this;
-    }
-
     /**
      * @return Collection<int, GroupInvitation>
      */
     public function getInvitations(): Collection
     {
         return $this->invitations;
-    }
-
-    public function addInvitation(GroupInvitation $invitation): static
-    {
-        if (!$this->invitations->contains($invitation)) {
-            $this->invitations->add($invitation);
-            $invitation->setUsergroup($this);
-        }
-
-        return $this;
-    }
-
-    public function removeInvitation(GroupInvitation $invitation): static
-    {
-        if ($this->invitations->removeElement($invitation)) {
-            // set the owning side to null (unless already changed)
-            if ($invitation->getUsergroup() === $this) {
-                $invitation->setUsergroup(null);
-            }
-        }
-
-        return $this;
     }
 
     /**
@@ -447,15 +383,12 @@ class Group
         return $this;
     }
 
-    public function removeChannel(GroupChannel $channel): static
+    /** Every minimum-role setting holds one of the roles of GroupMember::ROLE_LEVELS. */
+    private static function assertRole(string $role): string
     {
-        if ($this->channels->removeElement($channel)) {
-            // set the owning side to null (unless already changed)
-            if ($channel->getUsergroup() === $this) {
-                $channel->setUsergroup(null);
-            }
+        if (!array_key_exists($role, GroupMember::ROLE_LEVELS)) {
+            throw new \InvalidArgumentException(sprintf('Invalid group role: "%s".', $role));
         }
-
-        return $this;
+        return $role;
     }
 }

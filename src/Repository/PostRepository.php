@@ -17,9 +17,6 @@ class PostRepository extends ServiceEntityRepository
         parent::__construct($registry, Post::class);
     }
 
-    //    /**
-    //     * @return Post[] Returns an array of Post objects
-    //     */
     /** Page number of a post inside its thread (posts ordered by date, then id). */
     public function findPageOfPost(Post $post, int $postsPerPage): int
     {

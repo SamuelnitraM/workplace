@@ -10,7 +10,6 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 
-
 /**
  * @extends ServiceEntityRepository<ArmyList>
  */
@@ -19,11 +18,6 @@ class ArmyListRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, ArmyList::class);
-    }
-
-    public function findPublicByOwner(object $owner): array
-    {
-        return $this->findBy(['owner' => $owner, 'isPublic' => true], ['createdAt' => 'DESC']);
     }
 
     /**

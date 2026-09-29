@@ -40,21 +40,21 @@ class GroupChannel
 
     #[ORM\ManyToOne(inversedBy: 'channels')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?group $usergroup = null;
+    private ?Group $usergroup = null;
 
     public function __construct()
-{
-    $this->createdAt = new \DateTimeImmutable();
-    $this->position = 0;
-    $this->canRead = 'member';
-    $this->canWrite = 'member';
-    $this->messages = new \Doctrine\Common\Collections\ArrayCollection();
-}
+    {
+        $this->createdAt = new \DateTimeImmutable();
+        $this->position = 0;
+        $this->canRead = 'member';
+        $this->canWrite = 'member';
+        $this->messages = new ArrayCollection();
+    }
 
-public function __toString(): string
-{
-    return $this->name ?? '';
-}
+    public function __toString(): string
+    {
+        return $this->name ?? '';
+    }
 
     public function getId(): ?int
     {
@@ -133,19 +133,19 @@ public function __toString(): string
         return $this;
     }
 
-    public function getUsergroup(): ?group
+    public function getUsergroup(): ?Group
     {
         return $this->usergroup;
     }
 
-    public function setUsergroup(?group $usergroup): static
+    public function setUsergroup(?Group $usergroup): static
     {
         $this->usergroup = $usergroup;
 
         return $this;
     }
 
-    /** * @return Collection<int, GroupMessage> */
+    /** @return Collection<int, GroupMessage> */
     public function getMessages(): Collection
     {
         return $this->messages;
@@ -160,13 +160,4 @@ public function __toString(): string
         return $this;
     }
 
-    public function removeMessage(GroupMessage $message): static
-    {
-        if ($this->messages->removeElement($message)) {
-            if ($message->getChannel() === $this) {
-                $message->setChannel(null);
-            }
-        }
-        return $this;
-    }
 }

@@ -68,9 +68,10 @@ final class ArmyListTextFormat
             }
             array_push($lines, '', $section);
             foreach ($sections[$section] as $unit) {
-                // A quantity greater than 1 (free list) is written as separate units, like the official application
+                // A quantity greater than 1 (free list) is written as separate units, like the official application;
+                // the enhancement belongs to the first copy only, as in ArmyUnit::getTotalPoints()
                 for ($copy = 0; $copy < $unit->getQuantity(); ++$copy) {
-                    array_push($lines, '', sprintf('%s (%d Points)', $unit->getName(), $unit->getPoints() + $unit->getEnhancementPoints()));
+                    array_push($lines, '', sprintf('%s (%d Points)', $unit->getName(), $unit->getPoints() + ($copy === 0 ? $unit->getEnhancementPoints() : 0)));
                     if ($unit->isWarlord() && $copy === 0) {
                         $lines[] = '  • Warlord';
                     }

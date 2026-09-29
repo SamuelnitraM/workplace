@@ -570,8 +570,8 @@ class GamificationService
     // ------------------------------------------------------------------
 
     /**
-     * Rattrapage de la connexion quotidienne du dernier jour connu (last_daily_login_at) si elle
-     * n'a pas été créditée (connexions antérieures à ce système). Retourne l'XP créditée.
+     * Credits the daily login of the last known day (last_daily_login_at) when the ledger has no line for it.
+     * Returns the credited XP.
      */
     public function backfillLastDailyLogin(User $user, bool $dryRun = false): int
     {
@@ -599,7 +599,7 @@ class GamificationService
     }
 
     /**
-     * Répare les badges obtenus sans ligne « badge:<code> » dans le grand livre (anciennes versions).
+     * Repairs the granted badges that have no « badge:<code> » line in the ledger.
      *
      * @return list<string> codes réparés
      */
@@ -774,8 +774,8 @@ class GamificationService
         return (int) (new \DateTimeImmutable($from, $utc))->diff(new \DateTimeImmutable($to, $utc))->format('%r%a');
     }
 
-    /** Format DATETIME dans le fuseau par défaut de l'application (celui utilisé par Doctrine à la lecture). */
-    private static function dbDateTime(\DateTimeImmutable $date): string
+    /** DATETIME value in the default timezone of the application (the one Doctrine uses when reading), for raw SQL. */
+    public static function dbDateTime(\DateTimeImmutable $date): string
     {
         return $date->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
     }

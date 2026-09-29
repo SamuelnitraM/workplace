@@ -49,7 +49,7 @@ final class ForumActivityNotifier
         $this->notifyMentions($thread, $firstPost, $author, $url);
     }
 
-    /** Nouvelle réponse : abonnement de l'auteur, mentions, puis abonnés. */
+    /** New reply: subscription of the author, mentions, then the other subscribers. */
     public function onReply(Thread $thread, Post $post, string $url): void
     {
         $author = $post->getAuthor();
@@ -57,19 +57,17 @@ final class ForumActivityNotifier
             return;
         }
         $this->subscriptions->subscribe($author, $thread);
-        $mentionedIds = $this->notifyMentions($thread, $post, $author, $url);
-
+        $mentionedIds = $this->notifyMentions($thread, $post, $author, $url, false);
         $subscribers = $this->subscriptions->findSubscribers($thread, array_merge([$author->getId()], $mentionedIds));
         if ($subscribers === []) {
+            $this->em->flush();
             return;
         }
-
         $data = ['thread' => $thread->getTitle(), 'threadId' => $thread->getId()];
         $threadAuthorId = $thread->getAuthor()?->getId();
         $owner = array_filter($subscribers, static fn (User $u) => $u->getId() === $threadAuthorId);
         $others = array_filter($subscribers, static fn (User $u) => $u->getId() !== $threadAuthorId);
         $key = self::replyGroupKey($thread);
-
         if ($owner !== []) {
             $this->notifications->notifyMany($owner, Notification::TYPE_FORUM_REPLY, $author, $data + ['own' => true], $url, $key, false);
         }
@@ -80,11 +78,11 @@ final class ForumActivityNotifier
     }
 
     /**
-     * Notifie les membres mentionnés dans le message (hors auteur, limité).
+     * Notifies the members mentioned in the message (author excluded, limited); $flush false leaves the flush to the caller.
      *
-     * @return int[] identifiants des membres notifiés
+     * @return int[] ids of the notified members
      */
-    private function notifyMentions(Thread $thread, Post $post, User $author, string $url): array
+    private function notifyMentions(Thread $thread, Post $post, User $author, string $url, bool $flush = true): array
     {
         $usernames = array_slice(ForumMarkdown::extractMentions((string) $post->getContent()), 0, ForumMarkdown::MAX_NOTIFIED_MENTIONS * 2);
         if ($usernames === []) {
@@ -107,6 +105,7 @@ final class ForumActivityNotifier
             ['thread' => $thread->getTitle(), 'threadId' => $thread->getId()],
             $url,
             self::mentionGroupKey($thread),
+            $flush,
         );
 
         return array_map(static fn (User $u) => (int) $u->getId(), $users);

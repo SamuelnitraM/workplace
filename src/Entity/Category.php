@@ -204,28 +204,6 @@ class Category
         return $this->threads;
     }
 
-    public function addThread(Thread $thread): static
-    {
-        if (!$this->threads->contains($thread)) {
-            $this->threads->add($thread);
-            $thread->setCategory($this);
-        }
-
-        return $this;
-    }
-
-    public function removeThread(Thread $thread): static
-    {
-        if ($this->threads->removeElement($thread)) {
-            // set the owning side to null (unless already changed)
-            if ($thread->getCategory() === $this) {
-                $thread->setCategory(null);
-            }
-        }
-
-        return $this;
-    }
-
     public function getParent(): ?Category
     {
         return $this->parent;
@@ -252,13 +230,6 @@ class Category
     public function getChildren(): Collection
     {
         return $this->children;
-    }
-
-    public function addChild(Category $child): static
-    {
-        $child->setParent($this);
-
-        return $this;
     }
 
     public function removeChild(Category $child): static
@@ -315,22 +286,6 @@ class Category
             static fn (Category $c): string => (string) $c->getName(),
             $this->getBreadcrumb()
         ));
-    }
-
-    /**
-     * Profondeur : 0 pour une racine, 1 pour un enfant direct, etc.
-     */
-    public function getDepth(): int
-    {
-        return \count($this->getAncestors());
-    }
-
-    /**
-     * Vrai si la catégorie courante est un ancêtre (strict) de $category.
-     */
-    public function isAncestorOf(Category $category): bool
-    {
-        return \in_array($this, $category->getAncestors(), true);
     }
 
     /**

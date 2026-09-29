@@ -107,8 +107,8 @@ class LeaderboardService
         $paris = $now->setTimezone(new \DateTimeZone(GamificationService::TIMEZONE));
 
         return match ($sort) {
-            'semaine' => [self::AWARDS_SINCE, [self::dbDateTime($paris->modify('monday this week')->setTime(0, 0))]],
-            'mois' => [self::AWARDS_SINCE, [self::dbDateTime($paris->modify('first day of this month')->setTime(0, 0))]],
+            'semaine' => [self::AWARDS_SINCE, [GamificationService::dbDateTime($paris->modify('monday this week')->setTime(0, 0))]],
+            'mois' => [self::AWARDS_SINCE, [GamificationService::dbDateTime($paris->modify('first day of this month')->setTime(0, 0))]],
             'badges' => ['SELECT ub.user_id, COUNT(*) AS metric FROM user_badge ub GROUP BY ub.user_id', []],
             'serie' => [
                 'SELECT u.id AS user_id, u.login_streak AS metric FROM `user` u WHERE u.login_streak > 0 AND u.last_daily_login_at >= ?',
@@ -131,29 +131,19 @@ class LeaderboardService
         if (!$ids) {
             return [];
         }
-
-        $qb = $this->entityManager->createQueryBuilder()
-            ->select('u')
+        // Title shown next to the username (User::$titleBadge), loaded by the same query
+        $ranked = $this->entityManager->createQueryBuilder()
+            ->select('u', 'title')
             ->from(User::class, 'u')
+            ->leftJoin('u.titleBadge', 'title')
             ->where('u.id IN (:ids)')
-            ->setParameter('ids', $ids, ArrayParameterType::INTEGER);
-
-        // Titre affiché à côté du pseudo (User::$titleBadge) : chargé dans la même requête s'il existe
-        $metadata = $this->entityManager->getClassMetadata(User::class);
-        if ($metadata->hasAssociation('titleBadge')) {
-            $qb->addSelect('title')->leftJoin('u.titleBadge', 'title');
-        }
-
+            ->setParameter('ids', $ids, ArrayParameterType::INTEGER)
+            ->getQuery()
+            ->getResult();
         $users = [];
-        foreach ($qb->getQuery()->getResult() as $user) {
+        foreach ($ranked as $user) {
             $users[$user->getId()] = $user;
         }
-
         return $users;
-    }
-
-    private static function dbDateTime(\DateTimeImmutable $date): string
-    {
-        return $date->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
     }
 }

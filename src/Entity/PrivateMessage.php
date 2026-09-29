@@ -71,13 +71,6 @@ class PrivateMessage
         return $this->isRead;
     }
 
-    public function setIsRead(bool $isRead): static
-    {
-        $this->isRead = $isRead;
-
-        return $this;
-    }
-
     public function getAuthor(): ?User
     {
         return $this->author;

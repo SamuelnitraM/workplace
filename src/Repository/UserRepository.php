@@ -35,10 +35,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Un identifiant contenant « @ » est toujours traité comme un email (un pseudo ne peut pas en contenir),
-     * sinon comme un pseudo : un pseudo égal à l'email d'un autre membre ne peut donc pas détourner la connexion.
-     */
-    /**
      * Number of registrations per day since the given day, days without registration left out.
      *
      * @return array<string, int> keyed by Y-m-d
@@ -73,6 +69,10 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         return $account;
     }
 
+    /**
+     * An identifier containing « @ » is always treated as an e-mail address (a username cannot contain one),
+     * otherwise as a username: a username equal to another member's e-mail address cannot hijack the login.
+     */
     public function findOneByEmailOrUsername(string $identifier): ?User
     {
         if (str_contains($identifier, '@')) {
@@ -134,29 +134,4 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getQuery()
             ->getResult();
     }
-
-    //    /**
-    //     * @return User[] Returns an array of User objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('u.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?User
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
 }

@@ -20,18 +20,18 @@ class NotificationRenderer
         $count = max(1, $notification->getCount());
 
         return match ($notification->getType()) {
-            Notification::TYPE_FRIEND_REQUEST => sprintf('%s vous a envoyé une demande d\'ami', $actor),
+            Notification::TYPE_FRIEND_REQUEST => sprintf('%s t\'a envoyé une demande d\'ami', $actor),
 
-            Notification::TYPE_FRIEND_ACCEPTED => sprintf('%s a accepté votre demande d\'ami', $actor),
+            Notification::TYPE_FRIEND_ACCEPTED => sprintf('%s a accepté ta demande d\'ami', $actor),
 
             Notification::TYPE_GROUP_INVITATION => sprintf(
-                '%s vous invite à rejoindre le groupe « %s »',
+                '%s t\'invite à rejoindre le groupe « %s »',
                 $actor,
                 $this->str($data, 'group')
             ),
 
             Notification::TYPE_GROUP_INVITATION_ACCEPTED => sprintf(
-                '%s a accepté votre invitation dans le groupe « %s »',
+                '%s a accepté ton invitation dans le groupe « %s »',
                 $actor,
                 $this->str($data, 'group')
             ),
@@ -43,8 +43,8 @@ class NotificationRenderer
             Notification::TYPE_FORUM_REPLY => $this->forumReply($data, $actor, $count),
 
             Notification::TYPE_PHOTO_LIKE => $count > 1
-                ? sprintf('%s et %s ont aimé votre photo', $actor, $this->others($count - 1))
-                : sprintf('%s a aimé votre photo', $actor),
+                ? sprintf('%s et %s ont aimé ta photo', $actor, $this->others($count - 1))
+                : sprintf('%s a aimé ta photo', $actor),
 
             Notification::TYPE_PHOTO_COMMENT => $this->photoComment($data, $actor, $count),
 
@@ -55,11 +55,11 @@ class NotificationRenderer
             Notification::TYPE_LEVEL_UP => sprintf('Niveau %d atteint !', (int) ($data['level'] ?? 0)),
 
             Notification::TYPE_FORUM_MENTION => $count > 1
-                ? sprintf('%d mentions de votre pseudo dans « %s »', $count, $this->str($data, 'thread'))
-                : sprintf('%s vous a mentionné dans « %s »', $actor, $this->str($data, 'thread')),
+                ? sprintf('%d mentions de ton pseudo dans « %s »', $count, $this->str($data, 'thread'))
+                : sprintf('%s t\'a mentionné dans « %s »', $actor, $this->str($data, 'thread')),
 
             Notification::TYPE_FORUM_SOLUTION => sprintf(
-                '%s a choisi votre réponse comme solution de « %s »%s',
+                '%s a choisi ta réponse comme solution de « %s »%s',
                 $actor,
                 $this->str($data, 'thread'),
                 (int) ($data['xp'] ?? 0) > 0 ? sprintf(' (+%d XP)', (int) $data['xp']) : ''
@@ -68,8 +68,8 @@ class NotificationRenderer
             Notification::TYPE_MODERATION_NOTICE => $this->str($data, 'message'),
 
             Notification::TYPE_GROUP_MENTION => $count > 1
-                ? sprintf('%d mentions de votre pseudo dans le salon #%s de %s', $count, $this->str($data, 'channel'), $this->str($data, 'group'))
-                : sprintf('%s vous a mentionné dans le salon #%s de %s', $actor, $this->str($data, 'channel'), $this->str($data, 'group')),
+                ? sprintf('%d mentions de ton pseudo dans le salon #%s de %s', $count, $this->str($data, 'channel'), $this->str($data, 'group'))
+                : sprintf('%s t\'a mentionné dans le salon #%s de %s', $actor, $this->str($data, 'channel'), $this->str($data, 'group')),
 
             Notification::TYPE_TODO_ASSIGNMENT => $this->todoAssignment($data, $actor, $count),
 
@@ -125,9 +125,9 @@ class NotificationRenderer
             'requested' => $count > 1
                 ? sprintf('%d demandes d\'assignation à valider dans les tâches de %s', $count, $group)
                 : sprintf('%s demande à être assigné à « %s » (%s)', $actor, $task, $group),
-            'accepted' => sprintf('%s a accepté votre demande : vous êtes assigné à « %s » (%s)', $actor, $task, $group),
-            'refused' => sprintf('%s a refusé votre demande d\'assignation à « %s » (%s)', $actor, $task, $group),
-            default => sprintf('%s vous a assigné à « %s » (%s)', $actor, $task, $group),
+            'accepted' => sprintf('%s a accepté ta demande : tu es assigné à « %s » (%s)', $actor, $task, $group),
+            'refused' => sprintf('%s a refusé ta demande d\'assignation à « %s » (%s)', $actor, $task, $group),
+            default => sprintf('%s t\'a assigné à « %s » (%s)', $actor, $task, $group),
         };
     }
 
@@ -147,10 +147,10 @@ class NotificationRenderer
         $own = (bool) ($data['own'] ?? false);
 
         if ($count > 1) {
-            return sprintf('%d nouvelles réponses %s « %s »', $count, $own ? 'à votre sujet' : 'au sujet', $title);
+            return sprintf('%d nouvelles réponses %s « %s »', $count, $own ? 'à ton sujet' : 'au sujet', $title);
         }
 
-        return sprintf('%s a répondu %s « %s »', $actor, $own ? 'à votre sujet' : 'au sujet', $title);
+        return sprintf('%s a répondu %s « %s »', $actor, $own ? 'à ton sujet' : 'au sujet', $title);
     }
 
     private function photoComment(array $data, string $actor, int $count): string
@@ -170,12 +170,12 @@ class NotificationRenderer
         }
 
         if ($count > 1) {
-            return sprintf('%d nouveaux commentaires sur votre photo', $count);
+            return sprintf('%d nouveaux commentaires sur ta photo', $count);
         }
 
         return $excerpt !== ''
-            ? sprintf('%s a commenté votre photo : « %s »', $actor, $excerpt)
-            : sprintf('%s a commenté votre photo', $actor);
+            ? sprintf('%s a commenté ta photo : « %s »', $actor, $excerpt)
+            : sprintf('%s a commenté ta photo', $actor);
     }
 
     private function others(int $n): string

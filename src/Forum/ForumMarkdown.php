@@ -45,16 +45,13 @@ final class ForumMarkdown
 
     public function toHtml(string $markdown): string
     {
-        // One query for every member mentioned in the text, instead of one per mention
-        $this->mentionResolver->preload(self::extractMentions($markdown));
-
-        return $this->converter()->convert($markdown)->getContent();
+        return $this->render($markdown);
     }
 
-    /** Texte brut court (aperçus : accueil, fil d'actualité) : Markdown rendu puis balises retirées. */
+    /** Short plain text (previews: home page, news feed): rendered Markdown with the tags removed. */
     public function toExcerpt(string $markdown, int $length = 160): string
     {
-        $text = html_entity_decode(strip_tags($this->converter()->convert($markdown)->getContent()), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = html_entity_decode(strip_tags($this->render($markdown)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = trim((string) preg_replace('/\s+/u', ' ', $text));
 
         return mb_strlen($text) > $length ? rtrim(mb_substr($text, 0, $length - 1)) . '…' : $text;
@@ -69,6 +66,13 @@ final class ForumMarkdown
     public static function extractMentions(string $markdown): array
     {
         return MentionResolver::extract((string) preg_replace(['/```.*?```/s', '/`[^`\n]*`/'], ' ', $markdown));
+    }
+
+    private function render(string $markdown): string
+    {
+        // One query for every member mentioned in the text, instead of one per mention
+        $this->mentionResolver->preload(self::extractMentions($markdown));
+        return $this->converter()->convert($markdown)->getContent();
     }
 
     private function converter(): MarkdownConverter

@@ -103,7 +103,7 @@ class SeedForumCategoriesCommand extends Command
             ['Techniques de peinture', 'Éclaircissements, lavis, contrast, NMM, OSL…', true, []],
             ['Aérographe', 'Réglages, sous-couches et effets à l\'aérographe.', true, []],
             ['Schémas de couleurs', 'Palettes, inspirations et recettes.', true, []],
-            ['Projets et défis de peinture', 'Suivez vos projets en cours et relevez des défis.', true, []],
+            ['Projets et défis de peinture', 'Suis tes projets en cours et relève des défis.', true, []],
         ]],
         ['Atelier et modélisme', 'Préparer, assembler et transformer ses figurines.', false, [
             ['Montage et préparation', 'Ébarbage, collage, magnétisation.', true, []],
@@ -113,17 +113,17 @@ class SeedForumCategoriesCommand extends Command
             ['Matériel et outils', 'Pinceaux, peintures, outillage et rangement.', true, []],
         ]],
         ['Jeu et compétition', 'Jouer, progresser et s\'affronter.', false, [
-            ['Listes d\'armée et tactique', 'Partagez vos listes et discutez stratégie.', true, []],
-            ['Rapports de bataille', 'Récits et photos de vos parties.', true, []],
+            ['Listes d\'armée et tactique', 'Partage tes listes et discute stratégie.', true, []],
+            ['Rapports de bataille', 'Récits et photos de tes parties.', true, []],
             ['Règles et questions', 'Points de règles, FAQ et errata.', true, []],
             ['Tournois et événements', 'Annonces, inscriptions et comptes rendus.', true, []],
         ]],
         ['Communauté', 'La vie de SprueHub et de ses membres.', false, [
-            ['Présentations', 'Présentez-vous à la communauté.', true, []],
+            ['Présentations', 'Présente-toi à la communauté.', true, []],
             ['Discussion générale', 'Tout ce qui ne rentre pas ailleurs.', true, []],
             ['Bourse aux figurines', 'Achats, ventes et échanges entre membres.', true, []],
-            ['Clubs et recherche de joueurs', 'Trouvez des adversaires et des clubs près de chez vous.', true, []],
-            ['Suggestions pour SprueHub', 'Vos idées pour améliorer le site.', true, []],
+            ['Clubs et recherche de joueurs', 'Trouve des adversaires et des clubs près de chez toi.', true, []],
+            ['Suggestions pour SprueHub', 'Tes idées pour améliorer le site.', true, []],
         ]],
     ];
 

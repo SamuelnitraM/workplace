@@ -2,11 +2,11 @@
 
 namespace App\Repository;
 
-use Doctrine\DBAL\ParameterType;
 use App\Entity\Friendship;
 use App\Entity\User;
 use App\Moderation\BannedMembers;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -35,9 +35,19 @@ class FriendshipRepository extends ServiceEntityRepository
         return $this->findExisting($user1, $user2)?->getStatus() === 'accepted';
     }
 
+    /**
+     * Accepted friendships of a member, both members and their titles loaded by the same query.
+     *
+     * @return Friendship[]
+     */
     public function findAcceptedFriends(User $user): array
     {
         return $this->createQueryBuilder('f')
+            ->addSelect('requester', 'receiver', 'requesterTitle', 'receiverTitle')
+            ->innerJoin('f.requester', 'requester')
+            ->innerJoin('f.receiver', 'receiver')
+            ->leftJoin('requester.titleBadge', 'requesterTitle')
+            ->leftJoin('receiver.titleBadge', 'receiverTitle')
             ->where('(f.requester = :user OR f.receiver = :user)')
             ->andWhere('f.status = :status')
             ->setParameter('user', $user)
@@ -46,9 +56,16 @@ class FriendshipRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Pending requests received by a member, requester loaded by the same query.
+     *
+     * @return Friendship[]
+     */
     public function findPendingReceived(User $user): array
     {
         return $this->createQueryBuilder('f')
+            ->addSelect('requester')
+            ->innerJoin('f.requester', 'requester')
             ->where('f.receiver = :user')
             ->andWhere('f.status = :status')
             ->setParameter('user', $user)
@@ -57,9 +74,16 @@ class FriendshipRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Pending requests sent by a member, receiver loaded by the same query.
+     *
+     * @return Friendship[]
+     */
     public function findPendingSent(User $user): array
     {
         return $this->createQueryBuilder('f')
+            ->addSelect('receiver')
+            ->innerJoin('f.receiver', 'receiver')
             ->where('f.requester = :user')
             ->andWhere('f.status = :status')
             ->setParameter('user', $user)

@@ -229,25 +229,4 @@ class Thread
         return $this->posts;
     }
 
-    public function addPost(Post $post): static
-    {
-        if (!$this->posts->contains($post)) {
-            $this->posts->add($post);
-            $post->setThread($this);
-        }
-
-        return $this;
-    }
-
-    public function removePost(Post $post): static
-    {
-        if ($this->posts->removeElement($post)) {
-            // set the owning side to null (unless already changed)
-            if ($post->getThread() === $this) {
-                $post->setThread(null);
-            }
-        }
-
-        return $this;
-    }
 }

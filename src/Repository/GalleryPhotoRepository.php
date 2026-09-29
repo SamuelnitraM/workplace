@@ -10,6 +10,9 @@ use App\Moderation\BannedMembers;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
+/**
+ * @extends ServiceEntityRepository<GalleryPhoto>
+ */
 class GalleryPhotoRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -43,13 +46,6 @@ class GalleryPhotoRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
-    }
-
-    /** @return GalleryPhoto[] photos outside any album (root of the gallery) */
-    public function findLooseByOwner(User $owner, bool $includeHidden): array
-    {
-        $criteria = ['owner' => $owner, 'album' => null] + ($includeHidden ? [] : ['isVisible' => true]);
-        return $this->findBy($criteria, ['createdAt' => 'DESC', 'id' => 'DESC']);
     }
 
     /**

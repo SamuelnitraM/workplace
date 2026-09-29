@@ -41,7 +41,7 @@ final class GalleryPhotoUploader
     public function upload(User $owner, ?UploadedFile $file, string $description): GalleryPhoto|string
     {
         if ($this->isFull($owner)) {
-            return sprintf('Votre galerie contient déjà %d photos.', self::MAX_PHOTOS);
+            return sprintf('Ta galerie contient déjà %d photos.', self::MAX_PHOTOS);
         }
         $description = trim($description);
         if (mb_strlen($description) > GalleryPhoto::DESCRIPTION_MAX_LENGTH) {
@@ -55,7 +55,7 @@ final class GalleryPhotoUploader
         try {
             $file->move($this->galleryDirectory, $filename);
         } catch (FileException) {
-            return 'L’envoi de la photo a échoué, veuillez réessayer.';
+            return 'L’envoi de la photo a échoué, réessaie.';
         }
         $sourcePath = $this->galleryDirectory . '/' . $filename;
         if (!$this->imageOptimizer->optimizeToWebp($sourcePath, 1200, 82)) {

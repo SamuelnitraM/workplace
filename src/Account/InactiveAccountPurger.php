@@ -32,7 +32,9 @@ class InactiveAccountPurger
         $warningDelay = new \DateInterval('P' . $this->legal['inactivity_warning_days'] . 'D');
         $inactiveSince = $now->sub(new \DateInterval('P' . $this->legal['inactivity_years'] . 'Y'));
         $deleted = 0;
-        foreach ($this->concernedMembers('account.inactivityWarnedAt <= :warnedBefore', ['warnedBefore' => $now->sub($warningDelay)]) as $member) {
+        // Never an account active within the inactivity period, even if its warning was not cleared
+        $deletionCriteria = 'account.inactivityWarnedAt <= :warnedBefore AND COALESCE(account.lastActivityAt, account.createdAt) < :inactiveSince';
+        foreach ($this->concernedMembers($deletionCriteria, ['warnedBefore' => $now->sub($warningDelay), 'inactiveSince' => $inactiveSince]) as $member) {
             $this->accountDeleter->delete($member, sprintf('Ton compte a été supprimé après %d ans sans connexion, comme annoncé dans notre e-mail de prévenance.', $this->legal['inactivity_years']));
             $deleted++;
         }

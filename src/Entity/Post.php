@@ -154,23 +154,6 @@ class Post
         return $this->votes;
     }
 
-    public function addVote(PostVote $vote): static
-    {
-        if (!$this->votes->contains($vote)) {
-            $this->votes->add($vote);
-            $vote->setPost($this);
-        }
-
-        return $this;
-    }
-
-    public function removeVote(PostVote $vote): static
-    {
-        $this->votes->removeElement($vote);
-
-        return $this;
-    }
-
     public function getVoteCount(string $type): int
     {
         return $this->votes->filter(fn (PostVote $vote): bool => $vote->getType() === $type)->count();

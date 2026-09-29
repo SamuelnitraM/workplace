@@ -44,7 +44,7 @@ final class ForumImageUploader
         try {
             $file->move($this->directory, $filename);
         } catch (FileException) {
-            return ['error' => 'L’envoi de l’image a échoué, veuillez réessayer.'];
+            return ['error' => 'L’envoi de l’image a échoué, réessaie.'];
         }
         $path = $this->directory . '/' . $filename;
         if (!$this->imageOptimizer->optimizeToWebp($path, 1600, 82)) {

@@ -2,7 +2,6 @@
 
 namespace App\Entity;
 
-use App\Army\ArmyListCounter;
 use App\Army\BattleSize;
 use App\Repository\ArmyListRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -277,15 +276,5 @@ class ArmyList
     public function getDuplicationCount(): int
     {
         return $this->duplicationCount;
-    }
-
-    /** In-memory counterpart of the atomic increment made by App\Army\ArmyListStatistics. */
-    public function incrementCounter(ArmyListCounter $counter): void
-    {
-        match ($counter) {
-            ArmyListCounter::View => $this->viewCount++,
-            ArmyListCounter::Export => $this->exportCount++,
-            ArmyListCounter::Duplication => $this->duplicationCount++,
-        };
     }
 }

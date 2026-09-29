@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Gamification\BadgeRarity;
 use App\Gamification\BadgeSynchronizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -16,8 +17,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class SyncBadgesCommand extends Command
 {
-    public function __construct(private readonly BadgeSynchronizer $synchronizer)
-    {
+    public function __construct(
+        private readonly BadgeSynchronizer $synchronizer,
+        private readonly BadgeRarity $rarity,
+    ) {
         parent::__construct();
     }
 
@@ -31,6 +34,10 @@ class SyncBadgesCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
         $result = $this->synchronizer->sync($dryRun);
+        if (!$dryRun) {
+            // Rarity figures are cached per badge code: added or deleted badges show at once
+            $this->rarity->clear();
+        }
 
         $rows = [];
         foreach (['inserted' => 'ajouté', 'updated' => 'mis à jour'] as $key => $label) {

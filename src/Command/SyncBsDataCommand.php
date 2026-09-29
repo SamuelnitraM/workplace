@@ -149,11 +149,15 @@ class SyncBsDataCommand extends Command
             throw new \RuntimeException('Aucune unité extraite du catalogue, synchro annulée.');
         }
 
+        // Units of the faction loaded once (the same BSData id may exist in several factions: keyed within the faction)
+        $existingUnits = $unitRepo->findBy(['faction' => $factionLabel]);
+        $existingUnitsById = [];
+        foreach ($existingUnits as $existingUnit) {
+            $existingUnitsById[$existingUnit->getBsdataId()] ??= $existingUnit;
+        }
         $syncedUnitIds = [];
         foreach ($units as $unitData) {
-            // Un même id BSData peut exister dans plusieurs factions : on cherche par (id, faction)
-            $unit = $syncedUnitIds[$unitData['bsdataId']]
-                ?? $unitRepo->findOneBy(['bsdataId' => $unitData['bsdataId'], 'faction' => $factionLabel]);
+            $unit = $syncedUnitIds[$unitData['bsdataId']] ?? $existingUnitsById[$unitData['bsdataId']] ?? null;
 
             if (!$unit) {
                 $unit = new FactionUnit();
@@ -176,7 +180,7 @@ class SyncBsDataCommand extends Command
         // Suppression des unités qui ont disparu du catalogue.
         // (ArmyUnit ne référence pas FactionUnit : les listes existantes gardent leur copie.)
         $removedUnits = 0;
-        foreach ($unitRepo->findBy(['faction' => $factionLabel]) as $existing) {
+        foreach ($existingUnits as $existing) {
             if (!isset($syncedUnitIds[$existing->getBsdataId()])) {
                 $this->em->remove($existing);
                 $removedUnits++;
@@ -189,10 +193,14 @@ class SyncBsDataCommand extends Command
         // --- Détachements ---
         $detRepo = $this->em->getRepository(FactionDetachement::class);
         $detachments = $this->fetcher->extractDetachments($graph);
+        $existingDetachments = $detRepo->findBy(['faction' => $factionLabel]);
+        $existingDetachmentsById = [];
+        foreach ($existingDetachments as $existingDetachment) {
+            $existingDetachmentsById[$existingDetachment->getBsdataId()] ??= $existingDetachment;
+        }
         $syncedDetIds = [];
         foreach ($detachments as $detData) {
-            $detachment = $syncedDetIds[$detData['bsdataId']]
-                ?? $detRepo->findOneBy(['bsdataId' => $detData['bsdataId'], 'faction' => $factionLabel]);
+            $detachment = $syncedDetIds[$detData['bsdataId']] ?? $existingDetachmentsById[$detData['bsdataId']] ?? null;
 
             if (!$detachment) {
                 $detachment = new FactionDetachement();
@@ -209,7 +217,7 @@ class SyncBsDataCommand extends Command
 
         // ArmyList.detachment est une simple chaîne : aucune contrainte à respecter
         $removedDets = 0;
-        foreach ($detRepo->findBy(['faction' => $factionLabel]) as $existing) {
+        foreach ($existingDetachments as $existing) {
             if (!isset($syncedDetIds[$existing->getBsdataId()])) {
                 $this->em->remove($existing);
                 $removedDets++;

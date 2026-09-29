@@ -107,9 +107,11 @@ class TodoNode
         return $this->isDone;
     }
 
+    /** Completion date kept in step: set when the node becomes done, cleared when it is reopened. */
     public function setIsDone(bool $isDone): static
     {
         $this->isDone = $isDone;
+        $this->doneAt = $isDone ? ($this->doneAt ?? new \DateTimeImmutable()) : null;
 
         return $this;
     }
@@ -209,16 +211,6 @@ class TodoNode
         return $this->children;
     }
 
-    public function addChild(self $child): static
-    {
-        if (!$this->children->contains($child)) {
-            $this->children->add($child);
-            $child->setParent($this);
-        }
-
-        return $this;
-    }
-
     public function removeChild(self $child): static
     {
         if ($this->children->removeElement($child)) {
@@ -243,12 +235,6 @@ class TodoNode
     public function getAcceptedAssignments(): array
     {
         return array_values($this->assignments->filter(static fn (TodoAssignment $assignment): bool => $assignment->isAccepted())->toArray());
-    }
-
-    /** @return TodoAssignment[] pending requests, oldest first */
-    public function getPendingAssignments(): array
-    {
-        return array_values($this->assignments->filter(static fn (TodoAssignment $assignment): bool => $assignment->isPending())->toArray());
     }
 
     public function assignmentOf(User $user): ?TodoAssignment
