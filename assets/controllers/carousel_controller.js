@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { scrollBehavior } from '../lib/motion.js';
 
 /*
  * Horizontal carousel built on a scroll-snapping list (templates/home/_photo_carousel.html.twig).
@@ -33,8 +34,7 @@ export default class extends Controller {
     }
 
     scrollByPage(direction) {
-        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        this.trackTarget.scrollBy({ left: direction * this.trackTarget.clientWidth, behavior: reducedMotion ? 'auto' : 'smooth' });
+        this.trackTarget.scrollBy({ left: direction * this.trackTarget.clientWidth, behavior: scrollBehavior() });
     }
 
     update() {

@@ -1,5 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
-import { listen, setActive, clearActive, postJson, visit } from '../lib/realtime.js';
+import { listen, setActive, clearActive, postJson } from '../lib/realtime.js';
+import { visit } from '../lib/turbo.js';
+import { icon } from '../lib/icon.js';
 
 /* stimulusFetch: 'lazy' */
 
@@ -208,10 +210,10 @@ export default class extends Controller {
         const link = document.createElement('a');
         link.href = this.reportUrlValue.replace('__ID__', String(Number(messageId)));
         link.rel = 'nofollow';
-        link.className = 'reveal-on-hover inline-flex text-muted hover:text-danger-text';
+        link.className = 'reveal-on-hover -my-1.5 inline-flex size-7 items-center justify-center rounded-control text-muted hover:bg-surface-raised hover:text-danger-text pointer-coarse:-my-2.5 pointer-coarse:size-11';
         link.setAttribute('aria-label', 'Signaler ce message');
         link.title = 'Signaler ce message';
-        link.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3.5" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>';
+        link.append(icon('flag', 'size-3.5'));
         return link;
     }
 

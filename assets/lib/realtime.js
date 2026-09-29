@@ -1,18 +1,21 @@
 /*
- * Temps réel et état partagé côté client (module singleton).
+ * Real time and client-side shared state (singleton module).
  *
- * Turbo Drive conserve le contexte JavaScript entre les pages : ce module n'est évalué qu'une
- * fois et garde la connexion Pusher, les abonnements (avec compteur de références) et l'état
- * des contrôleurs (messenger…). Tout est réinitialisé si l'utilisateur connecté change.
+ * Turbo Drive keeps the JavaScript context between pages: this module is evaluated once and keeps the Pusher
+ * connection, the subscriptions (reference counted) and the state of the controllers (messenger…).
+ * Everything is reset when the signed-in user changes.
  *
- * Configuration lue dans les balises <meta> du <head> (rendues uniquement pour un utilisateur connecté) :
+ * Configuration read from the <meta> tags of the <head> (rendered for a signed-in user only):
  *   hf-user-id, hf-pusher-key, hf-pusher-cluster, hf-pusher-auth, hf-csrf-<id>
  * The Pusher library is served by the importmap from the site itself.
  */
 
 import Pusher from 'pusher-js';
 
-/** Délai avant un désabonnement effectif : lors d'une visite Turbo, la nouvelle page se réabonne aussitôt. */
+/**
+ * Grace period before a channel is actually unsubscribed: during a Turbo visit the controllers of the new page
+ * (lazy ones included, loaded asynchronously) subscribe again to the same channels without losing events.
+ */
 const UNSUBSCRIBE_DELAY = 1000;
 
 let session = null;
@@ -29,7 +32,7 @@ export function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 }
 
-/** Session de l'utilisateur courant (null si déconnecté) ; repart de zéro si l'utilisateur a changé. */
+/** Session of the current user (null when signed out); starts from scratch when the user changes. */
 function currentSession() {
     const userId = Number(meta('hf-user-id')) || null;
     if (session && session.userId !== userId) {
@@ -77,11 +80,6 @@ function pusherFor(s) {
     return s.pusher;
 }
 
-export function getPusher() {
-    const s = currentSession();
-    return s ? pusherFor(s) : null;
-}
-
 function acquire(s, name) {
     const pusher = pusherFor(s);
     if (!pusher) return null;
@@ -106,8 +104,8 @@ function release(s, name) {
 }
 
 /**
- * Écoute un évènement sur un canal (abonnement partagé entre contrôleurs).
- * Retourne une fonction qui retire l'écouteur et libère l'abonnement (à appeler dans disconnect()).
+ * Listens to an event of a channel (subscription shared between controllers).
+ * Returns a function that removes the listener and releases the subscription (to call in disconnect()).
  */
 export function listen(channelName, eventName, handler) {
     const s = currentSession();
@@ -124,7 +122,7 @@ export function listen(channelName, eventName, handler) {
     };
 }
 
-/** État conservé entre les visites Turbo (propre à l'utilisateur connecté). */
+/** State kept across Turbo visits (specific to the signed-in user). */
 export function store(key, init) {
     const s = currentSession();
     if (!s) return init();
@@ -133,8 +131,8 @@ export function store(key, init) {
 }
 
 /**
- * Contexte affiché par la page courante (ex. 'conversation' => id, 'notificationKey' => clé d'agrégation) :
- * le messenger et les notifications l'utilisent pour ignorer ce que l'utilisateur voit déjà.
+ * Context displayed by the current page (e.g. 'conversation' => id, 'notificationKey' => aggregation key):
+ * the messenger and the notifications use it to ignore what the user already sees.
  */
 export function setActive(kind, value) {
     currentSession()?.active.set(kind, value);
@@ -149,7 +147,7 @@ export function getActive(kind) {
     return currentSession()?.active.get(kind) ?? null;
 }
 
-/** Compteurs globaux ('notifications', 'messages') : badges et préfixe « (N) » du titre. */
+/** Global counters ('notifications', 'messages'): badges and « (N) » prefix of the title. */
 export function setCount(kind, value) {
     const s = currentSession();
     if (!s) return;
@@ -169,18 +167,18 @@ function applyTitle() {
     if (document.title !== title) document.title = title;
 }
 
-// Anciens compteurs de groupes stockés localement (remplacés par les notifications serveur)
+// Obsolete local key of the group counters (group activity comes from the server notifications)
 try {
     localStorage.removeItem('hf-group-notifications');
-} catch (e) { /* stockage indisponible */ }
+} catch (e) { /* storage unavailable */ }
 
-// Turbo remplace le titre à chaque visite : on réapplique le préfixe (et on détecte un changement d'utilisateur)
+// Turbo replaces the title on each visit: the prefix is applied again (and a change of user is detected)
 document.addEventListener('turbo:load', () => {
     currentSession();
     applyTitle();
 });
 
-/** Requête POST protégée par CSRF (en-tête X-CSRF-Token), réponse JSON attendue. */
+/** POST request protected by CSRF (X-CSRF-Token header), JSON response expected. */
 export function postJson(url, csrfId, body = null, options = {}) {
     return fetch(url, {
         method: 'POST',
@@ -192,13 +190,4 @@ export function postJson(url, csrfId, body = null, options = {}) {
         body,
         ...options,
     });
-}
-
-/** Navigation (Turbo si disponible). */
-export function visit(url, options = {}) {
-    if (window.Turbo?.visit) {
-        window.Turbo.visit(url, options);
-    } else {
-        window.location.href = url;
-    }
 }

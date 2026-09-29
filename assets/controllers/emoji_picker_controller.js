@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { EMOJI_GROUPS } from '../lib/emoji.js';
+import { icon } from '../lib/icon.js';
 
 /*
  * Emoji picker shared by every text field of the site (forum editor, private messages, group chat).
@@ -12,22 +13,18 @@ import { EMOJI_GROUPS } from '../lib/emoji.js';
  *   - placement: "up" (default) or "down", side on which the panel opens.
  * The chosen emoji is inserted at the caret and an "input" event is dispatched, so that the field's own
  * listeners (drafts, counters, mention suggestions) react as if it had been typed.
+ * The button and panel built by a previous instance (page restored from the Turbo cache) are replaced on connect.
  */
-const HELMET_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true">'
-    + '<path d="M5 12.5V10a7 7 0 0 1 14 0v2.5"/><path d="M5 12.5l1.2 4L9 19"/><path d="M19 12.5l-1.2 4L15 19"/>'
-    + '<path d="M9 15h6l-.9 6H9.9z"/><path d="M11 17v2"/><path d="M13 17v2"/>'
-    + '<circle cx="8.9" cy="11" r="1.7"/><circle cx="15.1" cy="11" r="1.7"/>'
-    + '</svg>';
-
 export default class extends Controller {
     static values = { input: String, placement: { type: String, default: 'up' } };
 
     connect() {
         this.element.classList.add('emoji-picker');
+        this.element.querySelectorAll(':scope > .emoji-picker-toggle, :scope > .emoji-picker-panel').forEach(stale => stale.remove());
         this.toggleButton = document.createElement('button');
         this.toggleButton.type = 'button';
         this.toggleButton.className = 'emoji-picker-toggle';
-        this.toggleButton.innerHTML = HELMET_ICON;
+        this.toggleButton.append(icon('helmet', 'size-4', { strokeWidth: '1.75' }));
         this.toggleButton.setAttribute('aria-label', 'Insérer une émoticône');
         this.toggleButton.dataset.tooltip = 'Émoticônes';
         this.toggleButton.setAttribute('aria-haspopup', 'true');

@@ -2,34 +2,38 @@ import { Controller } from '@hotwired/stimulus';
 import { skeletonRowsHtml } from '../lib/skeleton.js';
 import { esc, listen, userChannelName, currentUserId, store, getActive, setCount, getCount, postJson } from '../lib/realtime.js';
 import { playNotificationSound } from '../lib/sounds.js';
+import { latestRequest } from '../lib/http.js';
+import { icon } from '../lib/icon.js';
 
 /*
- * Messenger (onglets de discussion collés en bas de l'écran).
+ * Messenger (chat tabs docked at the bottom of the screen).
  *
- * L'état (onglets ouverts, messages chargés, carrousel) est conservé entre les visites Turbo
- * dans le module lib/realtime.js ; le DOM est reconstruit à chaque connexion du contrôleur.
- * Les évènements « private-message » arrivent sur le canal privé de l'utilisateur.
+ * The state (open tabs, loaded messages, carousel) is kept across Turbo visits in the module lib/realtime.js;
+ * the DOM is rebuilt each time the controller connects (the main tab starts collapsed).
+ * The "private-message" events arrive on the private channel of the user.
  *
- * Le compteur global des messages privés non lus (badges « messages ») reflète le serveur :
- * il est rechargé à chaque page et après chaque lecture, et incrémenté en temps réel.
+ * The global counter of unread private messages ("messages" badges) mirrors the server:
+ * it is reloaded on each page and after each read, and incremented in real time.
+ * Each kind of request only keeps its latest answer (the list, the context, the messages of a conversation).
  *
- * Toute donnée utilisateur est échappée (esc) avant insertion ; aucune donnée dans des attributs onclick.
+ * Every user data is escaped (esc) before insertion; no data in onclick attributes.
  * Message content is inserted from contentHtml, already escaped by the server (App\Text\MentionResolver::linkify,
  * only the @pseudo mentions are links); esc(content) is the fallback.
  */
 const CSRF_ID = 'private-message';
-// Icônes du design system (templates/_partials/_icon.html.twig), décoratives
-const svg = paths => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
-const ICON_X = svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
-const ICON_SEND = svg('<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>');
+// Decorative icons of the design system, as markup for the tab templates
+const ICON_X = icon('x', '').outerHTML;
+const ICON_SEND = icon('send', '').outerHTML;
+const ICON_CHEVRON_DOWN = icon('chevron-down', 'size-4').outerHTML;
+const ICON_CHEVRON_UP = icon('chevron-up', 'size-4').outerHTML;
 
 export default class extends Controller {
-    static targets = ['prev', 'next', 'tabs', 'mainBody', 'mainArrow', 'conversations'];
+    static targets = ['prev', 'next', 'tabs', 'mainBody', 'mainArrow', 'mainToggle', 'conversations'];
     static values = {
         conversationsUrl: String,
-        messagesUrl: String,   // contient __USER__
-        sendUrl: String,       // contient __USER__
-        readUrl: String,       // URL de lecture pour la conversation 0 (l'identifiant est remplacé)
+        messagesUrl: String,   // contains __USER__
+        sendUrl: String,       // contains __USER__
+        readUrl: String,       // read URL of conversation 0 (the id is replaced)
         contextUrl: String,
         avatarBase: String,
     };
@@ -42,11 +46,15 @@ export default class extends Controller {
             maxVisible: 3,
             nextKey: 1,
         }));
-        this.state.mainOpen = false; // le DOM est neuf : l'onglet principal est replié
+        this.state.mainOpen = false;
+        this.renderMain();
+        this.conversationsRequest = latestRequest();
+        this.contextRequest = latestRequest();
+        this.messagesRequests = new Map();
 
         this.stopListening = listen(userChannelName(), 'private-message', data => this.onPrivateMessage(data));
 
-        // Point d'entrée pour les autres scripts : document.dispatchEvent(new CustomEvent('messenger:open', { detail: { username, avatar, conversationId } }))
+        // Entry point for the other scripts: document.dispatchEvent(new CustomEvent('messenger:open', { detail: { username, avatar, conversationId } }))
         this.onOpenRequest = event => {
             const { username, avatar, conversationId } = event.detail || {};
             if (username) this.openConversation(String(username), avatar || '', Number(conversationId) || null);
@@ -57,6 +65,8 @@ export default class extends Controller {
         if (known !== undefined) setCount('messages', known);
 
         this.renderTabs();
+        // Messages whose loading was interrupted by the previous page
+        this.state.openConvs.filter(conv => conv.open && !conv.loaded).forEach(conv => this.loadMessages(conv));
         this.loadNotificationContext();
     }
 
@@ -64,12 +74,15 @@ export default class extends Controller {
         this.saveDrafts();
         this.stopListening?.();
         document.removeEventListener('messenger:open', this.onOpenRequest);
+        this.conversationsRequest.abort();
+        this.contextRequest.abort();
+        this.messagesRequests.forEach(request => request.abort());
     }
 
-    // ─── Évènements temps réel ─────────────────────────────
+    // ─── Real-time events ──────────────────────────────────
     onPrivateMessage(data) {
         if (data.authorId === currentUserId()) return;
-        // La page de cette conversation est ouverte : elle gère l'affichage et la lecture
+        // The page of this conversation is open: it handles the display and the read state
         if (getActive('conversation') === data.conversationId) return;
 
         playNotificationSound();
@@ -79,12 +92,12 @@ export default class extends Controller {
             if (conv.loaded) conv.messages.push({ ...data, isCurrentUser: false });
             if (conv.open) {
                 this.markConversationRead(data.conversationId);
-                this.scrollChat(conv);
             } else {
                 conv.unread = (conv.unread || 0) + 1;
                 this.incrementUnread();
             }
             this.renderTabs();
+            if (conv.open) this.scrollChat(conv);
         } else {
             this.incrementUnread();
         }
@@ -97,7 +110,7 @@ export default class extends Controller {
     }
 
     loadNotificationContext() {
-        fetch(this.contextUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        fetch(this.contextUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, signal: this.contextRequest.next() })
             .then(r => (r.ok ? r.json() : Promise.reject(r)))
             .then(context => setCount('messages', context.unreadMessages || 0))
             .catch(() => {});
@@ -109,22 +122,21 @@ export default class extends Controller {
             .catch(() => {});
     }
 
-    // ─── Onglet principal ──────────────────────────────────
+    // ─── Main tab ──────────────────────────────────────────
     toggleMain() {
         this.state.mainOpen = !this.state.mainOpen;
+        this.renderMain();
+        if (this.state.mainOpen) this.loadConversations();
+    }
 
-        if (this.state.mainOpen) {
-            this.mainBodyTarget.classList.remove('hidden');
-            this.mainArrowTarget.textContent = '▼';
-            this.loadConversations();
-        } else {
-            this.mainBodyTarget.classList.add('hidden');
-            this.mainArrowTarget.textContent = '▲';
-        }
+    renderMain() {
+        this.mainBodyTarget.classList.toggle('hidden', !this.state.mainOpen);
+        this.mainArrowTarget.replaceChildren(icon(this.state.mainOpen ? 'chevron-down' : 'chevron-up', 'size-4'));
+        this.mainToggleTarget.setAttribute('aria-expanded', String(this.state.mainOpen));
     }
 
     loadConversations() {
-        fetch(this.conversationsUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        fetch(this.conversationsUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, signal: this.conversationsRequest.next() })
             .then(r => (r.ok ? r.json() : Promise.reject(r)))
             .then(data => {
                 if (!this.hasConversationsTarget) return;
@@ -159,14 +171,14 @@ export default class extends Controller {
             .catch(() => {});
     }
 
-    // Délégation : clic sur une conversation de la liste
+    // Delegation: click on a conversation of the list
     openFromList(event) {
         const item = event.target.closest('[data-open-conversation]');
         if (!item) return;
         this.openConversation(item.dataset.openConversation, item.dataset.avatar, Number(item.dataset.convId) || null);
     }
 
-    // ─── Onglets de conversation ───────────────────────────
+    // ─── Conversation tabs ─────────────────────────────────
     openConversation(username, avatar, convId) {
         const state = this.state;
         const existing = state.openConvs.find(c => c.username === username);
@@ -197,10 +209,12 @@ export default class extends Controller {
         if (state.mainOpen) this.toggleMain();
     }
 
-    // Charge les messages (le serveur les marque comme lus)
+    // Loads the messages (the server marks them as read)
     loadMessages(conv) {
+        if (!this.messagesRequests.has(conv.key)) this.messagesRequests.set(conv.key, latestRequest());
         fetch(this.messagesUrlValue.replace('__USER__', encodeURIComponent(conv.username)), {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            signal: this.messagesRequests.get(conv.key).next(),
         })
             .then(r => (r.ok ? r.json() : Promise.reject(r)))
             .then(data => {
@@ -232,6 +246,8 @@ export default class extends Controller {
                 Math.max(0, state.openConvs.length - state.maxVisible)
             );
         }
+        this.messagesRequests.get(conv.key)?.abort();
+        this.messagesRequests.delete(conv.key);
         this.renderTabs();
     }
 
@@ -240,7 +256,7 @@ export default class extends Controller {
 
         if (conv.open) {
             conv.unread = 0;
-            this.loadMessages(conv); // recharge les messages reçus pendant le repli et les marque lus
+            this.loadMessages(conv); // reloads the messages received while collapsed and marks them as read
         }
 
         this.renderTabs();
@@ -255,14 +271,19 @@ export default class extends Controller {
 
         input.value = '';
         conv.draft = '';
+        // The message goes back into the field (or the draft of a collapsed tab) when it could not be sent
+        const restore = () => {
+            const currentInput = this.inputFor(conv.key);
+            if (currentInput && !currentInput.value) currentInput.value = content;
+            else if (!currentInput && !conv.draft) conv.draft = content;
+        };
 
         postJson(this.sendUrlValue.replace('__USER__', encodeURIComponent(conv.username)), CSRF_ID, new URLSearchParams({ content }))
             .then(r => r.json())
             .then(data => {
                 if (data.error) {
                     alert(data.error);
-                    const currentInput = this.inputFor(conv.key);
-                    if (currentInput && !currentInput.value) currentInput.value = content;
+                    restore();
                     return;
                 }
 
@@ -271,10 +292,10 @@ export default class extends Controller {
                 this.renderTabs();
                 this.scrollChat(conv);
             })
-            .catch(() => {});
+            .catch(restore);
     }
 
-    // Délégation : clics dans les onglets (fermer, envoyer, déplier)
+    // Delegation: clicks in the tabs (close, send, expand)
     tabsClick(event) {
         const close = event.target.closest('[data-close-conv]');
         if (close) {
@@ -302,7 +323,7 @@ export default class extends Controller {
         if (conv) this.sendMessage(conv);
     }
 
-    // ─── Carrousel ─────────────────────────────────────────
+    // ─── Carousel ──────────────────────────────────────────
     prev() {
         if (this.state.visibleStart > 0) {
             this.state.visibleStart--;
@@ -317,8 +338,8 @@ export default class extends Controller {
         }
     }
 
-    // ─── Rendu ─────────────────────────────────────────────
-    /** Mémorise la saisie en cours de chaque onglet (conservée lors des re-rendus et des visites Turbo). */
+    // ─── Rendering ─────────────────────────────────────────
+    /** Keeps the text being typed in each tab (across re-renders and Turbo visits). */
     saveDrafts() {
         if (!this.hasTabsTarget) return;
         this.tabsTarget.querySelectorAll('input[data-input-key]').forEach(input => {
@@ -331,14 +352,13 @@ export default class extends Controller {
         return this.hasTabsTarget ? this.tabsTarget.querySelector(`input[data-input-key="${Number(key)}"]`) : null;
     }
 
+    // Called after renderTabs(): the tab is in the DOM and its height is known
     scrollChat(conv) {
-        setTimeout(() => {
-            const chatEl = this.hasTabsTarget ? this.tabsTarget.querySelector(`[data-chat-key="${Number(conv.key)}"]`) : null;
-            if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
-        }, 50);
+        const chatEl = this.hasTabsTarget ? this.tabsTarget.querySelector(`[data-chat-key="${Number(conv.key)}"]`) : null;
+        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
     }
 
-    /** Contenu d'un .avatar (design system) : photo ou initiale. */
+    /** Content of an .avatar (design system): photo or initial. */
     avatarHtml(avatar, username) {
         return avatar
             ? `<img src="${esc(this.avatarBaseValue + encodeURIComponent(avatar))}" alt="" loading="lazy">`
@@ -350,7 +370,7 @@ export default class extends Controller {
         const state = this.state;
         const container = this.tabsTarget;
 
-        // Conserver la saisie en cours lors du re-rendu
+        // Keeps the text being typed across the re-render
         this.saveDrafts();
         const focusedKey = container.contains(document.activeElement) ? document.activeElement?.dataset?.inputKey : undefined;
 
@@ -368,7 +388,7 @@ export default class extends Controller {
                             <div class="px-3 py-1.5 rounded-xl text-xs max-w-xs break-words ${msg.isCurrentUser ? 'bg-primary text-primary-fg' : 'bg-overlay text-fg'}">${typeof msg.contentHtml === 'string' ? msg.contentHtml : esc(msg.content)}</div>
                         </div>
                     `).join('')
-                    : '<div class="text-muted text-xs text-center py-4">Commencez la conversation !</div>'
+                    : '<div class="text-muted text-xs text-center py-4">Commence la conversation !</div>'
                 )
                 : skeletonRowsHtml(2);
 
@@ -389,7 +409,7 @@ export default class extends Controller {
                                 ${unreadBadge}
                             </div>
                             <div class="flex items-center gap-1">
-                                <span class="text-fg-secondary text-xs">${conv.open ? '▼' : '▲'}</span>
+                                <span class="text-fg-secondary">${conv.open ? ICON_CHEVRON_DOWN : ICON_CHEVRON_UP}</span>
                                 <button type="button" data-close-conv="${conv.key}"
                                         class="btn btn-ghost btn-icon btn-sm hover:text-danger-text" aria-label="Fermer la conversation">${ICON_X}</button>
                             </div>

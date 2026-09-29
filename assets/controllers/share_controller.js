@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { confirmUntilLeave } from '../lib/feedback.js';
 
 /*
  * Share of a page: the share sheet of the system (Web Share API, phones and some desktop browsers),
@@ -31,7 +32,7 @@ export default class extends Controller {
             await navigator.clipboard.writeText(this.urlValue);
         } catch {
             // Clipboard API unavailable (insecure context): the link is offered for a manual copy
-            window.prompt('Copiez le lien :', this.urlValue);
+            window.prompt('Copie le lien :', this.urlValue);
             return true;
         }
         this.confirm('Lien copié !');
@@ -41,13 +42,7 @@ export default class extends Controller {
     // The confirmation stays until the pointer or the focus leaves the button
     confirm(text) {
         if (!this.hasLabelTarget) return;
-        const label = this.labelTarget;
-        label.dataset.originalText ??= label.textContent;
-        label.textContent = text;
-        const button = label.closest('button');
-        const restore = () => { label.textContent = label.dataset.originalText; };
-        button.addEventListener('mouseleave', restore, { once: true });
-        button.addEventListener('blur', restore, { once: true });
+        confirmUntilLeave(this.labelTarget, text, this.labelTarget.closest('button') ?? this.element);
     }
 
     recordActivity() {
@@ -56,6 +51,6 @@ export default class extends Controller {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
             body: new URLSearchParams({ _token: this.tokenValue }),
-        });
+        }).catch(() => {});
     }
 }

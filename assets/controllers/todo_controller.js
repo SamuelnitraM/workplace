@@ -79,13 +79,13 @@ export default class extends Controller {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': this.tokenValue, Accept: 'application/json' },
             body: new URLSearchParams(params),
         })
-            .then(response => response.json().catch(() => ({ error: 'L\'action a échoué. Veuillez recharger la page et réessayer.' })))
+            .then(response => response.json().catch(() => ({ error: 'L\'action a échoué. Recharge la page et réessaie.' })))
             .then(data => {
                 if (data.task) this.replaceFragment(`assignees-${data.taskId}`, data.task);
                 if (data.category) this.replaceFragment(`category-assignees-${data.categoryId}`, data.category);
                 return data.error || null;
             })
-            .catch(() => 'L\'action a échoué. Veuillez recharger la page et réessayer.');
+            .catch(() => 'L\'action a échoué. Recharge la page et réessaie.');
     }
 
     replaceFragment(id, html) {
@@ -167,7 +167,7 @@ export default class extends Controller {
     }
 
     failed() {
-        alert("L'action a échoué. Veuillez recharger la page et réessayer.");
+        alert("L'action a échoué. Recharge la page et réessaie.");
     }
 
     find(id) {

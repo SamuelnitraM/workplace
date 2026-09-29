@@ -1,15 +1,17 @@
 import { Controller } from '@hotwired/stimulus';
 import { icon } from '../lib/icon.js';
 import { skeletonRows } from '../lib/skeleton.js';
-import { listen, userChannelName, setCount, getCount, getActive, postJson, visit } from '../lib/realtime.js';
+import { listen, userChannelName, setCount, getCount, getActive, postJson } from '../lib/realtime.js';
+import { visit } from '../lib/turbo.js';
 import { playNotificationSound } from '../lib/sounds.js';
+import { latestRequest, isAbortError } from '../lib/http.js';
 
 /*
- * Cloche de notifications (barre de navigation) : badge des non-lues, menu déroulant des
- * dernières notifications, « Tout marquer comme lu », mise à jour en temps réel (évènement
- * « notification » du canal privé de l'utilisateur).
+ * Notification bell (navigation bar): unread badge, dropdown of the latest notifications, « Tout marquer comme lu »,
+ * real-time update ("notification" event of the private channel of the user).
+ * Only the answer of the latest loading of the dropdown is used.
  *
- * Tout le contenu provenant des utilisateurs est inséré via textContent (jamais innerHTML).
+ * All the content coming from users is inserted through textContent (never innerHTML).
  */
 const CSRF_ID = 'notification';
 
@@ -17,17 +19,18 @@ export default class extends Controller {
     static targets = ['button', 'badge', 'panel', 'list', 'markAll'];
     static values = {
         recentUrl: String,
-        readUrl: String,      // URL de /notifications/0/read (l'identifiant est remplacé)
+        readUrl: String,      // URL of /notifications/0/read (the id is replaced)
         readAllUrl: String,
         avatarBase: String,
-        unread: Number,       // compteur rendu côté serveur
-        fresh: { type: Boolean, default: true }, // faux dans un instantané du cache Turbo
+        unread: Number,       // counter rendered by the server
+        fresh: { type: Boolean, default: true }, // false in a snapshot of the Turbo cache
     };
 
     connect() {
         this.items = null;
         this.open = false;
-        // Page restaurée depuis le cache Turbo : le compteur connu côté client est plus récent
+        this.request = latestRequest();
+        // Page restored from the Turbo cache: the counter known by the client is more recent
         const known = getCount('notifications');
         this.setUnread(!this.freshValue && known !== undefined ? known : this.unreadValue);
         this.onBeforeCache = () => {
@@ -56,11 +59,12 @@ export default class extends Controller {
         document.removeEventListener('click', this.onDocumentClick);
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
+        this.request.abort();
     }
 
-    // ─── Menu déroulant ────────────────────────────────────
+    // ─── Dropdown ──────────────────────────────────────────
     toggle(event) {
-        // Le bouton est un lien vers /notifications : sans JavaScript, il mène à la page complète
+        // The button is a link to /notifications: without JavaScript, it leads to the full page
         event.preventDefault();
         this.open ? this.close() : this.show();
     }
@@ -80,15 +84,15 @@ export default class extends Controller {
 
     load() {
         if (!this.items) this.listTarget.replaceChildren(skeletonRows(3));
-        fetch(this.recentUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        fetch(this.recentUrlValue, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, signal: this.request.next() })
             .then(r => (r.ok ? r.json() : Promise.reject(r)))
             .then(data => {
                 this.items = data.notifications || [];
                 this.setUnread(data.unreadCount);
                 this.render();
             })
-            .catch(() => {
-                if (!this.items) this.renderMessage('Impossible de charger les notifications.');
+            .catch(error => {
+                if (!isAbortError(error) && !this.items) this.renderMessage('Impossible de charger les notifications.');
             });
     }
 
@@ -105,7 +109,7 @@ export default class extends Controller {
     }
 
     openItem(event) {
-        if (event.type === 'auxclick' && event.button !== 1) return; // clic droit : menu contextuel
+        if (event.type === 'auxclick' && event.button !== 1) return; // right click: context menu
         const link = event.target.closest('a[data-notification-id]');
         if (!link) return;
         const item = (this.items || []).find(n => n.id === Number(link.dataset.notificationId));
@@ -131,12 +135,12 @@ export default class extends Controller {
             .catch(() => {});
     }
 
-    // ─── Temps réel ────────────────────────────────────────
+    // ─── Real time ─────────────────────────────────────────
     onNotification(data) {
         const notification = data?.notification;
         if (!notification) return;
 
-        // L'utilisateur regarde déjà ce contenu (ex. le channel de groupe ouvert) : lue immédiatement
+        // The user already looks at this content (e.g. the open group channel): read at once
         if (notification.groupKey && notification.groupKey === getActive('notificationKey')) {
             this.markRead(notification.id);
             return;
@@ -152,7 +156,7 @@ export default class extends Controller {
         }
     }
 
-    // ─── Rendu ─────────────────────────────────────────────
+    // ─── Rendering ─────────────────────────────────────────
     setUnread(count) {
         const value = Math.max(0, Number(count) || 0);
         this.badgeTarget.textContent = value > 99 ? '99+' : String(value);
@@ -186,7 +190,7 @@ export default class extends Controller {
             + (item.read ? 'hover:bg-hover' : 'bg-primary-soft hover:bg-hover');
 
         const avatar = document.createElement('div');
-        avatar.className = 'avatar avatar-sm';   // design system (.avatar : photo ou initiale)
+        avatar.className = 'avatar avatar-sm';   // design system (.avatar: photo or initial)
         if (item.actor?.avatar) {
             const img = document.createElement('img');
             img.src = this.avatarBaseValue + encodeURIComponent(item.actor.avatar);
@@ -226,7 +230,7 @@ export default class extends Controller {
     }
 }
 
-/** Date relative en français (« à l'instant », « il y a 5 min »…), identique au filtre Twig time_ago. */
+/** Relative date in French (« à l'instant », « il y a 5 min »…), same as the Twig filter time_ago. */
 export function timeAgo(iso) {
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return '';

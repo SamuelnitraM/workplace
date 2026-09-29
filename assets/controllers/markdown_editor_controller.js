@@ -1,21 +1,25 @@
 import { Controller } from '@hotwired/stimulus';
 import { skeletonRows } from '../lib/skeleton.js';
+import { latestRequest, isAbortError } from '../lib/http.js';
+import { scrollBehavior } from '../lib/motion.js';
 
 /*
- * Éditeur Markdown du forum (templates/forum/_editor.html.twig).
+ * Markdown editor of the forum (templates/forum/_editor.html.twig).
  *
- *  - Barre d'outils (gras, italique, barré, citation, liste, lien, code, mention) et raccourcis
- *    Ctrl+B / Ctrl+I / Ctrl+K, Ctrl+Entrée pour envoyer.
- *  - Onglets Écrire / Aperçu : l'aperçu est rendu par le serveur (même rendu que le message publié).
- *  - Images : bouton, coller (Ctrl+V) ou glisser-déposer → envoi, puis ![](…) inséré dans le texte.
- *  - Mentions : les suggestions « @ps » viennent du contrôleur commun « mention-suggest », posé sur la zone de saisie.
- *  - « Citer » (boutons des messages, action markdown-editor#quote) : insère la citation dans la réponse.
- *  - Brouillon enregistré localement (draftKey) et effacé à l'envoi du formulaire.
+ *  - Toolbar (bold, italic, strikethrough, quote, list, link, code, mention) and shortcuts
+ *    Ctrl+B / Ctrl+I / Ctrl+K, Ctrl+Enter to send.
+ *  - Write / Preview tabs: the preview is rendered by the server (same rendering as the published message);
+ *    only the answer of the latest preview request is displayed.
+ *  - Images: button, paste (Ctrl+V) or drag and drop → upload, then ![](…) inserted in the text.
+ *  - Mentions: the « @ps » suggestions come from the shared « mention-suggest » controller, placed on the text area.
+ *  - « Citer » (buttons of the messages, action markdown-editor#quote): inserts the quote in the reply.
+ *  - Draft saved locally (draftKey), debounced while typing (DRAFT_DELAY_MS), and cleared when the form is sent.
  *
- * Aucune donnée utilisateur n'est insérée via innerHTML, sauf l'aperçu renvoyé par le serveur
- * (Markdown rendu avec le HTML échappé, cf. App\Forum\ForumMarkdown).
+ * No user data is inserted through innerHTML, except the preview returned by the server
+ * (Markdown rendered with escaped HTML, see App\Forum\ForumMarkdown).
  */
 const DRAFT_PREFIX = 'hf-draft:';
+const DRAFT_DELAY_MS = 500;
 const DRAFT_MAX_AGE = 7 * 24 * 3600 * 1000;
 
 export default class extends Controller {
@@ -30,15 +34,17 @@ export default class extends Controller {
     connect() {
         this.draftTimer = null;
         this.uploads = 0;
+        this.previewRequest = latestRequest();
         this.restoreDraft();
     }
 
     disconnect() {
         clearTimeout(this.draftTimer);
+        this.previewRequest.abort();
         this.saveDraft();
     }
 
-    // ─── Mise en forme ─────────────────────────────────────
+    // ─── Formatting ────────────────────────────────────────
     format(event) {
         const style = event.params.style;
         const input = this.inputTarget;
@@ -88,21 +94,21 @@ export default class extends Controller {
         this.replaceSelection(block.split('\n').map(line => prefix + line).join('\n'));
     }
 
-    /** Remplace la sélection (en conservant l'historique Ctrl+Z quand le navigateur le permet). */
+    /** Replaces the selection (keeping the Ctrl+Z history when the browser allows it). */
     replaceSelection(text) {
         const input = this.inputTarget;
         input.focus();
         let done = false;
         try {
             done = document.execCommand('insertText', false, text);
-        } catch (e) { /* non pris en charge */ }
+        } catch (e) { /* not supported */ }
         if (!done) {
             input.setRangeText(text, input.selectionStart, input.selectionEnd, 'end');
             input.dispatchEvent(new Event('input', { bubbles: true }));
         }
     }
 
-    // ─── Clavier ───────────────────────────────────────────
+    // ─── Keyboard ──────────────────────────────────────────
     onKeydown(event) {
         const mod = event.ctrlKey || event.metaKey;
         if (!mod) return;
@@ -120,8 +126,9 @@ export default class extends Controller {
         this.scheduleDraft();
     }
 
-    // ─── Aperçu ────────────────────────────────────────────
+    // ─── Preview ───────────────────────────────────────────
     write() {
+        this.previewRequest.abort();
         this.showTab(false);
         this.inputTarget.focus();
     }
@@ -131,15 +138,18 @@ export default class extends Controller {
         const pane = this.previewPaneTarget;
         const content = this.inputTarget.value;
         if (content.trim() === '') {
+            this.previewRequest.abort();
             pane.replaceChildren(this.message('Rien à prévisualiser pour l’instant.'));
             return;
         }
         pane.replaceChildren(skeletonRows(3, { avatar: false }));
         const body = new FormData();
         body.append('content', content);
-        this.post(this.previewUrlValue, body)
-            .then(data => { pane.innerHTML = data.html; }) // HTML rendu et assaini par le serveur
-            .catch(error => pane.replaceChildren(this.message(error.message)));
+        this.post(this.previewUrlValue, body, this.previewRequest.next())
+            .then(data => { pane.innerHTML = data.html; }) // HTML rendered and sanitised by the server
+            .catch(error => {
+                if (!isAbortError(error)) pane.replaceChildren(this.message(error.message));
+            });
     }
 
     showTab(preview) {
@@ -227,12 +237,12 @@ export default class extends Controller {
         if (this.hasStatusTarget) this.statusTarget.textContent = text;
     }
 
-    // ─── Citer un message ──────────────────────────────────
+    // ─── Quoting a message ─────────────────────────────────
     quote(event) {
         event.preventDefault();
         if (!this.hasInputTarget) return;
         const { author, content } = event.params;
-        // Sans les citations imbriquées : seul le propos du message cité est repris
+        // Without the nested quotes: only the words of the quoted message are kept
         const body = String(content || '')
             .split('\n')
             .filter(line => !line.startsWith('>'))
@@ -248,11 +258,11 @@ export default class extends Controller {
         const value = input.value;
         input.setSelectionRange(value.length, value.length);
         this.replaceSelection((value === '' || value.endsWith('\n\n') ? '' : value.endsWith('\n') ? '\n' : '\n\n') + block);
-        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        input.scrollIntoView({ block: 'center', behavior: scrollBehavior() });
         input.focus({ preventScroll: true });
     }
 
-    // ─── Brouillon local ───────────────────────────────────
+    // ─── Local draft ───────────────────────────────────────
     get draftStorageKey() {
         return this.draftKeyValue ? DRAFT_PREFIX + this.draftKeyValue : null;
     }
@@ -266,12 +276,12 @@ export default class extends Controller {
                 this.inputTarget.value = draft.text;
                 this.setStatus('Brouillon restauré.');
             }
-        } catch (e) { /* stockage indisponible */ }
+        } catch (e) { /* storage unavailable */ }
     }
 
     scheduleDraft() {
         clearTimeout(this.draftTimer);
-        this.draftTimer = setTimeout(() => this.saveDraft(), 500);
+        this.draftTimer = setTimeout(() => this.saveDraft(), DRAFT_DELAY_MS);
     }
 
     saveDraft() {
@@ -281,7 +291,7 @@ export default class extends Controller {
             const text = this.inputTarget.value;
             if (text.trim() === '') localStorage.removeItem(key);
             else localStorage.setItem(key, JSON.stringify({ text, at: Date.now() }));
-        } catch (e) { /* stockage indisponible */ }
+        } catch (e) { /* storage unavailable */ }
     }
 
     onSubmit() {
@@ -289,18 +299,22 @@ export default class extends Controller {
         clearTimeout(this.draftTimer);
         const key = this.draftStorageKey;
         if (!key) return;
-        try { localStorage.removeItem(key); } catch (e) { /* stockage indisponible */ }
+        try { localStorage.removeItem(key); } catch (e) { /* storage unavailable */ }
     }
 
-    // ─── Réseau ────────────────────────────────────────────
-    post(url, body) {
+    // ─── Network ───────────────────────────────────────────
+    post(url, body, signal = undefined) {
         return fetch(url, {
             method: 'POST',
             body,
             headers: { 'X-CSRF-Token': this.csrfValue, 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             credentials: 'same-origin',
-        }).then(response => response.json().catch(() => ({})).then(data => {
-            if (!response.ok) throw new Error(data.error || 'Une erreur est survenue, veuillez réessayer.');
+            signal,
+        }).then(response => response.json().catch(error => {
+            if (isAbortError(error)) throw error;
+            return {};
+        }).then(data => {
+            if (!response.ok) throw new Error(data.error || 'Une erreur est survenue, réessaie.');
             return data;
         }));
     }

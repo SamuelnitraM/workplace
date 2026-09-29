@@ -1,51 +1,31 @@
 import { Controller } from '@hotwired/stimulus';
 import { listen } from '../lib/realtime.js';
+import { icon } from '../lib/icon.js';
+import { scrollBehavior } from '../lib/motion.js';
 
 /* stimulusFetch: 'lazy' */
 
 /*
- * Messages épinglés d'un channel de groupe (placé à côté de chat_controller sur le même élément).
+ * Pinned messages of a group channel (placed next to chat_controller on the same element).
  *
- * - barre en haut du chat : rendue par le serveur, reconstruite ici à chaque changement
- *   (1 message : ligne compacte ; plusieurs : <details> « N messages épinglés », épinglés récemment d'abord) ;
- * - épingler / désépingler : formulaires POST (fonctionnent sans JS), interceptés ici pour un appel fetch ;
- * - temps réel : évènements Pusher « message-pinned » / « message-unpinned » sur le canal du channel ;
- * - messages ajoutés en direct par chat_controller (évènement chat:appended) : ajout de l'indicateur et du bouton ;
- * - tout le contenu utilisateur est inséré avec textContent.
+ * - bar at the top of the chat: rendered by the server, rebuilt here on each change
+ *   (1 message: compact row; several: <details> « N messages épinglés », most recently pinned first);
+ * - pin / unpin: POST forms (working without JS), intercepted here for a fetch call;
+ * - real time: Pusher events "message-pinned" / "message-unpinned" on the channel of the group channel;
+ * - messages appended live by chat_controller (chat:appended event): the indicator and the button are added;
+ * - jump to a pinned message: the message is highlighted for HIGHLIGHT_MS (inherently time-based);
+ * - all the user content is inserted with textContent.
  */
 const PREVIEW_LENGTH = 140;
-
-// Icônes SVG (tracés Lucide, identiques à templates/_partials/_icon.html.twig) — chaînes constantes, jamais de contenu utilisateur
-const ICONS = {
-    pin: '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
-    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-    'chevron-down': '<path d="m6 9 6 6 6-6"/>',
-};
-
-function icon(name, className, label = null) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    Object.entries({
-        viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2',
-        'stroke-linecap': 'round', 'stroke-linejoin': 'round', class: className,
-    }).forEach(([key, value]) => svg.setAttribute(key, value));
-    if (label) {
-        svg.setAttribute('role', 'img');
-        svg.setAttribute('aria-label', label);
-    } else {
-        svg.setAttribute('aria-hidden', 'true');
-        svg.setAttribute('focusable', 'false');
-    }
-    svg.innerHTML = ICONS[name];
-    return svg;
-}
+const HIGHLIGHT_MS = 2000;
 
 export default class extends Controller {
     static targets = ['bar'];
     static values = {
         channel: String,
-        pins: Array,        // messages épinglés sérialisés (GroupController::serializePinnedMessage)
-        canPin: Boolean,    // l'utilisateur peut épingler dans ce channel
-        pinUrl: String,     // URL avec « __ID__ » à remplacer par l'id du message
+        pins: Array,        // serialised pinned messages (GroupController::serializePinnedMessage)
+        canPin: Boolean,    // the user can pin in this channel
+        pinUrl: String,     // URL with « __ID__ » replaced by the id of the message
         unpinUrl: String,
         csrf: String,
     };
@@ -99,22 +79,22 @@ export default class extends Controller {
     jump({ params }) {
         const target = this.element.querySelector(`#msg-${Number(params.id)}`);
         if (!target) return;
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
         const bubble = target.querySelector('[data-pin-bubble]') || target;
         this.clearHighlight();
         bubble.classList.add('ring-2', 'ring-accent');
         this.highlighted = bubble;
-        this.highlightTimer = setTimeout(() => this.clearHighlight(), 2000);
+        this.highlightTimer = setTimeout(() => this.clearHighlight(), HIGHLIGHT_MS);
     }
 
-    /** Message ajouté en direct par chat_controller : indicateur + bouton épingler. */
+    /** Message appended live by chat_controller: indicator + pin button. */
     decorate(event) {
         const { element, meta, data } = event.detail || {};
         if (!element || !meta) return;
         const id = Number(data?.id);
         element.classList.add('group');
         meta.classList.add('flex', 'flex-wrap', 'items-center', 'gap-1.5');
-        // Libellé existant (pseudo, titre, date) déplacé tel quel, sans aplatir ses éléments
+        // Existing label (username, title, date) moved as is, without flattening its elements
         let label = meta.firstElementChild;
         if (!label || meta.childNodes.length !== 1) {
             label = document.createElement('span');
@@ -125,7 +105,7 @@ export default class extends Controller {
         if (this.canPinValue && id) meta.appendChild(this.buildPinForm(id, this.isPinned(id)));
     }
 
-    // ─── État ──────────────────────────────────────────────
+    // ─── State ─────────────────────────────────────────────
     isPinned(id) {
         return this.pins.some(p => Number(p.id) === id);
     }
@@ -151,7 +131,7 @@ export default class extends Controller {
         this.markInStream(id, false);
     }
 
-    // ─── Rendu ─────────────────────────────────────────────
+    // ─── Rendering ─────────────────────────────────────────
     url(template, id) {
         return template.replace('__ID__', String(Number(id)));
     }
@@ -181,7 +161,7 @@ export default class extends Controller {
         span.dataset.pinIndicator = '';
         span.className = `${pinned ? '' : 'hidden'} text-accent-text`;
         span.title = 'Message épinglé';
-        span.appendChild(icon('pin', 'size-3.5', 'Épinglé'));
+        span.appendChild(icon('pin', 'size-3.5', { label: 'Épinglé' }));
         return span;
     }
 

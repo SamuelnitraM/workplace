@@ -3,30 +3,32 @@ import { Controller } from '@hotwired/stimulus';
 /* stimulusFetch: 'lazy' */
 
 /*
- * Galerie du profil :
- * - zone d'envoi (propriétaire) : aperçu du fichier choisi, glisser-déposer, verrouillage à 10 photos ;
- * - mode suppression (propriétaire) : sélection de vignettes, la zone d'envoi devient un bouton « Supprimer »
- *   qui envoie le formulaire #gallery-delete-form avec les photo_ids[] sélectionnés ;
+ * Profile gallery:
+ * - upload zone (owner): preview of the chosen file, drag and drop, locked at 10 photos;
+ * - delete mode (owner): selection of tiles, the upload zone becomes a « Supprimer » button
+ *   that sends the form #gallery-delete-form with the selected photo_ids[];
  * - selection actions (fillSelection): delete, create an album, add to an album ("+" of an album tile),
  *   remove from the album; each button sends its own form with the selected photo_ids[];
- * - en mode sélection, un clic sur une vignette ne navigue pas vers la page de la photo ;
+ * - in selection mode, a click on a tile does not navigate to the page of the photo;
  * - visibility toggle (eye of a tile, toggleVisibility): sent without reloading, the tile rendered by the server
  *   replaces the current one (the selection is kept); a non-JSON answer falls back to the regular form submission.
+ * The selection is read back from the tiles on connect, so a page restored from the Turbo cache stays consistent.
  *
- * Cibles : zone (formulaire d'envoi, data-upload-locked), input, label, preview, submit, description, deleteForm.
- * Une vignette : [data-photo-id] contenant le bouton .gallery-select (.is-idle = masqué hors survol ; vignette cochée : .is-selected).
- * La barre « N sélectionnée(s) » du gabarit s'affiche en CSS (:has(.is-selected)), sans logique ici.
+ * Targets: zone (upload form, data-upload-locked), input, label, preview, submit, description, deleteForm.
+ * A tile: [data-photo-id] holding the button .gallery-select (.is-idle = hidden unless hovered; checked tile: .is-selected).
+ * The « N sélectionnée(s) » bar of the template is shown by CSS (:has(.is-selected)), without logic here.
  */
 export default class extends Controller {
     static targets = ['zone', 'input', 'label', 'preview', 'submit', 'description', 'deleteForm'];
 
     connect() {
-        this.selectedPhotos = new Set();
+        this.selectedPhotos = new Set([...this.element.querySelectorAll('[data-photo-id].is-selected')].map(tile => tile.dataset.photoId));
+        if (this.selectedPhotos.size > 0) this.updateDeleteMode();
         if (this.hasInputTarget && this.hasLabelTarget) {
             const previousId = this.inputTarget.id;
             this.inputTarget.id = 'profile-photo-upload-' + Math.random().toString(36).slice(2);
             this.labelTarget.setAttribute('for', this.inputTarget.id);
-            // Autres libellés liés au champ (ex. bouton « Ajouter ma première photo » de l'état vide)
+            // Other labels bound to the field (e.g. « Ajouter ma première photo » button of the empty state)
             if (previousId) {
                 this.element.querySelectorAll('label[for="' + previousId + '"]')
                     .forEach(label => label.setAttribute('for', this.inputTarget.id));
@@ -34,11 +36,15 @@ export default class extends Controller {
         }
     }
 
+    disconnect() {
+        this.revokePreview();
+    }
+
     get locked() {
         return this.hasZoneTarget && this.zoneTarget.dataset.uploadLocked === 'true';
     }
 
-    // --- Zone d'envoi ---
+    // --- Upload zone ---
 
     fileChanged() {
         this.showPreview(this.inputTarget.files[0]);
@@ -64,19 +70,23 @@ export default class extends Controller {
         }
     }
 
+    // The file is shown through an object URL (no copy of the whole image in memory as a data URL)
     showPreview(file) {
-        if (!file || !file.type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = event => {
-            if (!this.hasPreviewTarget) return;
-            this.previewTarget.style.backgroundImage = 'url("' + event.target.result + '")';
-            this.previewTarget.classList.remove('opacity-0');
-            this.labelTarget.querySelector('span').textContent = file.name;
-        };
-        reader.readAsDataURL(file);
+        if (!file || !file.type.startsWith('image/') || !this.hasPreviewTarget) return;
+        this.revokePreview();
+        this.previewUrl = URL.createObjectURL(file);
+        this.previewTarget.style.backgroundImage = `url("${this.previewUrl}")`;
+        this.previewTarget.classList.remove('opacity-0');
+        this.labelTarget.querySelector('span').textContent = file.name;
     }
 
-    // --- Sélection des photos (propriétaire) ---
+    revokePreview() {
+        if (!this.previewUrl) return;
+        URL.revokeObjectURL(this.previewUrl);
+        this.previewUrl = null;
+    }
+
+    // --- Photo selection (owner) ---
 
     showSelector(event) {
         const selector = event.currentTarget.querySelector('.gallery-select');
@@ -147,7 +157,7 @@ export default class extends Controller {
         freshTile.querySelector('.gallery-photo-action button')?.focus();
     }
 
-    // En mode sélection (suppression), un clic sur la vignette ne navigue pas vers la page de la photo
+    // In selection mode (deletion), a click on the tile does not navigate to the page of the photo
     followLink(event) {
         if (this.selectedPhotos.size > 0) event.preventDefault();
     }

@@ -2,7 +2,8 @@ import { Controller } from '@hotwired/stimulus';
 
 /*
  * List rearranged by drag and drop (mouse) or with move up / move down buttons (keyboard); the new order is saved
- * right after each move (POST ids[] with the CSRF token).
+ * right after each move (POST ids[] with the CSRF token). Saves are sent one at a time, in order, and moves made
+ * while a save is running are grouped into the next one, so the server always ends with the latest order.
  *
  * Usage:
  *   <ul data-controller="sortable" data-sortable-url-value="/groups/ordre" data-sortable-token-value="…">
@@ -68,12 +69,22 @@ export default class extends Controller {
     }
 
     save() {
+        if (this.saveQueued) return;
+        this.saveQueued = true;
+        this.saving = (this.saving ?? Promise.resolve()).then(() => {
+            this.saveQueued = false;
+            return this.send();
+        });
+    }
+
+    // The order is read when the request leaves, so a queued save carries every move made until then
+    send() {
         const body = new URLSearchParams({ _token: this.tokenValue });
         this.itemTargets.forEach(item => body.append('ids[]', item.dataset.id));
-        fetch(this.urlValue, {
+        return fetch(this.urlValue, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             body,
-        });
+        }).catch(() => {});
     }
 }

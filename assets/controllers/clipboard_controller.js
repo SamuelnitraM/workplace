@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { confirmUntilLeave } from '../lib/feedback.js';
 
 /*
  * Copies a text to the clipboard: the value of the "source" target (textarea, input) or the "text" value.
@@ -22,13 +23,6 @@ export default class extends Controller {
             if (this.hasSourceTarget) this.sourceTarget.select();
             return;
         }
-        if (!this.hasLabelTarget) return;
-        const label = this.labelTarget;
-        label.dataset.originalText ??= label.textContent;
-        label.textContent = this.doneValue;
-        // The confirmation stays until the pointer or the focus leaves the control
-        const restore = () => { label.textContent = label.dataset.originalText; };
-        this.element.addEventListener('pointerleave', restore, { once: true });
-        this.element.addEventListener('focusout', restore, { once: true });
+        if (this.hasLabelTarget) confirmUntilLeave(this.labelTarget, this.doneValue, this.element);
     }
 }

@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
-import { listen, userChannelName, visit } from '../lib/realtime.js';
+import { listen, userChannelName } from '../lib/realtime.js';
+import { visit } from '../lib/turbo.js';
 
 /*
  * Private conversations page: the list is ordered by most recent activity and stays so live.

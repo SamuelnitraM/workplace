@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { latestRequest, isAbortError } from '../lib/http.js';
 
 /*
  * Member suggestions while typing "@pseudo" in a text field (forum editor, private messages, group chat).
@@ -13,6 +14,8 @@ import { Controller } from '@hotwired/stimulus';
  * Keyboard: ↑ ↓ to move, Enter / Tab to insert, Escape to close. When the list is open, these keys are consumed
  * before any other listener of the field (declare this controller's actions first), so that Enter inserts the
  * member instead of sending the message.
+ * Typing is debounced (FETCH_DELAY_MS) and only the answer of the last request is used. A list left by a previous
+ * instance (page restored from the Turbo cache) is replaced on connect.
  */
 const MENTION_TOKEN = /(^|[^\w@])@([A-Za-z0-9_.-]{1,50})$/;
 const FETCH_DELAY_MS = 150;
@@ -23,6 +26,8 @@ export default class extends Controller {
 
     connect() {
         this.element.classList.add('mention-suggest');
+        this.element.querySelectorAll(':scope > .mention-list').forEach(stale => stale.remove());
+        this.request = latestRequest();
         this.list = document.createElement('ul');
         this.list.id = `mention-list-${Math.random().toString(36).slice(2)}`;
         this.list.className = `mention-list mention-list-${this.placementValue === 'inside' ? 'inside' : 'up'} hidden`;
@@ -41,6 +46,7 @@ export default class extends Controller {
 
     disconnect() {
         clearTimeout(this.fetchTimer);
+        this.request.abort();
         this.list.remove();
     }
 
@@ -86,7 +92,7 @@ export default class extends Controller {
 
     fetchSuggestions(query) {
         if (!this.url) return;
-        fetch(`${this.url}?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        fetch(`${this.url}?q=${encodeURIComponent(query)}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: this.request.next() })
             .then(response => (response.ok ? response.json() : Promise.reject(response)))
             .then(data => {
                 // The text changed in the meantime: outdated answer
@@ -94,7 +100,9 @@ export default class extends Controller {
                 this.suggestions = data.users || [];
                 this.render();
             })
-            .catch(() => this.close());
+            .catch(error => {
+                if (!isAbortError(error)) this.close();
+            });
     }
 
     render() {
@@ -167,6 +175,7 @@ export default class extends Controller {
 
     close() {
         clearTimeout(this.fetchTimer);
+        this.request.abort();
         this.mentionState = null;
         this.suggestions = [];
         this.activeIndex = -1;

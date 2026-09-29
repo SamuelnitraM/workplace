@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import Alpine from '../lib/alpine.js';
+import { latestRequest, isAbortError } from '../lib/http.js';
 
 /* stimulusFetch: 'lazy' */
 
@@ -41,6 +42,7 @@ function armyForm() {
     let unitDatasheetUrl = '';
     let knownGroups = new Set([OTHER_GROUP]); // group keys provided by the server
     let rules = { keywords: {}, copyLimits: { default: 3, extended: 6, epicHero: 1 }, battleSizes: [] };
+    const datasheetRequest = latestRequest(); // only the datasheet opened last is displayed
 
     return {
         selectedFaction: '',
@@ -354,11 +356,12 @@ function armyForm() {
             this.datasheet = { title: unit.name, html: '', loading: true };
             this.$refs.datasheetDialog.showModal();
             try {
-                const response = await fetch(url, { headers: { Accept: 'text/html' } });
+                const response = await fetch(url, { headers: { Accept: 'text/html' }, signal: datasheetRequest.next() });
                 this.datasheet.html = response.ok ? await response.text() : '<p class="text-muted">Fiche indisponible.</p>';
+                this.datasheet.loading = false;
             } catch (e) {
+                if (isAbortError(e)) return;
                 this.datasheet.html = '<p class="text-muted">Fiche indisponible (connexion perdue).</p>';
-            } finally {
                 this.datasheet.loading = false;
             }
         },
@@ -469,7 +472,7 @@ export default class extends Controller {
     };
 
     connect() {
-        // Page restaurée depuis le cache Turbo : on repart du <template>
+        // Page restored from the Turbo cache: starts again from the <template>
         this.removeRendered();
 
         this.onBeforeCache = () => this.removeRendered();

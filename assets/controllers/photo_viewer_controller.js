@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { visit } from '../lib/turbo.js';
 
 /*
  * Photo page viewer:
@@ -58,10 +59,6 @@ export default class extends Controller {
         const url = event.key === 'ArrowLeft' ? this.previousUrlValue : (event.key === 'ArrowRight' ? this.nextUrlValue : '');
         if (!url) return;
         event.preventDefault();
-        if (window.Turbo) {
-            window.Turbo.visit(url);
-        } else {
-            window.location.assign(url);
-        }
+        visit(url);
     }
 }

@@ -30,8 +30,8 @@ export default class extends Controller {
         button.setAttribute('aria-pressed', liked ? 'true' : 'false');
         if (this.hasLabelTarget) this.labelTarget.textContent = liked ? 'Je n’aime plus' : 'J’aime';
         this.countTarget.textContent = count;
-        ['is-liked'].forEach(c => button.classList.toggle(c, liked));
-        ['is-not-liked'].forEach(c => button.classList.toggle(c, !liked));
+        button.classList.toggle('is-liked', liked);
+        button.classList.toggle('is-not-liked', !liked);
     }
 
     submit(event) {
@@ -51,7 +51,7 @@ export default class extends Controller {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin',
         }).then(response => {
-            // Réponse non JSON (session expirée, redirection…) : repli sur l'envoi classique du formulaire
+            // Non-JSON answer (expired session, redirection…): falls back to the regular form submission
             if ((response.headers.get('Content-Type') || '').indexOf('application/json') === -1) {
                 form.submit();
                 return;

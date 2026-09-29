@@ -1,9 +1,10 @@
 import { Controller } from '@hotwired/stimulus';
 
 /*
- * Bouton afficher / masquer un mot de passe : libellé fixe, état porté par aria-pressed (bouton bascule).
+ * Show / hide button of a password: fixed label, state carried by aria-pressed (toggle button).
+ * The password is masked again before Turbo caches the page, so it is never stored in clear in the page cache.
  *
- * Usage :
+ * Usage:
  *   <div data-controller="password-visibility">
  *     <input type="password" data-password-visibility-target="input">
  *     <button type="button" aria-pressed="false" aria-label="Afficher le mot de passe"
@@ -18,10 +19,12 @@ export default class extends Controller {
 
     connect() {
         this.render(false);
+        this.onBeforeCache = () => this.render(false);
+        document.addEventListener('turbo:before-cache', this.onBeforeCache);
     }
 
     disconnect() {
-        // Ne jamais laisser le mot de passe en clair dans un cache de page (Turbo)
+        document.removeEventListener('turbo:before-cache', this.onBeforeCache);
         this.inputTarget.type = 'password';
     }
 
