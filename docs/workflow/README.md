@@ -6,7 +6,7 @@ Les trois trajets du code, dans l'ordre où ils s'enchaînent :
 |---|---|---|
 | 1 | [Récupérer depuis Git](01-recuperer-depuis-git.md) | Avant de travailler : mettre le PC à jour avec GitHub, ou l'écraser par la version de GitHub |
 | 2 | [Envoyer vers Git](02-envoyer-vers-git.md) | Après avoir travaillé : vérifier, committer, pousser |
-| 3 | [Mettre en production](03-mise-en-production.md) | Publier sur alwaysdata une version poussée sur `main` |
+| 3 | [Mettre en production](03-mise-en-production.md) | Publier sur alwaysdata une version poussée sur `main`, par SSH ou par FileZilla seul |
 
 ## Repères
 
@@ -15,7 +15,7 @@ Les trois trajets du code, dans l'ordre où ils s'enchaînent :
 | Dépôt | `https://github.com/SamuelnitraM/workplace` |
 | Branche de référence | `main` : c'est elle qui part en production |
 | PC | Windows, XAMPP (PHP, MariaDB), **PowerShell 5** : une commande par ligne, pas de `&&` |
-| Serveur | alwaysdata, accès **SSH** (bash) et **FileZilla** (SFTP) |
+| Serveur | alwaysdata : tout le site dans `~/www` (le navigateur ne voit que `~/www/public`), accès **SSH** (bash) et **FileZilla** (FTP/SFTP) |
 | Base locale | `highlightforge` (connexion dans `.env.local`) |
 | Base de test | `highlightforge_test` (connexion dans `.env.test.local`) |
 
