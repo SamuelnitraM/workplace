@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Security\ThrottledAction;
+use App\Security\SubmissionThrottle;
 use App\Entity\Group;
 use App\Entity\GroupChannel;
 use App\Entity\GroupMember;
@@ -39,6 +41,7 @@ class GroupController extends AbstractController
 {
     public const CSRF_TOKEN_ID = 'group';
     private const NAME_MAX_LENGTH = 100;
+    private const DESCRIPTION_MAX_LENGTH = 2000;
     private const MESSAGE_MAX_LENGTH = 2000;
     private const MAX_PINNED_PER_CHANNEL = 20;
 
@@ -133,7 +136,8 @@ class GroupController extends AbstractController
             $user = $this->currentUser();
 
             $name = trim($request->request->getString('name'));
-            $error = $this->validateName($name);
+            $description = trim($request->request->getString('description'));
+            $error = $this->validateDetails($name, $description);
             if ($error) {
                 $this->addFlash('error', $error);
                 return $this->render('group/new.html.twig', [
@@ -144,7 +148,7 @@ class GroupController extends AbstractController
 
             $group = new Group();
             $group->setName($name);
-            $group->setDescription(trim($request->request->getString('description')) ?: null);
+            $group->setDescription($description ?: null);
             $group->setSlug($this->makeSlug($slugger, $name));
             $group->setIsPublic($request->request->get('isPublic') === '1');
             $group->setIsJoinable($request->request->get('isJoinable') === '1');
@@ -175,7 +179,6 @@ class GroupController extends AbstractController
     public function show(
         string $slug,
         Request $request,
-        GroupChannelRepository $groupChannelRepository,
         GroupMessageRepository $groupMessageRepository,
         FriendshipRepository $friendshipRepository,
         GroupInvitationRepository $invitationRepository,
@@ -207,10 +210,9 @@ class GroupController extends AbstractController
 
             // Active channel = the requested one (if readable) or the first one
             $channelId = $request->query->getInt('channel');
-            if ($channelId) {
-                $requested = $groupChannelRepository->find($channelId);
-                if ($requested && in_array($requested, $channels, true)) {
-                    $activeChannel = $requested;
+            foreach ($channels as $channel) {
+                if ($channel->getId() === $channelId) {
+                    $activeChannel = $channel;
                 }
             }
 
@@ -267,7 +269,7 @@ class GroupController extends AbstractController
         $group = $this->findGroup($slug);
 
         if ($this->isGranted(GroupVoter::MEMBER, $group)) {
-            $this->addFlash('error', 'Vous êtes déjà membre de ce groupe.');
+            $this->addFlash('error', 'Tu es déjà membre de ce groupe.');
             return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
         }
 
@@ -285,7 +287,7 @@ class GroupController extends AbstractController
         $em->persist($member);
         $em->flush();
 
-        $this->addFlash('success', 'Vous avez rejoint le groupe !');
+        $this->addFlash('success', 'Tu as rejoint le groupe !');
         return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
     }
 
@@ -302,21 +304,18 @@ class GroupController extends AbstractController
         $member = $this->findMember($group);
 
         if (!$member) {
-            $this->addFlash('error', 'Vous n\'êtes pas membre de ce groupe.');
+            $this->addFlash('error', 'Tu n\'es pas membre de ce groupe.');
             return $this->redirectToRoute('app_group_index');
         }
 
         if ($this->isGranted(GroupVoter::OWNER, $group)) {
-            $this->addFlash('error', 'Le propriétaire ne peut pas quitter le groupe : supprimez-le depuis ses paramètres si besoin.');
+            $this->addFlash('error', 'Le propriétaire ne peut pas quitter le groupe : supprime-le depuis ses paramètres si besoin.');
             return $this->redirectToRoute('app_group_show', ['slug' => $slug]);
         }
 
-        $em->remove($member);
-        $em->flush();
-        // Unread messages of a group the user left are not accessible
-        $this->notificationRepository->markReadByGroupKeyPrefix($this->currentUser(), self::channelNotificationKeyPrefix($group));
+        $this->removeMembership($member, $em);
 
-        $this->addFlash('success', 'Vous avez quitté le groupe.');
+        $this->addFlash('success', 'Tu as quitté le groupe.');
         return $this->redirectToRoute('app_group_index');
     }
 
@@ -331,6 +330,7 @@ class GroupController extends AbstractController
         PusherService $pusher,
         NotificationService $notifications,
         MentionResolver $mentionResolver,
+        SubmissionThrottle $throttle,
     ): Response {
         $this->denyUnlessCsrfValid($request);
         $user = $this->currentUser();
@@ -348,6 +348,13 @@ class GroupController extends AbstractController
 
         $redirect = $this->redirectToRoute('app_group_show', ['slug' => $slug, 'channel' => $channelId]);
 
+        if (!$throttle->tryConsumeForUser(ThrottledAction::GroupMessage, $user)) {
+            if ($request->isXmlHttpRequest()) {
+                return new JsonResponse(['error' => ThrottledAction::GroupMessage->refusalMessage()], Response::HTTP_TOO_MANY_REQUESTS);
+            }
+            $this->addFlash('error', ThrottledAction::GroupMessage->refusalMessage());
+            return $redirect;
+        }
         $content = trim($request->request->getString('content'));
         if ($content === '' || mb_strlen($content) > self::MESSAGE_MAX_LENGTH) {
             if ($request->isXmlHttpRequest()) {
@@ -386,7 +393,7 @@ class GroupController extends AbstractController
         $mentioned = array_map('mb_strtolower', MentionResolver::extract($content));
         $mentionRecipients = [];
         $recipients = [];
-        foreach ($group->getMembers() as $member) {
+        foreach ($this->membersWithUsers($group) as $member) {
             if ($member->getUser() === $user || !$member->hasAtLeastRole($channel->getCanRead())) {
                 continue;
             }
@@ -437,7 +444,7 @@ class GroupController extends AbstractController
         $member->setMuted($request->request->getBoolean('muted'));
         $em->flush();
         $this->addFlash('success', $member->isMuted()
-            ? 'Groupe en sourdine : vous ne serez notifié que si l\'on vous mentionne.'
+            ? 'Groupe en sourdine : tu ne seras notifié que si l\'on te mentionne.'
             : 'Les notifications du groupe sont réactivées.');
         return $this->redirectToRoute('app_group_show', ['slug' => $slug, 'channel' => $request->request->getInt('channel') ?: null]);
     }
@@ -496,14 +503,15 @@ class GroupController extends AbstractController
         // General information form
         if ($action === 'update_info') {
             $name = trim($request->request->getString('name'));
-            $error = $this->validateName($name);
+            $description = trim($request->request->getString('description'));
+            $error = $this->validateDetails($name, $description);
             if ($error) {
                 $this->addFlash('error', $error);
                 return $redirect;
             }
 
             $group->setName($name);
-            $group->setDescription(trim($request->request->getString('description')) ?: null);
+            $group->setDescription($description ?: null);
             $group->setIsPublic($request->request->get('isPublic') === '1');
             $group->setIsJoinable($request->request->get('isJoinable') === '1');
             $inviteRole = $request->request->getString('invite_role', $group->getInviteRole());
@@ -636,12 +644,21 @@ class GroupController extends AbstractController
         $targetMember = $this->groupMemberRepository->find($memberId);
         if ($targetMember && $targetMember->getUsergroup() === $group
             && $targetMember->getRole() !== 'owner') {
-            $em->remove($targetMember);
-            $em->flush();
+            $this->removeMembership($targetMember, $em);
             $this->addFlash('success', 'Membre exclu du groupe.');
         }
 
         return $this->redirectToRoute('app_group_edit', ['slug' => $slug]);
+    }
+
+    /** Leaving or exclusion: the membership goes, and the unread chat notifications of that group, now unreachable, are marked read. */
+    private function removeMembership(GroupMember $membership, EntityManagerInterface $em): void
+    {
+        $formerMember = $membership->getUser();
+        $group = $membership->getUsergroup();
+        $em->remove($membership);
+        $em->flush();
+        $this->notificationRepository->markReadByGroupKeyPrefix($formerMember, self::channelNotificationKeyPrefix($group));
     }
 
     // Delete the group
@@ -718,7 +735,7 @@ class GroupController extends AbstractController
 
         if ($pin && !$message->isPinned()) {
             if ($groupMessageRepository->countPinnedByChannel($channel) >= self::MAX_PINNED_PER_CHANNEL) {
-                $error = sprintf('Ce salon a déjà %d messages épinglés : désépinglez-en un avant d\'en ajouter.', self::MAX_PINNED_PER_CHANNEL);
+                $error = sprintf('Ce salon a déjà %d messages épinglés : désépingles-en un avant d\'en ajouter.', self::MAX_PINNED_PER_CHANNEL);
                 if ($isAjax) {
                     return new JsonResponse(['error' => $error], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
@@ -767,6 +784,22 @@ class GroupController extends AbstractController
             $friendshipRepository->findFriendsOf($user),
             static fn (User $friend) => !in_array($friend->getId(), [...$memberIds, ...$invitedIds], true),
         ));
+    }
+
+    /**
+     * Memberships of a group with their member, loaded in one query.
+     *
+     * @return GroupMember[]
+     */
+    private function membersWithUsers(Group $group): array
+    {
+        return $this->groupMemberRepository->createQueryBuilder('m')
+            ->addSelect('u')
+            ->innerJoin('m.user', 'u')
+            ->where('m.usergroup = :group')
+            ->setParameter('group', $group)
+            ->getQuery()
+            ->getResult();
     }
 
     /** Data of a pinned message for the client (pinned messages bar, real time). */
@@ -831,16 +864,15 @@ class GroupController extends AbstractController
         }
     }
 
-    private function validateName(string $name): ?string
+    /** Error message on the name or the description of a group, or null when both are valid. */
+    private function validateDetails(string $name, string $description): ?string
     {
-        if ($name === '') {
-            return 'Le nom du groupe est obligatoire.';
-        }
-        if (mb_strlen($name) > self::NAME_MAX_LENGTH) {
-            return sprintf('Le nom du groupe ne doit pas dépasser %d caractères.', self::NAME_MAX_LENGTH);
-        }
-
-        return null;
+        return match (true) {
+            $name === '' => 'Le nom du groupe est obligatoire.',
+            mb_strlen($name) > self::NAME_MAX_LENGTH => sprintf('Le nom du groupe ne doit pas dépasser %d caractères.', self::NAME_MAX_LENGTH),
+            mb_strlen($description) > self::DESCRIPTION_MAX_LENGTH => sprintf('La description du groupe ne doit pas dépasser %d caractères.', self::DESCRIPTION_MAX_LENGTH),
+            default => null,
+        };
     }
 
     private function isValidRole(string $role): bool

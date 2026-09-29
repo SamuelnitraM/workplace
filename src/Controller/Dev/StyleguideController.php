@@ -7,12 +7,12 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Guide de style vivant du design system (docs/design-system.md).
- * Route déclarée uniquement dans l'environnement « dev » : inexistante en production.
+ * Living style guide of the design system (docs/design-system.md).
+ * The route is declared in the « dev » environment only: it does not exist in production.
  */
 final class StyleguideController extends AbstractController
 {
-    /** Valeurs des tokens (doivent refléter @theme dans assets/styles/app.css). */
+    /** Token values of the dark theme (mirror of @theme in assets/styles/app.css). */
     private const SURFACES = [
         'canvas' => '#0d1016',
         'surface' => '#151a23',
@@ -32,7 +32,7 @@ final class StyleguideController extends AbstractController
         'info-text' => '#7dd3fc',
     ];
 
-    /** [fond, texte posé dessus] */
+    /** [background, text drawn on it] */
     private const SOLIDS = [
         'primary' => ['#4f46e5', '#ffffff'],
         'primary-hover' => ['#5d55ee', '#ffffff'],
@@ -47,7 +47,7 @@ final class StyleguideController extends AbstractController
         'notify' => ['#e11d48', '#ffffff'],
     ];
 
-    /** Fonds teintés (couleur, opacité) × texte sémantique correspondant */
+    /** Tinted backgrounds (colour, opacity) × matching semantic text */
     private const SOFTS = [
         'primary' => ['#6366f1', 0.16, '#a5b4fc'],
         'accent' => ['#d4a24c', 0.14, '#e0b25c'],
@@ -101,7 +101,7 @@ final class StyleguideController extends AbstractController
         ]);
     }
 
-    /** Ratio de contraste WCAG 2.x entre deux couleurs hexadécimales. */
+    /** WCAG 2.x contrast ratio between two hexadecimal colours. */
     private static function contrast(string $a, string $b): float
     {
         $la = self::luminance($a);
@@ -129,7 +129,7 @@ final class StyleguideController extends AbstractController
         return [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
     }
 
-    /** Couleur $color à l'opacité $alpha posée sur $bg (résultat opaque). */
+    /** Colour $color at opacity $alpha drawn over $bg (opaque result). */
     private static function blend(string $color, float $alpha, string $bg): string
     {
         $c = self::rgb($color);

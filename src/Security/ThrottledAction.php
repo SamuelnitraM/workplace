@@ -16,6 +16,9 @@ enum ThrottledAction: string
     case ForumReply = 'forum_reply';
     case PhotoComment = 'photo_comment';
     case Report = 'report';
+    case GroupMessage = 'group_message';
+    case PhotoUpload = 'photo_upload';
+    case ArmyImport = 'army_import';
 
     /** Message shown to the member when the limit is reached. */
     public function refusalMessage(): string
@@ -29,6 +32,9 @@ enum ThrottledAction: string
             self::ForumReply => 'Tu réponds trop vite. Patiente quelques instants avant de publier.',
             self::PhotoComment => 'Tu commentes trop vite. Patiente quelques instants.',
             self::Report => 'Tu as envoyé beaucoup de signalements récemment. Réessaie plus tard.',
+            self::GroupMessage => 'Tu envoies des messages trop vite. Patiente quelques instants.',
+            self::PhotoUpload => 'Tu as envoyé beaucoup de photos récemment. Réessaie plus tard.',
+            self::ArmyImport => 'Tu as importé beaucoup de listes récemment. Réessaie plus tard.',
         };
     }
 }

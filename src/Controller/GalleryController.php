@@ -96,10 +96,10 @@ class GalleryController extends AbstractController
         $wantsJson = $this->wantsJson($request);
 
         if (!$this->isCsrfTokenValid('gallery_like_' . $id, (string) $request->request->get('_token'))) {
-            return $this->fail($request, $photo, 'Jeton de sécurité invalide, veuillez réessayer.', Response::HTTP_FORBIDDEN);
+            return $this->fail($request, $photo, 'Jeton de sécurité invalide, réessaie.', Response::HTTP_FORBIDDEN);
         }
         if (!$this->isGranted(GalleryPhotoVoter::LIKE, $photo)) {
-            return $this->fail($request, $photo, 'Vous ne pouvez pas aimer votre propre photo.', Response::HTTP_FORBIDDEN);
+            return $this->fail($request, $photo, 'Tu ne peux pas aimer ta propre photo.', Response::HTTP_FORBIDDEN);
         }
 
         /** @var User $user */

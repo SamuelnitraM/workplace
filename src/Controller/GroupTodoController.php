@@ -25,6 +25,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/groups/{slug}/todo', name: 'app_group_todo_')]
 class GroupTodoController extends AbstractController
 {
+    use TodoNodeControllerTrait;
+
     // Main to-do page of the group
     #[Route('/', name: 'index')]
     public function index(
@@ -137,7 +139,7 @@ class GroupTodoController extends AbstractController
     }
 
     // Delete a node
-    #[Route('/delete/{id}', name: 'delete', methods: ['POST'])]
+    #[Route('/delete/{id}', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function delete(
         string $slug,
         int $id,
@@ -169,7 +171,7 @@ class GroupTodoController extends AbstractController
     }
 
     // Rename a node
-    #[Route('/rename/{id}', name: 'rename', methods: ['POST'])]
+    #[Route('/rename/{id}', name: 'rename', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function rename(
         string $slug,
         int $id,
@@ -298,121 +300,27 @@ class GroupTodoController extends AbstractController
     }
 
     // Increase a task's progress
-    #[Route('/progress/up/{id}', name: 'progress_up', methods: ['POST'])]
-    public function progressUp(
-        string $slug,
-        int $id,
-        Request $request,
-        GroupRepository $groupRepository,
-        TodoNodeRepository $todoNodeRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        $node = $this->findEditableItem($slug, $id, $request, $groupRepository, $todoNodeRepository);
-        if ($node instanceof JsonResponse) {
-            return $node;
-        }
-
-        $currentProgress = $node->getProgress() ?? 0;
-        $newProgress = min(100, $currentProgress + 25);
-        $node->setProgress($newProgress);
-
-        if ($newProgress === 100) {
-            $node->setIsDone(true);
-            $node->setDoneAt(new \DateTimeImmutable());
-        }
-
-        $em->flush();
-
-        return new JsonResponse([
-            'progress' => $newProgress,
-            'isDone' => $node->isDone(),
-            'type' => 'increment'
-        ]);
+    #[Route('/progress/up/{id}', name: 'progress_up', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function progressUp(string $slug, int $id, Request $request, GroupRepository $groupRepository, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        $node = $this->findGroupNode($slug, $id, $request, $groupRepository, $todoNodeRepository, TodoNodeVoter::PROGRESS);
+        return $node instanceof JsonResponse ? $node : $this->progressResponse($node, self::PROGRESS_INCREMENT, $em);
     }
 
     // Decrease a task's progress
-    #[Route('/progress/down/{id}', name: 'progress_down', methods: ['POST'])]
-    public function progressDown(
-        string $slug,
-        int $id,
-        Request $request,
-        GroupRepository $groupRepository,
-        TodoNodeRepository $todoNodeRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        $node = $this->findEditableItem($slug, $id, $request, $groupRepository, $todoNodeRepository);
-        if ($node instanceof JsonResponse) {
-            return $node;
-        }
-
-        $currentProgress = $node->getProgress() ?? 0;
-        $newProgress = max(0, $currentProgress - 25);
-        $node->setProgress($newProgress);
-
-        if ($newProgress < 100) {
-            $node->setIsDone(false);
-            $node->setDoneAt(null);
-        }
-
-        $em->flush();
-
-        return new JsonResponse([
-            'progress' => $newProgress,
-            'isDone' => $node->isDone(),
-            'type' => 'decrement'
-        ]);
+    #[Route('/progress/down/{id}', name: 'progress_down', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function progressDown(string $slug, int $id, Request $request, GroupRepository $groupRepository, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        $node = $this->findGroupNode($slug, $id, $request, $groupRepository, $todoNodeRepository, TodoNodeVoter::PROGRESS);
+        return $node instanceof JsonResponse ? $node : $this->progressResponse($node, self::PROGRESS_DECREMENT, $em);
     }
 
     // Validate/complete a task (set to 100%)
-    #[Route('/progress/validate/{id}', name: 'progress_validate', methods: ['POST'])]
-    public function progressValidate(
-        string $slug,
-        int $id,
-        Request $request,
-        GroupRepository $groupRepository,
-        TodoNodeRepository $todoNodeRepository,
-        EntityManagerInterface $em
-    ): JsonResponse {
-        $node = $this->findEditableItem($slug, $id, $request, $groupRepository, $todoNodeRepository);
-        if ($node instanceof JsonResponse) {
-            return $node;
-        }
-
-        $node->setProgress(100);
-        $node->setIsDone(true);
-        $node->setDoneAt(new \DateTimeImmutable());
-
-        $em->flush();
-
-        return new JsonResponse([
-            'progress' => 100,
-            'isDone' => true,
-            'type' => 'validate'
-        ]);
-    }
-
-    // Task (item type) of the group that the current user can progress,
-    // or a JSON error response (invalid CSRF / not authorized)
-    private function findEditableItem(
-        string $slug,
-        int $id,
-        Request $request,
-        GroupRepository $groupRepository,
-        TodoNodeRepository $todoNodeRepository
-    ): TodoNode|JsonResponse {
-        if (!$this->isTodoCsrfValid($request)) {
-            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
-        }
-
-        $group = $groupRepository->findOneBy(['slug' => $slug]);
-        $node = $todoNodeRepository->find($id);
-
-        // Task (item type) of the group: writers, or member assigned to the task
-        if (!$group || !$node || $node->getUsergroup() !== $group || !$this->isGranted(TodoNodeVoter::PROGRESS, $node)) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        return $node;
+    #[Route('/progress/validate/{id}', name: 'progress_validate', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function progressValidate(string $slug, int $id, Request $request, GroupRepository $groupRepository, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        $node = $this->findGroupNode($slug, $id, $request, $groupRepository, $todoNodeRepository, TodoNodeVoter::PROGRESS);
+        return $node instanceof JsonResponse ? $node : $this->progressResponse($node, self::PROGRESS_VALIDATE, $em);
     }
 
     // User who is a member of the group matching the given id, otherwise null
@@ -424,13 +332,5 @@ class GroupTodoController extends AbstractController
         ]);
 
         return $member?->getUser();
-    }
-
-    // CSRF token sent via the _token field (forms) or the X-CSRF-Token header (fetch)
-    private function isTodoCsrfValid(Request $request): bool
-    {
-        $token = $request->request->get('_token') ?? $request->headers->get('X-CSRF-Token');
-
-        return $this->isCsrfTokenValid('todo', (string) $token);
     }
 }

@@ -46,7 +46,7 @@ class GroupInvitationController extends AbstractController
             return $redirect;
         }
         if (!$this->isGranted(GroupVoter::INVITE, $group)) {
-            $this->addFlash('error', 'Vous n\'avez pas le droit d\'inviter dans ce groupe.');
+            $this->addFlash('error', 'Tu n\'as pas le droit d\'inviter dans ce groupe.');
             return $redirect;
         }
         $error = $invitationSender->invite($group, $currentUser, $targetUser);
@@ -82,13 +82,13 @@ class GroupInvitationController extends AbstractController
         if ($invited !== []) {
             $this->addFlash('success', sprintf('Invitation envoyée à %s.', implode(', ', $invited)));
         } elseif ($selectedIds === []) {
-            $this->addFlash('warning', 'Sélectionnez au moins un ami à inviter.');
+            $this->addFlash('warning', 'Sélectionne au moins un ami à inviter.');
         }
         return $this->redirectToRoute('app_group_show', ['slug' => $group->getSlug()]);
     }
 
     // Accept an invitation
-    #[Route('/accept/{id}', name: 'accept', methods: ['POST'])]
+    #[Route('/accept/{id}', name: 'accept', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function accept(
         int $id,
         Request $request,
@@ -131,12 +131,12 @@ class GroupInvitationController extends AbstractController
             );
         }
 
-        $this->addFlash('success', 'Vous avez rejoint ' . $invitation->getUsergroup()->getName() . ' !');
+        $this->addFlash('success', 'Tu as rejoint ' . $invitation->getUsergroup()->getName() . ' !');
         return $this->redirectToRoute('app_group_show', ['slug' => $invitation->getUsergroup()->getSlug()]);
     }
 
     // Decline an invitation
-    #[Route('/refuse/{id}', name: 'refuse', methods: ['POST'])]
+    #[Route('/refuse/{id}', name: 'refuse', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function refuse(
         int $id,
         Request $request,

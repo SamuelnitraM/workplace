@@ -39,14 +39,14 @@ final class PasswordPolicy
             new NotBlank(message: $blankMessage),
             new Length(
                 min: self::MIN_LENGTH,
-                minMessage: 'Votre mot de passe doit contenir au moins {{ limit }} caractères',
+                minMessage: 'Ton mot de passe doit contenir au moins {{ limit }} caractères',
                 max: self::MAX_LENGTH,
             ),
         ];
         foreach (self::RULES as $pattern => $label) {
             $constraints[] = new Regex(
                 pattern: '/' . $pattern . '/u',
-                message: sprintf('Votre mot de passe doit contenir : %s.', mb_strtolower($label)),
+                message: sprintf('Ton mot de passe doit contenir : %s.', mb_strtolower($label)),
             );
         }
         return $constraints;

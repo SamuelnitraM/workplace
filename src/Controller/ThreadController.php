@@ -27,6 +27,7 @@ use App\Forum\ForumActivityNotifier;
 use App\Repository\ThreadSubscriptionRepository;
 use App\Security\Voter\CategoryVoter;
 use App\Security\Voter\ThreadVoter;
+use App\Service\AtomicCounter;
 use App\Service\GamificationService;
 use App\Service\NotificationService;
 
@@ -35,7 +36,7 @@ class ThreadController extends AbstractController
 {
     public const POSTS_PER_PAGE = 10;
 
-    #[Route('/thread/{slug}/post/{postId}/vote/{type}', name: 'vote', methods: ['POST'])]
+    #[Route('/thread/{slug}/post/{postId}/vote/{type}', name: 'vote', requirements: ['postId' => '\d+', 'type' => PostVote::TYPE_POSITIVE . '|' . PostVote::TYPE_HELPFUL], methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function vote(
         string $slug,
@@ -46,10 +47,6 @@ class ThreadController extends AbstractController
         EntityManagerInterface $em,
         GamificationService $gamification
     ): Response {
-        if (!in_array($type, [PostVote::TYPE_POSITIVE, PostVote::TYPE_HELPFUL], true)) {
-            throw $this->createNotFoundException('Type de vote introuvable');
-        }
-
         if (!$this->isCsrfTokenValid('post_vote_' . $postId . '_' . $type, $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Jeton CSRF invalide');
         }
@@ -71,7 +68,7 @@ class ThreadController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         if ($post->getAuthor()?->getId() === $user->getId()) {
-            $this->addFlash('warning', 'Vous ne pouvez pas voter pour votre propre réponse.');
+            $this->addFlash('warning', 'Tu ne peux pas voter pour ta propre réponse.');
 
             return $this->redirectToRoute('app_thread_show', $redirectParams);
         }
@@ -115,6 +112,7 @@ class ThreadController extends AbstractController
         NotificationRepository $notificationRepository,
         ThreadSubscriptionRepository $subscriptions,
         SubmissionThrottle $throttle,
+        AtomicCounter $atomicCounter,
     ): Response {
         $thread = $threadRepository->findOneBy(['slug' => $slug]);
 
@@ -135,9 +133,8 @@ class ThreadController extends AbstractController
 
         $sessionKey = 'viewed_thread_' . $thread->getId();
         if (!$request->getSession()->has($sessionKey)) {
-            $thread->setViews($thread->getViews() + 1);
+            $atomicCounter->increment($thread, 'views');
             $request->getSession()->set($sessionKey, true);
-            $em->flush();
         }
 
         $query = $postRepository->createQueryBuilder('p')
@@ -228,7 +225,7 @@ class ThreadController extends AbstractController
         if (!$this->isGranted(CategoryVoter::CREATE_THREAD, $category)) {
             $this->addFlash('error', $category->isAllowThreads()
                 ? 'Cette catégorie est en lecture seule : seuls les administrateurs peuvent y publier.'
-                : 'La création de sujets est désactivée dans cette catégorie. Choisissez l\'une de ses sous-catégories.');
+                : 'La création de sujets est désactivée dans cette catégorie. Choisis l\'une de ses sous-catégories.');
 
             return $this->redirectToRoute('app_forum_category', ['slug' => $category->getSlug()]);
         }
@@ -287,10 +284,10 @@ class ThreadController extends AbstractController
         $user = $this->getUser();
         if ($request->request->getBoolean('subscribe')) {
             $subscriptions->subscribe($user, $thread);
-            $this->addFlash('success', 'Vous suivez ce sujet : vous serez notifié de chaque nouvelle réponse.');
+            $this->addFlash('success', 'Tu suis ce sujet : tu seras notifié de chaque nouvelle réponse.');
         } else {
             $subscriptions->unsubscribe($user, $thread);
-            $this->addFlash('success', 'Vous ne suivez plus ce sujet.');
+            $this->addFlash('success', 'Tu ne suis plus ce sujet.');
         }
 
         return $this->redirectToRoute('app_thread_show', [

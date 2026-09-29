@@ -35,7 +35,7 @@ class OnboardingProfileFormType extends AbstractType
                 'label' => 'Ta bio',
                 'required' => false,
                 'constraints' => [
-                    new Length(max: UserProfileFormType::BIO_MAX_LENGTH, maxMessage: 'Votre biographie ne peut pas dépasser {{ limit }} caractères'),
+                    new Length(max: UserProfileFormType::BIO_MAX_LENGTH, maxMessage: 'Ta biographie ne peut pas dépasser {{ limit }} caractères'),
                 ],
                 'attr' => [
                     'maxlength' => UserProfileFormType::BIO_MAX_LENGTH,

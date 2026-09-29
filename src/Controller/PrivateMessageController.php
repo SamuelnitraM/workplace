@@ -69,7 +69,7 @@ class PrivateMessageController extends AbstractController
         $canSend = $this->friendshipRepository->areFriends($currentUser, $targetUser);
 
         if (!$conversation && !$canSend) {
-            $this->addFlash('error', 'Vous devez être amis pour échanger des messages.');
+            $this->addFlash('error', 'Tu dois être ami avec ce membre pour échanger des messages.');
             return $this->redirectToRoute('app_profil_show', ['username' => $targetUser->getUsername()]);
         }
 
@@ -250,13 +250,13 @@ class PrivateMessageController extends AbstractController
     private function validateSend(Request $request, User $author, User $target): ?string
     {
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $this->csrfToken($request))) {
-            return 'Jeton CSRF invalide, rechargez la page.';
+            return 'Jeton CSRF invalide, recharge la page.';
         }
         if ($author === $target) {
-            return 'Vous ne pouvez pas vous écrire à vous-même.';
+            return 'Tu ne peux pas t\'écrire à toi-même.';
         }
         if (!$this->friendshipRepository->areFriends($author, $target)) {
-            return 'Vous devez être amis pour envoyer un message.';
+            return 'Tu dois être ami avec ce membre pour lui envoyer un message.';
         }
 
         $content = $this->content($request);

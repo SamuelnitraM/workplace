@@ -11,25 +11,46 @@ use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\IsTrue;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Regex;
 
-
 class RegistrationFormType extends AbstractType
 {
     public const USERNAME_MIN_LENGTH = 3;
     public const USERNAME_MAX_LENGTH = 50;
-    /** Équivalent HTML (attribut pattern, compatible drapeau « v ») de la contrainte Regex du pseudo. */
+    /** HTML equivalent (pattern attribute, compatible with the « v » flag) of the username Regex constraint. */
     public const USERNAME_HTML_PATTERN = '[A-Za-z0-9_.\-]+';
     public const EMAIL_MAX_LENGTH = 180;
 
+    /**
+     * Username rules of every form (registration, profile edit).
+     *
+     * @return list<Constraint>
+     */
+    public static function usernameConstraints(string $blankMessage): array
+    {
+        return [
+            new NotBlank(message: $blankMessage),
+            new Length(
+                min: self::USERNAME_MIN_LENGTH,
+                minMessage: 'Ton pseudo doit contenir au moins {{ limit }} caractères',
+                max: self::USERNAME_MAX_LENGTH,
+                maxMessage: 'Ton pseudo ne peut pas dépasser {{ limit }} caractères',
+            ),
+            new Regex(
+                pattern: '/^[A-Za-z0-9_.-]+$/D',
+                message: 'Ton pseudo ne peut contenir que des lettres sans accent, des chiffres, et les caractères « _ », « . » et « - ».',
+            ),
+        ];
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        // Les attributs HTML natifs reprennent les contraintes pour guider la saisie ;
-        // la validation serveur reste la référence.
+        // Native HTML attributes mirror the constraints to guide the input; the server validation remains the reference.
         $builder
             ->add('username', TextType::class, [
                 'attr' => [
@@ -40,19 +61,7 @@ class RegistrationFormType extends AbstractType
                     'autocapitalize' => 'none',
                     'spellcheck' => 'false',
                 ],
-                'constraints' => [
-                    new NotBlank(message: 'Veuillez choisir un nom d\'utilisateur'),
-                    new Length(
-                        min: self::USERNAME_MIN_LENGTH,
-                        minMessage: 'Votre pseudo doit contenir au moins {{ limit }} caractères',
-                        max: self::USERNAME_MAX_LENGTH,
-                        maxMessage: 'Votre pseudo ne peut pas dépasser {{ limit }} caractères',
-                    ),
-                    new Regex(
-                        pattern: '/^[A-Za-z0-9_.-]+$/D',
-                        message: 'Votre pseudo ne peut contenir que des lettres sans accent, des chiffres, et les caractères « _ », « . » et « - ».',
-                    ),
-                ],
+                'constraints' => self::usernameConstraints('Choisis un nom d\'utilisateur'),
             ])
 
             ->add('email', EmailType::class, [
@@ -61,16 +70,16 @@ class RegistrationFormType extends AbstractType
                     'autocomplete' => 'email',
                 ],
                 'constraints' => [
-                    new NotBlank(message: 'Veuillez entrer une adresse email'),
-                    new Email(message: 'Veuillez entrer une adresse email valide.'),
-                    new Length(max: self::EMAIL_MAX_LENGTH, maxMessage: 'Votre adresse email ne peut pas dépasser {{ limit }} caractères'),
+                    new NotBlank(message: 'Entre une adresse email'),
+                    new Email(message: 'Entre une adresse email valide.'),
+                    new Length(max: self::EMAIL_MAX_LENGTH, maxMessage: 'Ton adresse email ne peut pas dépasser {{ limit }} caractères'),
                 ],
             ])
 
             ->add('agreeTerms', CheckboxType::class, [
                 'mapped' => false,
                 'constraints' => [
-                    new IsTrue(message: 'Vous devez avoir l\'âge minimum et accepter les conditions d\'utilisation.'),
+                    new IsTrue(message: 'Tu dois avoir l\'âge minimum et accepter les conditions d\'utilisation.'),
                 ],
             ])
 
@@ -81,7 +90,7 @@ class RegistrationFormType extends AbstractType
                     'maxlength' => PasswordPolicy::MAX_LENGTH,
                     'autocomplete' => 'new-password',
                 ],
-                'constraints' => PasswordPolicy::constraints('Veuillez entrer un mot de passe'),
+                'constraints' => PasswordPolicy::constraints('Entre un mot de passe'),
             ])
         ;
     }

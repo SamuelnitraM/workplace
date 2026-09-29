@@ -17,6 +17,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/todo', name: 'app_todo_')]
 class TodoController extends AbstractController
 {
+    use TodoNodeControllerTrait;
+
     // Main page: displays all of the user's personal lists
     #[Route('/', name: 'index')]
     public function index(TodoNodeRepository $todoNodeRepository): Response
@@ -94,7 +96,7 @@ class TodoController extends AbstractController
     }
 
     // Delete a node
-    #[Route('/delete/{id}', name: 'delete', methods: ['POST'])]
+    #[Route('/delete/{id}', name: 'delete', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function delete(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): Response
     {
         if (!$this->isTodoCsrfValid($request)) {
@@ -116,7 +118,7 @@ class TodoController extends AbstractController
     }
 
     // Rename a node
-    #[Route('/rename/{id}', name: 'rename', methods: ['POST'])]
+    #[Route('/rename/{id}', name: 'rename', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function rename(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
         if (!$this->isTodoCsrfValid($request)) {
@@ -141,99 +143,37 @@ class TodoController extends AbstractController
     }
 
     // Increase a task's progress
-    #[Route('/progress/up/{id}', name: 'progress_up', methods: ['POST'])]
+    #[Route('/progress/up/{id}', name: 'progress_up', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function progressUp(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
-        if (!$this->isTodoCsrfValid($request)) {
-            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
-        }
-
-        // Only a task (item type), checked by the voter
-        $node = $this->findPersonalNode($id, TodoNodeVoter::PROGRESS, $todoNodeRepository);
-
-        if (!$node) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        $currentProgress = $node->getProgress() ?? 0;
-        $newProgress = min(100, $currentProgress + 25);
-        $node->setProgress($newProgress);
-
-        // If progress reaches 100%, check the task automatically
-        if ($newProgress === 100) {
-            $node->setIsDone(true);
-            $node->setDoneAt(new \DateTimeImmutable());
-        }
-
-        $em->flush();
-
-        return new JsonResponse([
-            'progress' => $newProgress,
-            'isDone' => $node->isDone(),
-            'type' => 'increment'
-        ]);
+        return $this->personalProgress($id, self::PROGRESS_INCREMENT, $request, $todoNodeRepository, $em);
     }
 
     // Decrease a task's progress
-    #[Route('/progress/down/{id}', name: 'progress_down', methods: ['POST'])]
+    #[Route('/progress/down/{id}', name: 'progress_down', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function progressDown(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
-        if (!$this->isTodoCsrfValid($request)) {
-            return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
-        }
-
-        // Only a task (item type), checked by the voter
-        $node = $this->findPersonalNode($id, TodoNodeVoter::PROGRESS, $todoNodeRepository);
-
-        if (!$node) {
-            return new JsonResponse(['error' => 'Non autorisé'], 403);
-        }
-
-        $currentProgress = $node->getProgress() ?? 0;
-        $newProgress = max(0, $currentProgress - 25);
-        $node->setProgress($newProgress);
-
-        // If progress < 100%, uncheck the task
-        if ($newProgress < 100) {
-            $node->setIsDone(false);
-            $node->setDoneAt(null);
-        }
-
-        $em->flush();
-
-        return new JsonResponse([
-            'progress' => $newProgress,
-            'isDone' => $node->isDone(),
-            'type' => 'decrement'
-        ]);
+        return $this->personalProgress($id, self::PROGRESS_DECREMENT, $request, $todoNodeRepository, $em);
     }
 
     // Validate/complete a task (set to 100%)
-    #[Route('/progress/validate/{id}', name: 'progress_validate', methods: ['POST'])]
+    #[Route('/progress/validate/{id}', name: 'progress_validate', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function progressValidate(int $id, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
+    {
+        return $this->personalProgress($id, self::PROGRESS_VALIDATE, $request, $todoNodeRepository, $em);
+    }
+
+    /** Progress step of a personal task (item type, checked by the voter), or a JSON error response. */
+    private function personalProgress(int $id, string $step, Request $request, TodoNodeRepository $todoNodeRepository, EntityManagerInterface $em): JsonResponse
     {
         if (!$this->isTodoCsrfValid($request)) {
             return new JsonResponse(['error' => 'Jeton CSRF invalide'], 403);
         }
-
-        // Only a task (item type), checked by the voter
         $node = $this->findPersonalNode($id, TodoNodeVoter::PROGRESS, $todoNodeRepository);
-
         if (!$node) {
             return new JsonResponse(['error' => 'Non autorisé'], 403);
         }
-
-        $node->setProgress(100);
-        $node->setIsDone(true);
-        $node->setDoneAt(new \DateTimeImmutable());
-
-        $em->flush();
-
-        return new JsonResponse([
-            'progress' => 100,
-            'isDone' => true,
-            'type' => 'validate'
-        ]);
+        return $this->progressResponse($node, $step, $em);
     }
 
     // Personal node (outside any group) on which the current user holds the requested right (TodoNodeVoter), otherwise null
@@ -246,13 +186,5 @@ class TodoController extends AbstractController
         }
 
         return $node;
-    }
-
-    // CSRF token sent via the _token field (forms) or the X-CSRF-Token header (fetch)
-    private function isTodoCsrfValid(Request $request): bool
-    {
-        $token = $request->request->get('_token') ?? $request->headers->get('X-CSRF-Token');
-
-        return $this->isCsrfTokenValid('todo', (string) $token);
     }
 }

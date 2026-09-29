@@ -27,6 +27,9 @@ class SubmissionThrottle
             'forum_reply' => new Autowire(service: 'limiter.forum_reply'),
             'photo_comment' => new Autowire(service: 'limiter.photo_comment'),
             'report' => new Autowire(service: 'limiter.report'),
+            'group_message' => new Autowire(service: 'limiter.group_message'),
+            'photo_upload' => new Autowire(service: 'limiter.photo_upload'),
+            'army_import' => new Autowire(service: 'limiter.army_import'),
         ])]
         private readonly ContainerInterface $limiterFactories,
     ) {

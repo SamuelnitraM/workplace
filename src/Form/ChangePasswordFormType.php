@@ -21,7 +21,7 @@ class ChangePasswordFormType extends AbstractType
                 'mapped' => false,
                 'attr' => ['autocomplete' => 'current-password'],
                 'constraints' => [
-                    new NotBlank(message: 'Veuillez entrer votre mot de passe actuel'),
+                    new NotBlank(message: 'Entre ton mot de passe actuel'),
                 ],
             ]);
         }
@@ -44,7 +44,7 @@ class ChangePasswordFormType extends AbstractType
                 ],
                 'invalid_message' => 'Les mots de passe ne correspondent pas.',
                 // Same rules as the registration (App\Security\PasswordPolicy)
-                'constraints' => PasswordPolicy::constraints('Veuillez entrer un nouveau mot de passe'),
+                'constraints' => PasswordPolicy::constraints('Entre un nouveau mot de passe'),
             ])
         ;
     }

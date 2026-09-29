@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Security\ThrottledAction;
+use App\Security\SubmissionThrottle;
 use App\Army\ArmyListComposer;
 use App\Army\ArmyListCounter;
 use App\Army\ArmyListStatistics;
@@ -221,7 +223,7 @@ class ArmyListController extends AbstractController
     /** Import of a list written in the text format (official application, SprueHub export). */
     #[Route('/import', name: 'import', methods: ['GET', 'POST'])]
     #[IsGranted('ROLE_USER')]
-    public function import(Request $request, ArmyListTextFormat $textFormat): Response
+    public function import(Request $request, ArmyListTextFormat $textFormat, SubmissionThrottle $throttle): Response
     {
         $text = (string) $request->request->get('text', '');
         $faction = (string) $request->request->get('faction', '');
@@ -232,7 +234,9 @@ class ArmyListController extends AbstractController
             }
             /** @var User $user */
             $user = $this->getUser();
-            $result = $textFormat->import($text, $faction !== '' ? $faction : null, $user);
+            $result = $throttle->tryConsumeForUser(ThrottledAction::ArmyImport, $user)
+                ? $textFormat->import($text, $faction !== '' ? $faction : null, $user)
+                : ThrottledAction::ArmyImport->refusalMessage();
             if (is_string($result)) {
                 $this->addFlash('error', $result);
             } else {
@@ -359,11 +363,6 @@ class ArmyListController extends AbstractController
     }
 
     /**
-     * Applies the form, then the matched play rules of an official list.
-     *
-     * @return string|null error message, or null when the list can be saved
-     */
-    /**
      * Blocks of the right column: the public lists most duplicated and most exported by other members.
      *
      * @return array{mostDuplicated: ArmyList[], mostExported: ArmyList[]}
@@ -376,6 +375,11 @@ class ArmyListController extends AbstractController
         ];
     }
 
+    /**
+     * Applies the form, then the matched play rules of an official list.
+     *
+     * @return string|null error message, or null when the list can be saved
+     */
     private function composeAndCheck(Request $request, ArmyList $armyList): ?string
     {
         $error = $this->composer->apply($request, $armyList);

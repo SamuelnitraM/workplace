@@ -17,8 +17,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER')]
@@ -28,7 +26,7 @@ class FriendshipController extends AbstractController
     /** Friend suggestions shown next to the friend list. */
     public const SUGGESTIONS_LIMIT = 8;
 
-    // Envoyer une demande d'ami
+    // Send a friend request
     #[Route('/request/{username}', name: 'request', methods: ['POST'])]
     public function request(
         string $username,
@@ -36,47 +34,30 @@ class FriendshipController extends AbstractController
         Request $request,
         FriendshipRepository $friendshipRepository,
         EntityManagerInterface $em,
-        CsrfTokenManagerInterface $csrfTokenManager,
         NotificationService $notifications,
         MemberBlocker $memberBlocker,
     ): Response {
+        $targetUser = $this->findActionTarget($username, $request, $userRepository);
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
-
-        if (!$csrfTokenManager->isTokenValid(new CsrfToken('friendship', $request->request->get('_token')))) {
-        throw $this->createAccessDeniedException('Jeton CSRF invalide.');
-        }
-
-        if (!$targetUser) {
-            throw $this->createNotFoundException('Utilisateur introuvable');
-        }
-
-        // Vérifier qu'on ne s'ajoute pas soi-même
         if ($targetUser === $currentUser) {
-            $this->addFlash('error', 'Vous ne pouvez pas vous ajouter vous-même.');
+            $this->addFlash('error', 'Tu ne peux pas t\'ajouter toi-même.');
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
-
         if ($memberBlocker->isBlockedEitherWay($currentUser, $targetUser)) {
             $this->addFlash('error', 'Impossible d\'envoyer une demande d\'ami à ce membre.');
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
-
-        // Vérifier qu'une demande n'existe pas déjà
-        $existing = $friendshipRepository->findExisting($currentUser, $targetUser);
-        if ($existing) {
+        // A single request or friendship per pair of members
+        if ($friendshipRepository->findExisting($currentUser, $targetUser)) {
             $this->addFlash('error', 'Une demande d\'ami existe déjà.');
             return $this->redirectToRoute('app_profil_show', ['username' => $username]);
         }
-
         $friendship = new Friendship();
         $friendship->setRequester($currentUser);
         $friendship->setReceiver($targetUser);
-
         $em->persist($friendship);
         $em->flush();
-
         $notifications->notify(
             $targetUser,
             Notification::TYPE_FRIEND_REQUEST,
@@ -85,38 +66,26 @@ class FriendshipController extends AbstractController
             $this->generateUrl('app_friendship_list'),
             self::friendRequestKey($currentUser),
         );
-
         $this->addFlash('success', 'Demande d\'ami envoyée à ' . $targetUser->getUsername() . ' !');
         // Back to the page of the request (profile, friend suggestions)
         return $this->redirect(SafeReferer::urlOr($request, $this->generateUrl('app_profil_show', ['username' => $username])));
     }
 
-    // Accepter une demande d'ami
-    #[Route('/accept/{id}', name: 'accept', methods: ['POST'])]
+    // Accept a friend request
+    #[Route('/accept/{id}', name: 'accept', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function accept(
         int $id,
         Request $request,
         FriendshipRepository $friendshipRepository,
         EntityManagerInterface $em,
-        CsrfTokenManagerInterface $csrfTokenManager,
         NotificationService $notifications,
         NotificationRepository $notificationRepository,
     ): Response {
+        $friendship = $this->findPendingReceivedRequest($id, $request, $friendshipRepository);
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
-        $friendship = $friendshipRepository->find($id);
-
-        if (!$csrfTokenManager->isTokenValid(new CsrfToken('friendship', $request->request->get('_token')))) {
-        throw $this->createAccessDeniedException('Jeton CSRF invalide.');
-        }
-
-        if (!$friendship || $friendship->getReceiver() !== $currentUser || $friendship->getStatus() !== 'pending') {
-            throw $this->createAccessDeniedException();
-        }
-
         $friendship->setStatus('accepted');
         $em->flush();
-
         $notificationRepository->markReadByGroupKey($currentUser, self::friendRequestKey($friendship->getRequester()));
         $notifications->notify(
             $friendship->getRequester(),
@@ -125,41 +94,29 @@ class FriendshipController extends AbstractController
             [],
             $this->generateUrl('app_profil_show', ['username' => $currentUser->getUsername()]),
         );
-
-        $this->addFlash('success', 'Vous êtes maintenant ami avec ' . $friendship->getRequester()->getUsername() . ' !');
+        $this->addFlash('success', 'Tu es maintenant ami avec ' . $friendship->getRequester()->getUsername() . ' !');
         return $this->redirectToRoute('app_friendship_list');
     }
 
-    // Refuser une demande d'ami
-#[Route('/refuse/{id}', name: 'refuse', methods: ['POST'])]
-public function refuse(
-    int $id,
-    Request $request,
-    FriendshipRepository $friendshipRepository,
-    CsrfTokenManagerInterface $csrfTokenManager,
-    NotificationRepository $notificationRepository,
-    MemberBlocker $memberBlocker,
-): Response {
-    if (!$csrfTokenManager->isTokenValid(new CsrfToken('friendship', $request->request->get('_token')))) {
-        throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+    // Refuse a friend request
+    #[Route('/refuse/{id}', name: 'refuse', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function refuse(
+        int $id,
+        Request $request,
+        FriendshipRepository $friendshipRepository,
+        NotificationRepository $notificationRepository,
+        MemberBlocker $memberBlocker,
+    ): Response {
+        $friendship = $this->findPendingReceivedRequest($id, $request, $friendshipRepository);
+        /** @var \App\Entity\User $currentUser */
+        $currentUser = $this->getUser();
+        // Refusing a request blocks the requester (listed in the "blocked" tab, where the block can be lifted)
+        $requester = $friendship->getRequester();
+        $memberBlocker->block($currentUser, $requester);
+        $notificationRepository->markReadByGroupKey($currentUser, self::friendRequestKey($requester));
+        $this->addFlash('info', 'Utilisateur bloqué.');
+        return $this->redirectToRoute('app_friendship_list');
     }
-
-    /** @var \App\Entity\User $currentUser */
-    $currentUser = $this->getUser();
-    $friendship = $friendshipRepository->find($id);
-
-    if (!$friendship || $friendship->getReceiver() !== $currentUser || $friendship->getStatus() !== 'pending') {
-        throw $this->createAccessDeniedException();
-    }
-
-    // Refusing a request blocks the requester (listed in the "blocked" tab, where the block can be lifted)
-    $requester = $friendship->getRequester();
-    $memberBlocker->block($currentUser, $requester);
-    $notificationRepository->markReadByGroupKey($currentUser, self::friendRequestKey($requester));
-
-    $this->addFlash('info', 'Utilisateur bloqué.');
-    return $this->redirectToRoute('app_friendship_list');
-}
 
     // Block a member (from the profile page)
     #[Route('/block/{username}', name: 'block', methods: ['POST'])]
@@ -170,7 +127,7 @@ public function refuse(
         $currentUser = $this->getUser();
         if ($targetUser !== $currentUser) {
             $memberBlocker->block($currentUser, $targetUser);
-            $this->addFlash('success', $targetUser->getUsername() . ' est bloqué : vous ne pouvez plus échanger de messages ni de demandes d\'ami.');
+            $this->addFlash('success', $targetUser->getUsername() . ' est bloqué : tu ne peux plus échanger de messages ni de demandes d\'ami.');
         }
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);
     }
@@ -191,7 +148,7 @@ public function refuse(
             : $this->generateUrl('app_profil_show', ['username' => $username]));
     }
 
-    // Supprimer un ami
+    // Remove a friend, or withdraw a pending request
     #[Route('/remove/{username}', name: 'remove', methods: ['POST'])]
     public function remove(
         string $username,
@@ -199,20 +156,10 @@ public function refuse(
         UserRepository $userRepository,
         FriendshipRepository $friendshipRepository,
         EntityManagerInterface $em,
-        CsrfTokenManagerInterface $csrfTokenManager
     ): Response {
+        $targetUser = $this->findActionTarget($username, $request, $userRepository);
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
-        $targetUser = $userRepository->findOneBy(['username' => $username]);
-
-        if (!$csrfTokenManager->isTokenValid(new CsrfToken('friendship', $request->request->get('_token')))) {
-        throw $this->createAccessDeniedException('Jeton CSRF invalide.');
-        }
-
-        if (!$targetUser) {
-            throw $this->createNotFoundException('Utilisateur introuvable');
-        }
-
         // A pending request can only be withdrawn by its requester (the receiver refuses it instead)
         $friendship = $friendshipRepository->findExisting($currentUser, $targetUser);
         $canRemove = $friendship && (
@@ -222,20 +169,19 @@ public function refuse(
         if ($canRemove) {
             $em->remove($friendship);
             $em->flush();
-            $this->addFlash('success', $targetUser->getUsername() . ' a été retiré de vos amis.');
+            $this->addFlash('success', $targetUser->getUsername() . ' a été retiré de tes amis.');
         }
-
         return $this->redirectToRoute('app_profil_show', ['username' => $username]);
     }
 
-    // Liste des amis et demandes reçues
+    // Friend list, received and sent requests, blocked members
     #[Route('/list', name: 'list')]
     public function list(FriendshipRepository $friendshipRepository, NotificationRepository $notificationRepository, UserBlockRepository $blockRepository): Response
     {
         /** @var \App\Entity\User $currentUser */
         $currentUser = $this->getUser();
 
-        // Les demandes reçues et acceptations sont affichées sur cette page : leurs notifications sont lues
+        // Received requests and acceptances are shown on this page: their notifications are read
         $notificationRepository->markReadByTypes($currentUser, [
             Notification::TYPE_FRIEND_REQUEST,
             Notification::TYPE_FRIEND_ACCEPTED,
@@ -255,20 +201,36 @@ public function refuse(
         ]);
     }
 
-    /** Target member of a block action, after the CSRF check. */
+    /** Target member of a friendship or block action, after the CSRF check (never the « Membre supprimé » account). */
     private function findActionTarget(string $username, Request $request, UserRepository $userRepository): User
     {
-        if (!$this->isCsrfTokenValid('friendship', (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
-        }
+        $this->denyUnlessCsrfValid($request);
         $targetUser = $userRepository->findOneBy(['username' => $username]);
-        if (!$targetUser) {
+        if (!$targetUser || $targetUser->isDeletedMemberAccount()) {
             throw $this->createNotFoundException('Utilisateur introuvable');
         }
         return $targetUser;
     }
 
-    /** Clé d'agrégation d'une demande d'ami (une seule notification par demandeur). */
+    /** Pending friend request received by the current member, after the CSRF check. */
+    private function findPendingReceivedRequest(int $id, Request $request, FriendshipRepository $friendshipRepository): Friendship
+    {
+        $this->denyUnlessCsrfValid($request);
+        $friendship = $friendshipRepository->find($id);
+        if (!$friendship || $friendship->getReceiver() !== $this->getUser() || $friendship->getStatus() !== 'pending') {
+            throw $this->createAccessDeniedException();
+        }
+        return $friendship;
+    }
+
+    private function denyUnlessCsrfValid(Request $request): void
+    {
+        if (!$this->isCsrfTokenValid('friendship', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+    }
+
+    /** Aggregation key of a friend request (a single notification per requester). */
     private static function friendRequestKey(User $requester): string
     {
         return 'friend_request:' . $requester->getId();

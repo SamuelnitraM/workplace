@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Form\PostFormType;
 use App\Forum\ForumMarkdown;
 use App\Service\ForumImageUploader;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -13,17 +14,14 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Points d'accès de l'éditeur Markdown du forum (contrôleur Stimulus « markdown-editor ») :
- * aperçu et envoi d'image. Réservés aux membres connectés (suggestions de mention : MentionController).
+ * Endpoints of the forum Markdown editor (Stimulus controller « markdown-editor »): preview and image upload.
+ * Reserved to signed-in members (mention suggestions: MentionController).
  */
 #[Route('/forum/editor', name: 'app_forum_editor_')]
 #[IsGranted('ROLE_USER')]
 final class ForumEditorController extends AbstractController
 {
     public const CSRF_TOKEN_ID = 'forum_editor';
-
-    /** Taille maximale d'un message prévisualisé (au-delà, l'aperçu est refusé). */
-    private const PREVIEW_MAX_LENGTH = 50000;
 
     #[Route('/preview', name: 'preview', methods: ['POST'])]
     public function preview(Request $request, ForumMarkdown $markdown): JsonResponse
@@ -32,7 +30,8 @@ final class ForumEditorController extends AbstractController
             return $error;
         }
         $content = (string) $request->request->get('content', '');
-        if (mb_strlen($content) > self::PREVIEW_MAX_LENGTH) {
+        // Beyond the length accepted at publication, the preview is refused
+        if (mb_strlen($content) > PostFormType::CONTENT_MAX_LENGTH) {
             return new JsonResponse(['error' => 'Message trop long pour l’aperçu.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
@@ -58,7 +57,7 @@ final class ForumEditorController extends AbstractController
     {
         $token = $request->headers->get('X-CSRF-Token') ?? $request->request->getString('_token');
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $token)) {
-            return new JsonResponse(['error' => 'Jeton de sécurité invalide : rechargez la page.'], Response::HTTP_FORBIDDEN);
+            return new JsonResponse(['error' => 'Jeton de sécurité invalide : recharge la page.'], Response::HTTP_FORBIDDEN);
         }
 
         return null;

@@ -19,12 +19,9 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Length;
-use Symfony\Component\Validator\Constraints\NotBlank;
-use Symfony\Component\Validator\Constraints\Regex;
 
 class UserProfileFormType extends AbstractType
 {
-    /** Factions proposées (profil, présentation guidée), regroupées par famille. */
     /**
      * Favorite faction choices: the playable factions of the army builder, grouped like its menu.
      *
@@ -46,29 +43,17 @@ class UserProfileFormType extends AbstractType
         $builder
             ->add('username', TextType::class, [
                 'label' => "Nom d'utilisateur",
-                'constraints' => [
-                    new NotBlank(message: 'Veuillez entrer un nom d\'utilisateur'),
-                    new Length(
-                        min: 3,
-                        minMessage: 'Votre pseudo doit contenir au moins {{ limit }} caractères',
-                        max: 50,
-                        maxMessage: 'Votre pseudo ne peut pas dépasser {{ limit }} caractères',
-                    ),
-                    new Regex(
-                        pattern: '/^[A-Za-z0-9_.-]+$/D',
-                        message: 'Votre pseudo ne peut contenir que des lettres sans accent, des chiffres, et les caractères « _ », « . » et « - ».',
-                    ),
-                ],
+                'constraints' => RegistrationFormType::usernameConstraints('Entre un nom d\'utilisateur'),
             ])
             ->add('bio', TextareaType::class, [
                 'label' => 'Biographie',
                 'required' => false,
                 'constraints' => [
-                    new Length(max: self::BIO_MAX_LENGTH, maxMessage: 'Votre biographie ne peut pas dépasser {{ limit }} caractères'),
+                    new Length(max: self::BIO_MAX_LENGTH, maxMessage: 'Ta biographie ne peut pas dépasser {{ limit }} caractères'),
                 ],
                 'attr' => [
                     'maxlength' => self::BIO_MAX_LENGTH,
-                    'placeholder' => 'Parlez-nous de vous...',
+                    'placeholder' => 'Parle-nous de toi...',
                     'rows' => 4
                 ],
             ])
@@ -92,9 +77,9 @@ class UserProfileFormType extends AbstractType
                 'expanded' => true,
                 'multiple' => false,
             ])
-            // Titre : uniquement les badges débloqués (un autre identifiant soumis est refusé par le formulaire)
+            // Title: unlocked badges only (any other submitted identifier is refused by the form)
             ->add('titleBadge', EntityType::class, [
-                'label' => 'Titre affiché à côté de votre pseudo',
+                'label' => 'Titre affiché à côté de ton pseudo',
                 'class' => Badge::class,
                 'required' => false,
                 'placeholder' => '— Aucun titre —',
@@ -121,7 +106,7 @@ class UserProfileFormType extends AbstractType
                     ProfileImageUploader::fileConstraint(ProfileImage::Cover),
                 ],
                 'attr' => ['accept' => implode(',', ProfileImageUploader::MIME_TYPES)],
-                'help' => 'Image affichée en haut de votre profil. JPG, PNG ou WEBP, ' . ProfileImage::Cover->maxFileSize() . 'o maximum ; format large conseillé (ex. 1600 × 400).',
+                'help' => 'Image affichée en haut de ton profil. JPG, PNG ou WEBP, ' . ProfileImage::Cover->maxFileSize() . 'o maximum ; format large conseillé (ex. 1600 × 400).',
             ])
         ;
     }

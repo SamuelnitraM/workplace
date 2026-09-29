@@ -18,7 +18,7 @@ class ThreadFormType extends AbstractType
         $builder
             ->add('title', TextType::class, [
                 'label' => 'Titre du sujet',
-                'attr' => ['placeholder' => 'Donnez un titre clair à votre sujet'],
+                'attr' => ['placeholder' => 'Donne un titre clair à ton sujet'],
                 'constraints' => [
                     new NotBlank(message: 'Le titre est obligatoire'),
                     new Length(min: 5, max: 255),
@@ -28,12 +28,12 @@ class ThreadFormType extends AbstractType
                 'label' => 'Contenu',
                 'mapped' => false,
                 'attr' => [
-                    'placeholder' => 'Rédigez le contenu de votre sujet...',
+                    'placeholder' => 'Rédige le contenu de ton sujet...',
                     'rows' => 8
                 ],
                 'constraints' => [
                     new NotBlank(message: 'Le contenu est obligatoire'),
-                    new Length(min: 10),
+                    new Length(min: 10, max: PostFormType::CONTENT_MAX_LENGTH),
                 ],
             ])
         ;

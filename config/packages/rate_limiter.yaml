@@ -34,6 +34,18 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '1 hour'
+        group_message:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
+        photo_upload:
+            policy: sliding_window
+            limit: 20
+            interval: '1 hour'
+        army_import:
+            policy: sliding_window
+            limit: 20
+            interval: '1 hour'
 
 when@test:
     framework:
@@ -46,3 +58,6 @@ when@test:
             forum_reply: { policy: no_limit }
             photo_comment: { policy: no_limit }
             report: { policy: no_limit }
+            group_message: { policy: no_limit }
+            photo_upload: { policy: no_limit }
+            army_import: { policy: no_limit }

@@ -87,6 +87,7 @@ class DashboardController extends AbstractDashboardController
     private function crudUrl(string $controller, string $action): string
     {
         return $this->adminUrlGenerator
+            ->unsetAll()
             ->setController($controller)
             ->setAction($action)
             ->generateUrl();

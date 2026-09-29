@@ -11,14 +11,16 @@ use App\Text\MentionResolver;
 use App\Tour\TourLauncher;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Contracts\Service\ResetInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
-class AppExtension extends AbstractExtension
+/** Twig helpers of the site; the unread notification count is kept for one request (reset between requests). */
+class AppExtension extends AbstractExtension implements ResetInterface
 {
-    /** Icons drawn by JavaScript besides the notification icons: like hearts, password rules. */
-    private const SCRIPT_ICONS = ['heart', 'check', 'dot'];
+    /** Icons drawn by JavaScript besides the notification icons (likes, password rules, chat, pinned messages, messenger, emoji picker). */
+    private const SCRIPT_ICONS = ['heart', 'check', 'dot', 'x', 'pin', 'flag', 'send', 'chevron-down', 'chevron-up', 'helmet'];
 
     /** Cookie holding the theme chosen by the visitor (assets/controllers/theme_controller.js). */
     public const THEME_COOKIE = 'hf_theme';
@@ -60,7 +62,12 @@ class AppExtension extends AbstractExtension
         ];
     }
 
-    /** Nombre de notifications non lues de l'utilisateur connecté (une requête par rendu). */
+    public function reset(): void
+    {
+        $this->unreadNotifications = null;
+    }
+
+    /** Unread notifications of the signed-in member (one query per request). */
     public function unreadNotificationCount(): int
     {
         $user = $this->security->getUser();
@@ -71,7 +78,7 @@ class AppExtension extends AbstractExtension
         return $this->unreadNotifications ??= $this->notificationRepository->countUnread($user);
     }
 
-    /** Date relative en français : « à l'instant », « il y a 5 min », « il y a 3 h », « il y a 2 j ». */
+    /** Relative date in French: « à l'instant », « il y a 5 min », « il y a 3 h », « il y a 2 j ». */
     public function timeAgo(\DateTimeInterface $date): string
     {
         $seconds = max(0, time() - $date->getTimestamp());

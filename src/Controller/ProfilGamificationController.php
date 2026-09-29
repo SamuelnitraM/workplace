@@ -34,7 +34,7 @@ class ProfilGamificationController extends AbstractController
 
         if (!$this->isCsrfTokenValid('profile_title', $request->request->getString('_token'))) {
             if ($wantsJson) {
-                return new JsonResponse(['error' => 'Jeton de sécurité invalide, rechargez la page.'], Response::HTTP_FORBIDDEN);
+                return new JsonResponse(['error' => 'Jeton de sécurité invalide, recharge la page.'], Response::HTTP_FORBIDDEN);
             }
             throw $this->createAccessDeniedException('Jeton CSRF invalide.');
         }
@@ -46,7 +46,7 @@ class ProfilGamificationController extends AbstractController
         $message = match (true) {
             !$ok => 'Ce badge n’est pas encore débloqué : il ne peut pas servir de titre.',
             $badge === null => 'Titre retiré.',
-            default => sprintf('Titre « %s » affiché à côté de votre pseudo.', $badge->getName()),
+            default => sprintf('Titre « %s » affiché à côté de ton pseudo.', $badge->getName()),
         };
 
         if ($wantsJson) {
