@@ -61,15 +61,16 @@ MariaDB `hforge_prod` sur `mysql-hforge.alwaysdata.net`, utilisateur `hforge`. p
 ## Étape commune — Préparer la version sur le PC (PowerShell)
 
 ```powershell
-git switch main
-git pull origin main
-php bin/phpunit
+git fetch origin
+git log -1 --oneline origin/main
 ```
+
+`git fetch` récupère l'état de GitHub **sans toucher au dossier de travail**. La ligne affichée est la version qui va partir en production : vérifier que c'est bien le dernier commit attendu. Toutes les commandes suivantes utilisent `origin/main` (la branche `main` **de GitHub**), jamais `main` seul : une branche `main` locale non mise à jour, ou un travail en cours sur une autre branche, enverrait une ancienne version.
 
 Repérer ce qui a changé depuis la dernière mise en production, grâce à l'étiquette posée la fois précédente (voir la fin de ce document). Remplacer `prod-2026-09-28` par la dernière étiquette (`git tag` les liste toutes) :
 
 ```powershell
-git diff --name-status prod-2026-09-28 main
+git diff --name-status prod-2026-09-28 origin/main
 ```
 
 Chaque ligne commence par une lettre : `A` ajouté, `M` modifié, `D` **supprimé**, `R` renommé. À noter pour la suite :
@@ -86,11 +87,15 @@ Pour la toute première mise en production, il n'y a pas d'étiquette : tout est
 ### A1. Sur le PC (PowerShell)
 
 ```powershell
+git switch main
+git pull origin main
 php bin/console tailwind:build --minify
-git archive --format=zip --output=..\sprue-deploy.zip main
+git archive --format=zip --output=..\sprue-deploy.zip origin/main
 ```
 
-- `git archive` produit une copie **propre** de `main` : uniquement les fichiers versionnés, donc jamais `.env.local`, `vendor/`, `var/` ni les photos des membres.
+- `git switch main` puis `git pull` mettent le dossier de travail sur la même version que GitHub : le CSS est construit à partir des templates **du dossier de travail**, il doit donc correspondre au code envoyé. Si `git switch` refuse à cause de modifications en cours, les committer (ou les mettre de côté avec `git stash`) avant de continuer.
+
+- `git archive` produit une copie **propre** de la branche `main` de GitHub : uniquement les fichiers versionnés, donc jamais `.env.local`, `vendor/`, `var/` ni les photos des membres.
 - `tailwind:build --minify` produit `var\tailwind\app.built.css`. Il se construit **sur le PC** : sur l'offre gratuite, la commande est interrompue faute de mémoire.
 
 ### A2. Envoyer (FileZilla)
@@ -149,7 +154,7 @@ Dans un dossier **séparé** du projet (sinon le site local serait mis en mode p
 
 ```powershell
 Remove-Item -Recurse -Force C:\sprue-prod -ErrorAction SilentlyContinue
-git archive --format=zip --output=C:\sprue-prod.zip main
+git archive --format=zip --output=C:\sprue-prod.zip origin/main
 Expand-Archive C:\sprue-prod.zip -DestinationPath C:\sprue-prod
 Remove-Item C:\sprue-prod.zip
 cd C:\sprue-prod
@@ -242,6 +247,7 @@ Une erreur 500 dès l'accueil vient presque toujours d'un `.env.local` absent ou
 |---|---|---|
 | `Attempted to load class "DebugBundle"` (ou `WebProfilerBundle`, `MakerBundle`) pendant `composer install` ou une commande | Le serveur démarre en `dev` alors que les outils de développement ne sont pas installés | Vérifier `~/www/.env.local` : il doit exister et contenir `APP_ENV=prod` et `APP_DEBUG=0` ; un fichier `.env.local.php` éventuel passe avant lui (le supprimer ou le régénérer). Contrôle : `php bin/console about` affiche `prod`. Puis relancer toutes les commandes de A3 à partir de `composer install` |
 | Les clés (base, Pusher, e-mails) disparaissent après une mise en production et le site repasse en `dev` | Les secrets ont été écrits dans `~/www/.env` : ce fichier fait partie du dépôt et il est remplacé à chaque envoi | Les mettre dans `~/www/.env.local` (`cp .env .env.local` si le `.env` du serveur les contient), puis remettre le `.env` du dépôt |
+| Le site ne montre pas les dernières modifications | Archive faite depuis une branche `main` locale ancienne ; fichiers non remplacés par FileZilla (réglage « écraser si plus récent » : les fichiers d'une archive portent la date de leur dernier commit, souvent plus ancienne que celle des fichiers du serveur) ; cache non vidé (en production, Symfony ne relit jamais les templates ni la configuration tant que `var/cache/prod` existe) | Archiver `origin/main` après `git fetch origin` ; FileZilla réglé sur « Écraser le fichier » ; puis `cache:clear` (ou supprimer `var/cache/prod`) et `asset-map:compile`. Contrôle sur le serveur : `ls ~/www/migrations \| tail -1` doit montrer la dernière migration du dépôt |
 | Erreur 500 sur tout le site | Même cause, ou fichier supprimé du dépôt resté sur le serveur | Même contrôle, puis `tail -n 50 var/log/prod.log` |
 | Site sans mise en forme ni interactivité | `importmap:install` ou `asset-map:compile` non lancés, ou CSS Tailwind absent | Envoyer `var/tailwind/app.built.css`, relancer les deux commandes et `cache:clear` |
 | Administration sans mise en forme | `public/bundles` absent | `php bin/console assets:install public` |
@@ -253,7 +259,7 @@ Une erreur 500 dès l'accueil vient presque toujours d'un `.env.local` absent ou
 Sur le PC, une fois la production vérifiée, poser une étiquette sur la version publiée. La prochaine mise en production s'en servira pour lister les changements :
 
 ```powershell
-git tag prod-2026-09-29 main
+git tag prod-2026-09-29 origin/main
 git push origin prod-2026-09-29
 ```
 
