@@ -1,25 +1,22 @@
-# SprueHub — Récapitulatif complet du site
+# SprueHub — Récapitulatif du site
 
-> Réseau social francophone dédié au hobby de la figurine : Warhammer, autres wargames, peinture et maquettes.
-> Ce document décrit l'état du site : fonctionnalités, règles de fonctionnement, arborescence des pages, architecture technique et exploitation.
-> Voir aussi : [design-system.md](design-system.md) (interface) et [roadmap.md](roadmap.md) (évolutions prévues).
+> Réseau social francophone du hobby de la figurine : Warhammer, autres wargames, peinture et maquettes.
+> Ce document explique comment le site fonctionne, comment il est construit, quelles pages il contient et **quel fichier modifier** pour changer son contenu.
+> Voir aussi : [design-system.md](design-system.md) (interface), [roadmap.md](roadmap.md) (suite du projet), [workflow/](workflow/README.md) (Git et mise en production).
 
 ---
 
 ## Sommaire
 
 1. [Vue d'ensemble](#1-vue-densemble)
-2. [Arborescence du site](#2-arborescence-du-site)
-3. [Fonctionnalités](#3-fonctionnalités)
-4. [Administration (EasyAdmin)](#4-administration-easyadmin)
-5. [Architecture technique](#5-architecture-technique)
-6. [Modèle de données](#6-modèle-de-données)
-7. [Sécurité et droits](#7-sécurité-et-droits)
-8. [Temps réel](#8-temps-réel)
-9. [Commandes console](#9-commandes-console)
-10. [Arborescence du code](#10-arborescence-du-code)
-11. [Déploiement et exploitation](#11-déploiement-et-exploitation)
-12. [Conventions de développement](#12-conventions-de-développement)
+2. [Plan du site](#2-plan-du-site)
+3. [Fonctionnement](#3-fonctionnement)
+4. [Administration](#4-administration)
+5. [Architecture](#5-architecture)
+6. [Modifier le contenu du site](#6-modifier-le-contenu-du-site)
+7. [Commandes console et tâches planifiées](#7-commandes-console-et-tâches-planifiées)
+8. [Environnements](#8-environnements)
+9. [Conventions de développement](#9-conventions-de-développement)
 
 ---
 
@@ -27,600 +24,268 @@
 
 | Élément | Valeur |
 |---|---|
-| Nom | **SprueHub** (dépôt : HighlightForge) |
-| Public | Joueurs de wargame, peintres de figurines, maquettistes |
-| Langue | Français, avec tutoiement dans les parcours d'accueil |
+| Nom | **SprueHub** (dépôt GitHub `SamuelnitraM/workplace`, dossier local HighlightForge) |
+| Public | Joueurs de wargame, peintres de figurines, maquettistes ; inscription dès 15 ans |
+| Langue | Français, tutoiement des membres |
 | Production | alwaysdata (offre gratuite), base MariaDB `hforge_prod` |
-| Développement | XAMPP sous Windows (PHP 8.2+, MariaDB) |
+| Développement | Windows, XAMPP (PHP 8.2 ou plus, MariaDB) |
 
-**Les 9 grands blocs fonctionnels :**
-1. Comptes et profils (avec galerie photo) ;
-2. Forum à catégories hiérarchiques ;
-3. Amis et messagerie privée en temps réel ;
-4. Groupes (salons de discussion, messages épinglés, liste de tâches partagée) ;
-5. Listes d'armée Warhammer 40k (données BSData) ;
-6. Gamification (XP, niveaux, badges, titres, classement) ;
-7. Notifications en temps réel ;
-8. Présentation guidée à l'inscription (onboarding) ;
-9. Modération (signalements, blocage entre membres, sanctions).
+**Grands blocs :**
+1. Comptes, profils et galerie photo ;
+2. Fil d'actualité et page d'accueil ;
+3. Forum à catégories hiérarchiques ;
+4. Amis et messagerie privée en temps réel ;
+5. Groupes (salons, épingles, tâches partagées) et tâches personnelles ;
+6. Listes d'armée Warhammer 40k (données BSData) ;
+7. Gamification (XP, niveaux, badges, titres, classement) ;
+8. Notifications en temps réel ;
+9. Présentation guidée et didacticiel ;
+10. Modération (signalements, sanctions, réclamations) ;
+11. Données personnelles (pages légales, suppression de compte, purges).
 
 ---
 
-## 2. Arborescence du site
+## 2. Plan du site
 
 ### Pages publiques
 ```
-/                                   Accueil (carrousels « Dernières créations » et « Tendances de la semaine », preuve sociale)
-/login                              Connexion
+/                                   Accueil (visiteur : présentation et carrousels ; membre : fil d'actualité)
+/login                              Connexion (affiche le motif d'une sanction en cours)
 /register                           Inscription
 /mot-de-passe-oublie                Mot de passe oublié (e-mail ou pseudo)
-├── /mot-de-passe-oublie/verifier   Confirmation d'envoi (identique que le compte existe ou non)
-└── /mot-de-passe-oublie/reinitialiser/{token}   Nouveau mot de passe (lien à usage unique, 1 heure)
-/verify/email?id=…                  Confirmation de l'adresse e-mail (lien signé reçu par e-mail)
+├── /mot-de-passe-oublie/verifier               Confirmation d'envoi (identique que le compte existe ou non)
+└── /mot-de-passe-oublie/reinitialiser/{token}  Nouveau mot de passe (lien à usage unique, 1 heure)
+/verify/email?id=…                  Confirmation de l'adresse e-mail (lien signé)
+/reclamation/{id}                   Réclamation d'un membre sanctionné (lien signé de la page de connexion)
 /mentions-legales                   Mentions légales
+/confidentialite                    Confidentialité et cookies
 /conditions-utilisation             Conditions d'utilisation
 /forum/                             Forum : catégories racines
 ├── /forum/category/{slug}          Catégorie : sous-catégories et sujets
-│   └── /forum/category/{slug}/new-thread   Nouveau sujet (si la catégorie l'autorise)
-└── /forum/thread/{slug}            Sujet et réponses (Markdown, citations, solution, suivi)
-/profil/{username}                  Profil public (onglets Galerie, Armées, Badges, Activité)
-├── /profil/{username}/amis         Amis d'un membre (indisponible entre membres bloqués)
+└── /forum/thread/{slug}            Sujet et réponses
+/profil/{username}                  Profil (onglets Galerie, Armées, Badges, Activité)
+├── /profil/{username}/amis         Amis d'un membre
 ├── /profil/{username}/album/{id}   Album de la galerie
-└── /profil/{username}/photo/{id}   Photo : album, agrandissement, précédente / suivante, likes, commentaires
-/army/explorer                      Explorer : listes d'armée publiques filtrables
-/army/{id}                          Liste d'armée (publique, ou la sienne)
-├── /army/{id}/imprimer             Version imprimable (composition et fiches techniques, PDF)
+└── /profil/{username}/photo/{id}   Photo (likes, commentaires, précédente / suivante)
+/army/explorer                      Explorer : listes d'armée publiques
+/army/{id}                          Liste d'armée publique (ou la sienne)
+├── /army/{id}/imprimer             Version imprimable / PDF
 └── /army/{id}/export.txt           Export texte (format de l'application officielle)
-/classement                         Classement général (filtres)
-/groups/                            Groupes : invitations reçues, mes groupes, suggestions (visiteur : groupes publics)
-/groups/publics                     Groupes publics
+/classement                         Classement des membres
+/groups/                            Groupes (visiteur : groupes publics)
+├── /groups/publics                 Tous les groupes publics
 └── /groups/{slug}                  Groupe (selon visibilité et adhésion)
 ```
 
 ### Pages membres (connexion requise)
 ```
-/bienvenue                          Présentation guidée (4 étapes)
-└── /bienvenue/etape/{1..4}
-/profil/settings/edit               Modifier mon profil (avatar, bannière, bio, faction favorite, visibilité de l'activité)
-/profil/settings/change-password    Changer mon mot de passe
-/friendship/list                    Mes amis, demandes reçues ou envoyées, bloqués, suggestions d'amis
+/bienvenue/etape/{1..4}             Présentation guidée après l'inscription
+/didacticiel                        Visites guidées de chaque fonctionnalité
+/profil/settings/edit               Paramètres : profil, son des notifications, confidentialité, sécurité, suppression du compte
+/profil/settings/change-password    Changer de mot de passe
+/friendship/list                    Amis, demandes, bloqués, suggestions
 /messages/                          Messagerie privée
 └── /messages/{username}            Conversation avec un ami
-/notifications                      Toutes mes notifications
+/notifications                      Toutes les notifications
+/forum/category/{slug}/new-thread   Nouveau sujet
 /groups/new                         Créer un groupe
 /groups/{slug}/edit                 Paramètres du groupe (admin ou propriétaire)
 /groups/{slug}/todo/                Tâches du groupe
-/todo/                              Mes tâches personnelles
-/didacticiel                        Didacticiel : visites guidées de chaque fonctionnalité (?visite=<clé> sur la page visitée)
-/signaler/{type}/{id}               Signaler un contenu (sujet, reponse, photo, commentaire, message, profil, groupe, message-groupe)
-/reclamation/{id}                   Réclamation d'un membre suspendu (lien signé donné sur la page de connexion)
+/todo/                              Tâches personnelles
 /army/                              Mes listes d'armée
 ├── /army/new                       Créer une liste
 ├── /army/import                    Importer une liste au format texte
 └── /army/{id}/edit                 Modifier une liste
+/signaler/{type}/{id}               Signaler un contenu
 ```
 
-### Administration
+### Administration (`/admin`)
 ```
-/admin                              Tableau de bord (statistiques)
-├── /admin/report                   File de modération (signalements)
-├── /admin/appeal                   Réclamations des membres sanctionnés
-├── /admin/moderation/appeal/{id}   Décision sur une réclamation
+/admin                              Tableau de bord (ROLE_ADMIN ; un modérateur arrive sur les signalements)
+├── /admin/report                   Signalements
+├── /admin/appeal                   Réclamations
 ├── /admin/moderation/report/{id}   Décision sur un signalement
-├── /admin/moderation/member/{id}   Sanctions d'un membre
+├── /admin/moderation/appeal/{id}   Décision sur une réclamation
+├── /admin/moderation/member/{id}   Sanctions et suppression d'un membre
 ├── /admin/user                     Utilisateurs
 ├── /admin/friendship               Amitiés
-├── /admin/badge                    Badges (lecture seule, catalogue géré dans le code)
-├── /admin/category                 Catégories du forum (parent/enfant, création de sujets autorisée ou non)
-├── /admin/thread                   Sujets
-├── /admin/post                     Réponses
+├── /admin/badge                    Badges (lecture seule)
+├── /admin/category                 Catégories du forum
+├── /admin/thread, /admin/post      Sujets, réponses
 └── /admin/todo-node                Tâches
 ```
 
-### Points d'accès techniques (AJAX, sans page)
+### Points d'accès techniques (sans page)
 | Route | Rôle |
 |---|---|
-| `POST /heartbeat` | Signal de présence (utilisateurs en ligne) |
-| `POST /verify/email/resend` | Renvoyer le lien de confirmation de l'e-mail (bandeau) |
-| `POST /friendship/block/{username}`, `POST /friendship/unblock/{username}` | Bloquer ou débloquer un membre |
-| `POST /pusher/auth` | Autorisation d'accès aux canaux privés Pusher |
-| `GET /search/api` | Recherche globale (barre de recherche de l'en-tête) |
-| `GET /fil?fil=…&apres=…` | Pages suivantes du fil d'actualité (« Voir plus », Turbo Frame) |
-| `POST /forum/editor/preview`, `POST /forum/editor/image` | Éditeur Markdown : aperçu, envoi d'image |
-| `GET /mentions?q=` | Suggestions de mention `@pseudo` (forum, messagerie, salons) |
-| `POST /groups/tri`, `POST /groups/ordre`, `POST /groups/{slug}/sourdine` | Tri de mes groupes (activité ou personnalisé), ordre personnalisé, sourdine d'un groupe |
-| `POST /group-invitation/group/{slug}` | Inviter plusieurs amis depuis la page du groupe |
-| `POST /groups/{slug}/todo/task/{id}/request`, `…/task/{id}/assign`, `…/assignment/{id}/{accept\|refuse\|remove\|withdraw}` | Assignations des tâches de groupe |
-| `POST /forum/thread/{slug}/subscription`, `POST /forum/thread/{slug}/solution/{postId}` | Suivre un sujet, choisir la solution |
+| `POST /heartbeat` | Signal de présence |
+| `POST /pusher/auth` | Autorisation des canaux privés temps réel |
+| `GET /search/api` | Recherche de l'en-tête |
+| `GET /mentions?q=` | Suggestions de mention `@pseudo` |
+| `GET /fil?fil=…&apres=…` | Suite du fil d'actualité |
+| `POST /forum/editor/preview`, `POST /forum/editor/image` | Éditeur Markdown : aperçu, image |
 | `GET /notifications/recent`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | Menu des notifications |
-| `GET /messages/ajax/conversations`, `GET /messages/ajax/messages/{username}`, `POST /messages/ajax/send/{username}`, `POST /messages/ajax/read/{id}`, `GET /messages/ajax/notification-context` | Messagerie flottante |
-| `GET /army/units/{faction}`, `GET /army/detachments/{faction}`, `GET /army/enhancements/{faction}` | Données du constructeur de listes |
-| `GET /army/fiche?unit=`, `GET /army/fiche-de-liste?unit=` | Fiche technique (fragment HTML) d'une unité du catalogue ou d'une liste |
-| `POST /army/{id}/dupliquer` | Copier une liste dans ses propres listes |
-| `POST /profil/{username}/album/nouveau`, `…/album/{id}/ajouter`, `…/retirer`, `…/renommer`, `…/supprimer` | Albums de la galerie (propriétaire) |
-| `POST /gamification/activity/{key}` | Enregistrement d'une activité (badges d'exploration) |
-| `GET /profil/{username}/xp-history` | Historique d'XP (bandeau déroulant) |
+| `/messages/ajax/…` | Messagerie flottante |
+| `/army/units/{faction}`, `/army/detachments/{faction}`, `/army/enhancements/{faction}`, `/army/fiche`, `/army/fiche-de-liste` | Données et fiches du constructeur de listes |
+| `POST /gamification/activity/{key}` | Activités des badges d'exploration |
 | `/_styleguide` | Catalogue des composants d'interface (**développement uniquement**) |
 
-### Thème et chargement
-- **Thème clair ou sombre** : par défaut celui du navigateur ou du système (suivi en direct) ; interrupteur à trois positions (clair, automatique, sombre) dans le pied de page et le menu du compte. Le choix est gardé un an dans le cookie `hf_theme`, lu par le serveur pour afficher directement le bon thème (`AppExtension::themePreference()`, contrôleur `theme`). Couleurs définies une seule fois pour les deux thèmes (`light-dark()`, voir docs/design-system.md).
-- **Chargement** : barre de progression lors des changements de page ; lignes squelettes dans la recherche, les notifications, la messagerie flottante, l'aperçu Markdown et la suite du fil d'actualité.
-
-### Navigation
-- **En-tête (ordinateur) :**
-  - logo et liens Accueil, Forum, Groupes, Classement ;
-  - recherche ;
-  - bouton « Publier » (nouveau sujet, photo, liste d'armée, groupe) ;
-  - messages, notifications ;
-  - menu du compte.
-- **Barre du bas (mobile) :** les rubriques principales, toujours accessibles au pouce.
-- **Pied de page :**
-  - liens légaux ;
-  - bouton **« Continuer la présentation »**, affiché seulement tant que la présentation n'est pas terminée ;
-  - à droite, une marge réservée à la messagerie flottante (pas de chevauchement).
-- **Messagerie flottante :** une fenêtre de discussion ouverte depuis n'importe quelle page ; la barre reste en bas de l'écran et s'arrête au-dessus du pied de page (`.messenger-dock`, position collante sans JavaScript).
-- **Partager** (sujets, photos, profils, listes d'armée publiques ; `_partials/_share_button.html.twig`, contrôleur `share`) : feuille de partage du système quand le navigateur en a une, sinon copie du lien ; le partage compte pour le badge correspondant.
-- **Toasts :** les messages flash et les notifications en direct.
+Toutes les actions qui modifient des données sont en `POST` avec un jeton CSRF.
 
 ---
 
-## 3. Fonctionnalités
+## 3. Fonctionnement
 
-### 3.1 Comptes et authentification
-- **Inscription :**
-  - pseudo, e-mail, mot de passe d'**au moins 12 caractères** (`RegistrationFormType::PASSWORD_MIN_LENGTH`) ;
-  - acceptation des conditions ;
-  - bouton pour afficher ou masquer le mot de passe.
-- **Connexion :**
-  - formulaire protégé par CSRF, option « Se souvenir de moi » ;
-  - la connexion quotidienne rapporte de l'XP (voir 3.8).
-- **Déconnexion :** marque l'utilisateur hors ligne immédiatement (`PresenceLogoutSubscriber`).
-- **Changement de mot de passe :** dans les paramètres du profil.
-- **Mot de passe oublié :** demande par e-mail ou pseudo, lien à usage unique valable 1 heure (`symfonycasts/reset-password-bundle`, jetons hachés en base). La réponse est la même que le compte existe ou non ; une seule demande par compte toutes les 10 minutes. Suivre le lien confirme aussi l'adresse e-mail.
-- **Vérification de l'e-mail :** un lien signé (valable 1 heure) est envoyé à l'inscription. Tant que l'adresse n'est pas confirmée, un bandeau s'affiche en haut de chaque page avec un bouton « Renvoyer le lien ». Le lien fonctionne même déconnecté. Le compte reste utilisable sans confirmation.
-- **Limite de connexion :** 5 échecs par minute pour un même identifiant et une même adresse IP (`login_throttling`).
-- **Suspension :** un membre suspendu ne peut plus se connecter (message avec la date de fin et le motif) et sa session en cours est fermée dès la page suivante (voir 3.14).
+### 3.1 Comptes
+- **Inscription** : pseudo, e-mail, mot de passe, case « J'ai au moins 15 ans et j'accepte les conditions ». Le mot de passe suit une règle unique (`App\Security\PasswordPolicy`) : **8 caractères minimum, avec majuscule, minuscule, chiffre et symbole**, vérifiée en direct pendant la saisie.
+- **Adresse e-mail** : un lien signé (1 heure) la confirme ; tant qu'elle ne l'est pas, un bandeau propose de renvoyer le lien. Le compte reste utilisable.
+- **Connexion** : « Se souvenir de moi » (30 jours), 5 échecs par minute au maximum. La connexion quotidienne rapporte de l'XP.
+- **Mot de passe oublié** : lien à usage unique valable 1 heure, réponse identique que le compte existe ou non, une demande toutes les 10 minutes.
+- **Déconnexion** : le membre disparaît aussitôt des connectés.
+- **Suppression du compte** : voir 3.14.
 
-### E-mails
-- **Envoi :** Mailjet (offre gratuite, 200 e-mails par jour) via `symfony/mailjet-mailer`. Tous les envois passent par `App\Mailer\TransactionalMailer` ; un échec est journalisé sans bloquer l'action.
-- **Envoi synchrone :** les e-mails partent pendant la requête (pas de file Messenger), car l'hébergement gratuit n'a pas de worker permanent.
-- **Modèles :** `templates/email/` (gabarit commun `layout.html.twig`, bouton `_button.html.twig`) : confirmation d'adresse, mot de passe oublié, message de la modération, suspension.
+### 3.2 Présentation guidée et didacticiel
+- **Présentation** (`/bienvenue`, `OnboardingService`) après l'inscription, en 4 étapes passables : faction principale, profil (avatar, bio), groupes suggérés, conclusion. L'étape en cours est mémorisée ; le pied de page propose « Continuer la présentation » tant qu'elle n'est pas finie.
+- **Didacticiel** (`/didacticiel`, lien « Je suis perdu ») : une visite guidée par fonctionnalité (Premiers pas, Forum, Groupes, Profil et galerie, Listes d'armée, Messagerie). La visite s'ouvre sur la page concernée (`?visite=<clé>`) et met en avant chaque élément avec driver.js ; un élément absent (mobile, page vide) donne une explication au centre de l'écran.
 
-### 3.2 Présentation guidée (onboarding)
-L'onboarding se lance après l'inscription (`/bienvenue`). Il compte **4 étapes**, avec un indicateur de progression :
-1. **Ta faction principale** ;
-2. **Ton profil** : avatar et bio ;
-3. **Rejoins des groupes** : jusqu'à 6 groupes suggérés, rejoignables en un clic ;
-4. **Prêt pour la bataille !**
+### 3.3 Accueil et fil d'actualité
+- **Visiteur** : présentation du site, carrousels « Dernières créations » et « Tendances de la semaine » (photos les plus aimées sur 7 jours, complétées par les plus aimées de tous les temps).
+- **Membre** : fil d'actualité (`App\Feed\FeedService`) avec les photos, sujets, listes publiques et badges des autres membres ; filtres Tout (amis et groupes), Amis, Groupes, Communauté, Actualités (sujets des catégories en lecture seule). 12 éléments par page, chargement automatique en bas du fil. « J'aime » et commentaires directement depuis le fil. Colonne de droite (masquée sur mobile) : dernières discussions, mes sujets, sections du forum.
 
-Fonctionnement :
-- l'avancement est mémorisé (`onboardingStep`, `onboardingCompletedAt`) ;
-- chaque étape peut être passée ;
-- tant qu'elle n'est pas terminée, le bouton « Continuer la présentation » du pied de page la reprend à l'étape mémorisée ;
-- la dernière étape renvoie vers le didacticiel : « Si tu es perdu, lance le didacticiel qui te guidera à travers le site ».
-
-La présentation sert à compléter le profil ; le **didacticiel** explique le fonctionnement du site.
-
-### Didacticiel (visites guidées)
-- **Accès :** lien « Je suis perdu » du pied de page (membres), page `/didacticiel` : une carte par visite, « Lancer la visite ».
-- **Visites** (`App\Tour\TourCatalog`, point d'entrée unique du contenu) : Premiers pas (navigation, recherche, Publier, messages, notifications, compte, fil d'actualité), Forum, Groupes, Profil et galerie, Listes d'armée, Messagerie.
-- **Fonctionnement :** une visite s'ouvre sur la page de sa fonctionnalité avec `?visite=<clé>` (`App\Tour\TourLauncher`, fonction Twig `requested_tour()`), le paramètre est retiré de l'adresse, puis le contrôleur `tour` (bibliothèque **driver.js**) met en avant chaque élément. Une étape vise le premier élément visible de sa liste de sélecteurs (identifiants, repères, attributs `data-tour`) ; sans élément visible (mise en page mobile, page vide), l'explication s'affiche au centre de l'écran. La dernière étape propose la visite suivante et le retour à la liste.
-
-### 3.3 Profil
-- **En-tête :**
-  - **bannière** choisie par le membre, ou le visuel par défaut ;
-  - avatar, pseudo, **titre** (un badge choisi, affiché à côté du pseudo) ;
-  - compteur « Amis » cliquable : ses propres amis, ou la liste d'amis d'un autre membre (`/profil/{username}/amis`, amis en commun signalés) ;
-  - niveau et barre d'XP, série de connexion ;
-  - faction favorite et bio.
-- **Onglets** (contrôleur Stimulus `tabs`) :
-  - **Galerie** : jusqu'à **10 photos** par membre, voir 3.4 ;
-  - **Armées** : les listes d'armée publiques du membre ;
-  - **Badges** :
-    - explication du gain quotidien ;
-    - badges regroupés par catégorie, avec progression et rareté (% des membres qui les possèdent) ;
-    - les badges non obtenus sont affichés en gris ;
-    - un **historique d'XP** en bandeau déroulant, replié par défaut, séparé de l'activité du compte ;
-  - **Activité** : les 10 dernières actions. Le membre peut masquer cet onglet (`showActivity`).
-- **Paramètres :** avatar et **bannière** (`App\Profile\ProfileImage`, `ProfileImageUploader`), bio, faction favorite, visibilité de l'activité.
-  - **Recadrage** : une image choisie s'ouvre dans une fenêtre de recadrage (Cropper.js, contrôleur `profile-image`) avec un cadre carré pour l'avatar (guide rond) et 4:1 pour la bannière. Le serveur garde exactement ce cadre (`App\Image\ImageCrop`, recentré au bon format s'il est incomplet), après avoir appliqué l'orientation EXIF des photos de téléphone ;
-  - ré-encodage WebP 512 px pour l'avatar, 1920 px de large pour la bannière, dans `public/uploads/avatars` et `public/uploads/covers` ; la bannière s'affiche au format 4:1 sur le profil.
-- **Choix du titre :** parmi les badges obtenus (`POST /profil/settings/title`).
-
-### 3.4 Galerie photo
-- **Envoi :** depuis son profil, 10 photos maximum. Les images sont converties et optimisées (`GalleryPhotoUploader`).
-- **Description :** facultative, 500 caractères maximum, modifiable par le propriétaire.
-- **Visibilité :** chaque photo peut être masquée ou affichée sans être supprimée ; le bouton « œil » agit sans recharger la page (la vignette est rendue à nouveau par le serveur).
-- **Albums** (`GalleryAlbum`, `App\Service\GalleryAlbumManager`) : ils fonctionnent comme des dossiers, une photo appartient à un album au plus.
-  - l'onglet Galerie affiche les albums (couverture = photo la plus récente, nombre de photos), puis les photos hors album ;
-  - photos cochées (case en haut à gauche) : « Créer un album » dans la barre de sélection, ou « + » affiché sur chaque album existant pour les y ranger ;
-  - page d'un album : retirer de l'album, déplacer vers un autre album, renommer, supprimer (les photos reviennent dans la galerie) ;
-  - 20 albums au plus par membre ; un visiteur ne voit pas les albums sans photo visible.
-- **Page photo** (`/profil/{username}/photo/{id}`) :
-  - grande image et description, album indiqué dans le fil d'Ariane ;
-  - **agrandissement** plein écran au clic, proposé seulement quand la photo est affichée réduite ;
-  - **photo précédente / suivante** (boutons et flèches ← → du clavier) : dans l'album de la photo, sinon dans toute la galerie de son auteur ;
-  - **likes** (une fois par membre, bouton sans rechargement) ;
-  - **commentaires** : ajout, et suppression par l'auteur ou le propriétaire de la photo.
-- **Notifications :** le propriétaire est notifié des likes (regroupés : « X et 3 autres ont aimé… ») et des commentaires.
-- **Accueil :** deux carrousels côte à côte (10 photos chacun, 3 visibles, boutons précédent / suivant, glissement au doigt), à côté du bouton « Publier une photo » :
-  - **Dernières créations de la communauté** ;
-  - **Tendances de la semaine** : les photos les plus aimées ces 7 derniers jours, complétées par les plus aimées de tous les temps tant que la semaine n'en compte pas 10 (`GalleryPhotoRepository::findTrending`).
-
-### Fil d'actualité (accueil des membres)
-- **Contenu** (`App\Feed\FeedService`) : activité **publique** des autres membres — photos visibles, nouveaux sujets, listes d'armée publiques, badges obtenus (regroupés par membre et par jour).
-- **Filtres** : Tout (amis + membres de mes groupes), Amis, Groupes, Communauté (tout le monde), **Actualités** (sujets des catégories du forum en lecture seule : nouveautés et changelog du site). Par défaut « Tout », ou « Communauté » tant que le membre n'a ni ami ni groupe.
-- **Réactions** : « J'aime » (cœur et compteur) sur les photos directement depuis le fil, commentaires et réponses (icône et compteur), alignés sur une même ligne ; bouton « Répondre » sur les sujets (« Lire » quand on ne peut pas répondre).
-- **Pagination** : 12 éléments ; la page suivante se charge automatiquement quand on arrive en bas (Turbo Frame `loading="lazy"`, curseur de date sans doublon ni oubli ; le lien « Voir plus » reste en secours). Sur grand écran, le fil a exactement la hauteur de la colonne de droite et défile à l'intérieur. Le changement de filtre ne recharge que le fil.
-- « Dernières discussions », « Mes derniers sujets » et « Explorer les sections » sont dans la colonne de droite, masquée sur mobile. Les raccourcis déjà présents dans la barre de navigation ne sont pas répétés.
+### 3.4 Profil et galerie
+- **En-tête** : bannière, avatar, pseudo, **titre** (badge choisi), niveau et barre d'XP, série de connexion, faction favorite, bio, compteur d'amis cliquable.
+- **Onglets** : Galerie, Armées (listes publiques), Badges (par catégorie, progression, rareté, historique d'XP), Activité (masquable par le membre).
+- **Paramètres** : avatar et bannière recadrés dans le navigateur (Cropper.js ; le serveur applique exactement le cadre, WebP), bio, faction, titre, son des notifications, visibilité de l'activité, mot de passe, suppression du compte.
+- **Galerie** : 10 photos par membre, description, masquage sans suppression, **albums** (20 au plus, une photo dans un album au plus ; création depuis les photos cochées, déplacement, renommage, suppression).
+- **Page photo** : agrandissement, photo précédente / suivante (boutons et flèches du clavier), likes regroupés dans une seule notification, commentaires supprimables par leur auteur ou le propriétaire.
 
 ### 3.5 Forum
-- **Catégories hiérarchiques** (parent → enfant → petit-enfant, par exemple Warhammer → 40k → Space Marines) :
-  - gérées dans EasyAdmin : parent, position, description ;
-  - l'option **« Création de sujets autorisée »** (`allowThreads`) : si elle est désactivée, la catégorie ne sert qu'à regrouper et affiche au centre la liste de ses sous-catégories (titre, description, liste) ; si elle est activée, ses sous-catégories sont dans une colonne à gauche et les sujets au centre ;
-  - l'option **« Lecture seule »** (`readOnly`, `CategoryVoter`) : seuls les administrateurs y créent des sujets et y répondent ; ces sujets alimentent le filtre « Actualités » du fil ;
-  - une **icône** facultative par catégorie ; sans icône, aucun pictogramme n'est affiché ;
-  - **88 catégories** couvrent Warhammer (40k, Age of Sigmar, Horus Heresy, Old World, jeux spécialistes), les autres wargames, la peinture, le modélisme et maquettes, et la vie de la communauté. La commande `app:forum:seed-categories` les crée.
-- **Sujets :** titre et premier message ; création uniquement dans les catégories qui l'autorisent.
-- **Réponses :**
-  - deux types de vote, **« Positif »** (bleu) et **« Aide »** (rouge), affichés en icône et compteur (une fois par membre et par réponse) ;
-  - le drapeau en haut à droite de chaque message ouvre le signalement ;
-  - les images des messages s'ouvrent en plein écran au clic (contrôleur `image-lightbox`, lien « Taille réelle ») ;
-  - ces votes alimentent les badges Populaire et Dévoué.
-- **Éditeur Markdown** (sujets et réponses, contrôleur Stimulus `markdown-editor`) :
-  - barre d'outils (gras, italique, barré, citation, liste, lien, code, mention, image, émoticônes), la syntaxe Markdown de chaque bouton en infobulle, raccourcis Ctrl+B / Ctrl+I / Ctrl+K, Ctrl+Entrée pour envoyer ;
-  - onglet **Aperçu** rendu par le serveur (même rendu que le message publié) ;
-  - **images** : bouton, coller ou glisser-déposer ; ré-encodées en WebP 1600 px dans `public/uploads/forum/`, 30 par jour et par membre ;
-  - **brouillon** enregistré dans le navigateur, effacé à l'envoi.
-- **Rendu** (`App\Forum\ForumMarkdown`, filtre Twig `forum_markdown`) : HTML saisi échappé, liens externes en `nofollow` dans un nouvel onglet, seules les images envoyées sur le site sont affichées (une image externe devient un lien : pas de pistage des lecteurs). Les sauts de ligne sont conservés : les anciens messages s'affichent comme avant.
-- **Mentions `@pseudo`** : suggestions pendant la saisie, lien vers le profil, notification de la personne mentionnée (10 au plus par message). Détection et résolution communes à tout le site : `App\Text\MentionResolver` ; suggestions communes au forum, à la messagerie privée et aux salons de groupe : contrôleur `mention-suggest` et `/mentions` (`MentionController`).
-- **Émoticônes** : sélecteur commun (contrôleur `emoji-picker`, icône de casque de Space Marine), dans l'éditeur du forum et la messagerie.
-- **Citer** : le bouton « Citer » d'un message insère la citation (sans les citations imbriquées) dans la réponse.
-- **Abonnements** (`ThreadSubscription`) : l'auteur du sujet et chaque membre qui répond suivent automatiquement le sujet ; bouton « Suivre / Suivi » pour les autres. Chaque nouvelle réponse notifie les abonnés (un membre mentionné reçoit la mention plutôt que la réponse).
-- **Sujet résolu** : l'auteur du sujet (ou un administrateur) choisit la réponse « solution » (`ThreadVoter::SOLVE`). Le sujet affiche « Résolu » (liste du forum, fil d'actualité, en-tête avec lien vers la solution) ; l'auteur de la réponse gagne **+50 XP** (une fois par sujet) et reçoit une notification. Un sujet résolu reste ouvert : la discussion peut continuer.
-- **Sujets anciens** : au-delà de 6 mois sans activité (`Thread::STALE_AFTER`, `Thread::isStale()`), le formulaire de réponse prévient que la réponse fera remonter le sujet. Aucun sujet n'est fermé automatiquement.
-- **Accueil :** affiche les catégories racines. Le compteur de membres n'apparaît qu'à partir de 100 membres (preuve sociale).
+- **Catégories** hiérarchiques gérées dans l'administration : parent, position, description, icône facultative ; **création de sujets autorisée** ou non (une catégorie de regroupement affiche ses sous-catégories) ; **lecture seule** (seuls les administrateurs y écrivent ; ses sujets alimentent le filtre « Actualités »).
+- **Sujets et réponses** en Markdown : barre d'outils, aperçu rendu par le serveur, images (collées ou glissées, WebP, 30 par jour), émoticônes, brouillon gardé dans le navigateur, citation d'une réponse.
+- **Rendu** (`App\Forum\ForumMarkdown`) : HTML échappé, liens externes en `nofollow`, seules les images envoyées sur le site s'affichent.
+- **Votes** « Positif » et « Aide » (une fois par membre), **mentions `@pseudo`** avec notification, **abonnements** automatiques (auteur et participants) avec notification des nouvelles réponses.
+- **Sujet résolu** : l'auteur choisit la solution, qui rapporte 50 XP à son auteur.
+- **Sujet ancien** (6 mois sans activité) : le formulaire prévient que la réponse le fera remonter.
 
 ### 3.6 Amis et messagerie privée
-- **Amitiés :**
-  - envoi d'une demande depuis le profil ;
-  - accepter, refuser, retirer un ami, bloquer ou débloquer ;
-  - notifications pour une demande reçue et une demande acceptée ;
-  - page `/friendship/list` avec les onglets amis, demandes et bloqués, et une colonne de **suggestions** : jusqu'à 8 amis d'amis, les plus d'amis en commun d'abord (hors demandes en cours et membres bloqués).
-- **Blocage** (`UserBlock`, `App\Service\MemberBlocker`) :
-  - depuis le menu « … » du profil ; refuser une demande d'ami bloque aussi le demandeur ;
-  - bloquer supprime l'amitié ou la demande en cours, donc la messagerie privée entre les deux membres ;
-  - dans les deux sens : ni demande d'ami, ni message privé, ni invitation de groupe ;
-  - seul le membre qui a bloqué peut débloquer (profil ou onglet « Bloqués »).
-- **Messages privés :**
-  - **réservés aux amis** ;
-  - pages `/messages` et `/messages/{username}`, plus une **messagerie flottante** ouvrable partout ;
-  - envoi et réception **en temps réel** (Pusher, canaux privés), accusés de lecture, compteur de non-lus ;
-  - la page `/messages` classe les conversations par activité la plus récente et fait remonter en direct celle qui reçoit un message (contrôleur `conversation-list`) ;
-  - **mentions `@pseudo`** proposées pendant la saisie et transformées en lien vers le profil, sans notification (`MentionResolver::linkify`, filtre Twig `mention_links`) ; **émoticônes** dans la page de conversation et la messagerie flottante ;
-  - protégés par CSRF (identifiant `private_message`).
+- **Amis** : demande, acceptation, refus, retrait ; suggestions par amis en commun.
+- **Blocage** (`MemberBlocker`) : dans les deux sens, plus de demande d'ami, de message ni d'invitation ; bloquer retire l'amitié.
+- **Messages privés** entre amis uniquement, en temps réel (pages `/messages` et messagerie flottante ouvrable partout), accusés de lecture, compteur de non-lus, mentions en liens, émoticônes.
 
 ### 3.7 Groupes
-- **Création :** nom, description, public ou privé. Le créateur en devient **propriétaire**.
-- **Rôles :** `member` (1), `admin` (2), `owner` (3). Les droits s'appliquent au rôle choisi et aux rôles supérieurs. Seul le propriétaire est signalé, par une couronne.
-- **Page des groupes** (`/groups/`, `App\Group\GroupDirectory`) en trois colonnes :
-  - à gauche, les **invitations reçues** (ancre `#invitations`, cible des notifications d'invitation), avec Accepter et Refuser ;
-  - au centre, **mes groupes**, triés par **activité la plus récente** (dernier message) ou dans **mon ordre personnalisé** (interrupteur, glisser-déposer ou flèches ; `User::groupSortMode`, `GroupMember::position`) ;
-  - à droite, les **suggestions** : groupes publics où sont mes amis (2 ou 3 avatars et « N amis sont dans ce groupe »), puis groupes publics populaires ;
-  - le visiteur voit les groupes publics ; la liste complète est sur `/groups/publics`.
-- **Adhésion :**
-  - on rejoint librement un groupe public ouvert aux demandes ;
-  - un groupe privé se rejoint sur **invitation**, envoyée depuis le profil d'un membre ou depuis le bouton **Inviter** du groupe (fenêtre : recherche, sélection multiple d'amis, bouton fixe en bas) ; envoi centralisé dans `App\Group\GroupInvitationSender` ;
-  - réglage **« Qui peut inviter »** (`inviteRole`) ; dans un groupe en accès libre (public et ouvert aux demandes), tous les membres invitent ;
-  - on peut quitter un groupe ; les admins et le propriétaire peuvent exclure un membre.
-- **Salons (channels) :**
-  - plusieurs salons par groupe, chacun avec des droits de lecture et d'écriture (`canRead` / `canWrite`) par rôle ;
-  - messages **en temps réel**, sélecteur d'émoticônes, mentions `@pseudo` (suggestions, liens, notification de la personne mentionnée) ;
-  - **sourdine** par membre (`GroupMember::muted`) : plus de notification de message, mais les mentions notifient toujours ;
-  - **signalement** du groupe entier (son propriétaire en répond) et de chaque message ;
-  - suppression d'un salon par les admins.
-- **Messages épinglés :**
-  - épingler ou désépingler un message, avec un bandeau des épinglés en haut du salon ;
-  - l'épinglage est diffusé en direct ;
-  - réglage **« Qui peut épingler »** (`pinRole`).
-- **Colonne des tâches** sur la page du groupe (grand écran) : progression de chaque projet et de ses catégories, lien vers la page des tâches.
-- **Tâches du groupe** (`/groups/{slug}/todo/`) :
-  - arborescence **projet → catégorie → tâche**, projets repliés par défaut ; progression par tâche (augmenter, diminuer, valider) ; la progression d'une catégorie est la moyenne de ses tâches, calculée automatiquement et non modifiable ;
-  - réglage **« Qui peut modifier »** (`todoWriteRole`, par défaut admin) : ces rédacteurs créent, renomment, suppriment et font progresser toutes les tâches ;
-  - réglage **« Qui peut tout voir »** (`todoViewRole`) : ces lecteurs voient toute la liste et peuvent demander à être assignés ;
-  - les autres membres ne voient que ce qui leur est assigné.
-- **Assignations** (`TodoAssignment`, `App\Todo\TodoAssignmentManager`) :
-  - jusqu'à **3 membres par tâche**, réglage **« Membres par tâche »** 1, 2 ou 3 (`maxAssigneesPerTask`) ;
-  - réglage **« Gestion des assignations »** (`assignmentRole`) : admins et propriétaire, propriétaire seul, ou **mode libre** ;
-  - une **demande** d'assignation attend la décision d'un gestionnaire (avatar grisé ; fenêtre Accepter ou Refuser au clic) ; en mode libre, le membre s'assigne directement ;
-  - seuls les gestionnaires (admins et propriétaire, ou le propriétaire seul) assignent un membre et retirent un assigné, y compris en mode libre ;
-  - un membre assigné fait progresser sa tâche ; chaque catégorie affiche les avatars de ses assignés et leur nombre de tâches ;
-  - notifications : demande reçue (gestionnaires), demande acceptée ou refusée, assignation par un gestionnaire.
-- Les règles sont centralisées dans `GroupVoter` et `TodoNodeVoter`.
-- **Paramètres** (`/groups/{slug}/edit`) : informations et droit d'inviter, salons et leurs droits (liste défilante), réglages des tâches, des assignations et des épingles, membres, suppression du groupe (propriétaire uniquement).
+- **Création** : nom, description, public ou privé, ouvert aux demandes ou non ; le créateur est **propriétaire** (couronne).
+- **Rôles** : membre, admin, propriétaire. Réglages par groupe : qui peut inviter, épingler, modifier les tâches, tout voir dans les tâches, gérer les assignations, et nombre de membres par tâche (1 à 3).
+- **Page des groupes** : invitations reçues, mes groupes (tri par activité ou ordre personnalisé par glisser-déposer), suggestions (groupes publics de mes amis, puis populaires).
+- **Salons** : droits de lecture et d'écriture par rôle, messages en temps réel, émoticônes, mentions, messages épinglés, sourdine par membre, signalement du groupe et des messages.
+- **Tâches du groupe** : arbre projet → catégorie → tâche, progression, **assignations** (demande à valider ou mode libre), notifications des demandes et décisions. Règles centralisées dans `GroupVoter` et `TodoNodeVoter`.
+- **Tâches personnelles** (`/todo/`) : même fonctionnement, pour soi seul.
 
-### 3.8 Tâches personnelles
-- **Page :** `/todo/` suit la même structure que les tâches de groupe (liste, catégorie, tâche, progression), mais pour soi seul.
+### 3.8 Listes d'armée (Warhammer 40k)
+- **Données** synchronisées depuis le dépôt GitHub **BSData/wh40k-11e** (`army:sync-bsdata`) : factions, unités (règles actuelles et Legends, sans les unités spéciales Crucible), points, armes, aptitudes, mots-clés, détachements et leurs améliorations.
+- **Éditeur** (Alpine.js) : liste **libre** ou **officielle** (Incursion 1000, Force de frappe 2000, Assaut 3000 points), unités classées par catégorie, taille, Seigneur de guerre, améliorations, jauge de points.
+- **Règles officielles** (`App\Army\ArmyListRules`, identiques côté navigateur et serveur) : limite de points, 3 exemplaires d'une fiche (6 pour les troupes de ligne et transports assignés, 1 pour un personnage épique), un Seigneur de guerre personnage, améliorations du détachement une fois chacune sur un personnage non épique. Une action interdite est refusée avec sa raison.
+- **Page d'une liste** : unités par catégorie, fiches techniques complètes en fenêtre, export texte, téléchargement `.txt`, version imprimable / PDF, lien de partage, duplication.
+- **Import** d'un texte de l'application officielle ou d'un export SprueHub ; les lignes non reconnues sont listées.
+- **Explorer** : listes publiques filtrables (faction, détachement, format, recherche) ; compteurs de vues, exports et duplications ; « les plus dupliquées » et « les plus exportées ».
 
-### 3.9 Listes d'armée (Warhammer 40k)
-- **Données :**
-  - synchronisées depuis le dépôt GitHub **BSData/wh40k-11e** avec `army:sync-bsdata` ;
-  - **36 factions et 3171 unités**, avec points, figurines, **armes** (profils), **aptitudes** et mots-clés ;
-  - seules les unités jouables en règles actuelles et les unités **Legends** sont retenues. Les unités spéciales (par exemple **Crucible**) sont exclues ;
-  - les détachements sont proposés par faction, avec leurs **améliorations** (`FactionEnhancement`, coût en points et description) ;
-  - l'extraction des améliorations gère les trois organisations de BSData (groupes « <Détachement> Enhancements », condition sur le détachement, groupes partagés à la racine) ; quelques détachements restent sans amélioration connue.
-- **Création et modification** (`App\Army\ArmyListComposer`) :
-  - nom, faction, détachement, description, publique ou privée ;
-  - **type de liste** : **libre** (aucune vérification) ou **officielle** avec un format : Incursion (1000 pts), Force de frappe (2000 pts), Assaut (3000 pts) ;
-  - ajout d'unités via un sélecteur **classé par catégorie** ; le nom d'une unité ouvre sa fiche technique ;
-  - pour chaque unité : **taille** (nombre de figurines, qui fixe le coût), **Seigneur de guerre** (personnages), **amélioration** du détachement (personnages non épiques) et, en liste libre, quantité ;
-  - total des points calculé automatiquement, avec une jauge en liste officielle.
-- **Règles d'une liste officielle** (`App\Army\ArmyListRules`, appliquées par l'éditeur et par le serveur) :
-  - total dans la limite du format ;
-  - 3 exemplaires d'une même fiche au plus, 6 pour les troupes de ligne et les transports assignés, 1 pour un personnage épique ;
-  - un seul Seigneur de guerre, obligatoirement un personnage (son absence est signalée sans bloquer l'enregistrement) ;
-  - améliorations du détachement choisi uniquement, chacune une seule fois, sur un personnage non épique ;
-  - une entrée par unité (quantité 1).
-  Dans l'éditeur, toute action qui enfreindrait une règle est refusée et une fenêtre en donne la raison ; passer une liste libre en officielle n'est accepté que si elle respecte déjà les règles (les quantités sont alors séparées en unités distinctes). Changer de détachement retire les améliorations devenues incompatibles.
-- **Affichage** (`/army/{id}`) : les unités sont **rangées par catégorie**, dans le même ordre qu'à la création (`App\Army\UnitCategory`) :
-  - Héros épiques, Personnages ;
-  - Troupes de ligne, Infanterie, Unités montées ;
-  - Bêtes, Nuées, Monstres ;
-  - Véhicules, Aéronefs, Transports assignés ;
-  - Fortifications, Autres.
-- **Fiches techniques** (`templates/army/_datasheet.html.twig`) : caractéristiques en encadrés (M, E, Sv, PV, Cd, CO, invulnérable), armes de tir et de mêlée avec leurs mots-clés, aptitudes, meneur, transport, profil endommagé, mots-clés. Ouvertes dans une fenêtre depuis la liste et l'éditeur.
-- **Page d'une liste** : conformité (liste officielle), composition, menu **Exporter** (texte de l'application officielle à copier, téléchargement `.txt`, version imprimable / PDF, lien de partage), **Dupliquer**.
-- **Import** (`/army/import`, `App\Army\ArmyListTextFormat`) : texte de l'application officielle ou export SprueHub ; faction (détectée ou choisie), format, détachement, unités (nom anglais ou français), taille déduite des points, Seigneur de guerre et améliorations. Les lignes non reconnues sont listées ; une liste officielle qui enfreint les règles est importée en liste libre. La liste importée est privée.
-- **Explorer** (`/army/explorer`, accessible sans compte) : listes publiques de tous les membres, filtres faction, détachement, format et recherche (nom ou membre), 12 par page.
-- **Audience** (`App\Army\ArmyListStatistics`) : compteurs de **vues**, d'**exports** (texte téléchargé, version imprimable) et de **duplications**, sans les actions de l'auteur ; une vue et un export comptent une fois par session de visiteur. Colonne de droite de « Mes listes » et de l'Explorer : **les plus dupliquées** et **les plus exportées**.
-- **Visibilité :** une liste privée n'est visible que par son auteur. Les listes publiques apparaissent dans l'onglet Armées du profil et dans l'Explorer ; leur page est consultable sans compte.
+### 3.9 Gamification
+- **XP** : +20 par jour de connexion, +100 tous les 7 jours de série (la série survit à 3 jours d'absence), XP des badges, +50 pour une solution. Niveau N à `100 × (N−1)^1,5` XP, niveau maximum 50. Toute l'XP passe par un grand livre (`experience_award`) qui empêche les doublons.
+- **17 badges** en 4 catégories (Forum, Exploration, Niveau, Spécial), paliers de couleur bronze, argent, or, premium et honorifique ; icônes SVG dessinées pour le site. Un badge peut servir de **titre**.
+- **Classement** (`/classement`) : niveau, XP de la semaine ou du mois (heure de Paris), badges, série, sujets, votes reçus ; 25 par page, 100 classés.
 
-### 3.10 Gamification
-- **XP et niveaux :**
-  - l'XP nécessaire pour atteindre un niveau N vaut `100 × (N−1)^1,5` ;
-  - **niveau maximum 50** ;
-  - toute l'XP gagnée est inscrite dans un **grand livre** (`experience_award`) avec une clé unique, ce qui empêche de gagner deux fois la même récompense.
-- **Gains :**
-  - **+20 XP** par jour de connexion ;
-  - **+100 XP** de bonus tous les **7 jours** de série ;
-  - l'XP de chaque badge obtenu.
-- **Protection de série :** la série est conservée tant que l'absence ne dépasse pas **3 jours consécutifs**.
-- **17 badges**, en 4 catégories :
+### 3.10 Notifications et présence
+- **15 types** (amis, groupes, tâches, forum, galerie, gamification, modération), diffusés en temps réel sur le canal privé du membre : compteur, toast, menu mis à jour sans rechargement. Likes regroupés. Notifications lues supprimées après 90 jours.
+- **Son** : 6 sons synthétisés dans le navigateur (aucun fichier audio), choisis dans les paramètres ; un seul son même avec plusieurs onglets.
+- **Présence** : signal toutes les 30 secondes (suspendu quand l'onglet est caché), « en ligne » pendant 90 secondes. Le premier signal du jour alimente les statistiques d'activité.
 
-| Catégorie | Badges | Condition |
-|---|---|---|
-| Forum | Pionnier I / II / III | 1 / 50 / 100 sujets |
-| Forum | Populaire I / II / III | 1 / 50 / 100 votes « Positif » reçus |
-| Forum | Dévoué I / II / III | 1 / 50 / 100 votes « Aide » reçus |
-| Forum | Maître forgeron | 10 sujets ayant chacun 10 réponses d'autres membres |
-| Exploration | Curieux | Visiter les 9 rubriques du site |
-| Exploration | Juriste | Lire les mentions légales et les conditions d'utilisation |
-| Exploration | Archéologue | Ouvrir un sujet de plus d'un an |
-| Niveau | Héroïque / Légendaire / Immortel | Niveau 10 / 25 / 50 |
-| Spécial | Avant-garde | Faire partie des 1000 premiers inscrits |
+### 3.11 Recherche
+Barre de l'en-tête, résultats instantanés : membres, groupes publics, sections et sujets du forum.
 
-- **Paliers de couleur** selon l'XP du badge : bronze (jusqu'à 100), argent (101 à 200), or (201 à 300), premium (plus de 300) ; les badges **honorifiques** (sans XP : Immortel, Avant-garde) ont leur propre couleur, turquoise.
-- **Rareté :** le pourcentage des membres qui possèdent chaque badge.
-- **Titres :** un badge obtenu peut être affiché à côté du pseudo.
-- **Classement** (`/classement`) :
-  - 25 membres par page, 100 membres classés au maximum ;
-  - filtres : Plus haut niveau, XP de la semaine, XP du mois, Plus de badges, Meilleure série, Plus de sujets, Plus de votes reçus ;
-  - la semaine et le mois sont calculés à l'heure de Paris.
-- **Notifications :** badge obtenu, niveau atteint.
+### 3.12 Interface
+- **Thème** clair, automatique (celui du système, par défaut) ou sombre : interrupteur à trois positions, choix gardé un an (cookie `hf_theme`) et appliqué par le serveur dès le premier affichage.
+- **Navigation** : en-tête sur ordinateur (rubriques, recherche, bouton « Publier », messages, notifications, compte), barre du bas sur mobile, fils d'Ariane hiérarchiques, boutons **« Retour »** vers la page d'où l'on vient (`App\Navigation\BackLinkResolver` : « Retour à l'accueil », « Retour au sujet »…, retour dans l'historique à la même position de défilement).
+- **Chargement** : barre de progression entre les pages, lignes squelettes pendant les chargements.
+- **Partage** : feuille de partage du système, sinon copie du lien.
+- **Favicon** : logo blanc pour une interface de navigateur sombre, noir pour une interface claire.
 
-### 3.11 Notifications
-- **15 types :**
-  - amis : demande d'ami, ami accepté ;
-  - groupes : invitation de groupe, invitation acceptée, message de groupe, mention dans un salon, assignation de tâche (demande, acceptation, refus, assignation) ;
-  - forum : réponse sur le forum, mention `@pseudo`, réponse choisie comme solution ;
-  - galerie : like de photo, commentaire de photo ;
-  - gamification : badge obtenu, niveau atteint ;
-  - modération : message de la modération (contenu masqué ou supprimé, avertissement).
-- **Diffusion en temps réel** sur le canal privé de l'utilisateur :
-  - le compteur se met à jour ;
-  - un toast s'affiche ;
-  - le menu déroulant se charge sans rechargement de page.
-- **Regroupement :** les likes d'une même photo sont regroupés en une seule notification, avec la liste des auteurs.
-- **Lecture :** au clic, ou « tout marquer comme lu ».
-- **Purge :** les notifications lues de plus de 90 jours sont supprimées par `app:notifications:purge`.
+### 3.13 Modération
+- **Signaler** (drapeau) : sujets, réponses, photos, commentaires, messages privés reçus, profils, groupes, messages de groupe ; motif et précisions ; un signalement en attente par membre et par contenu. L'extrait, l'auteur et le lien sont figés au moment du signalement.
+- **Décision combinée** (`ModerationService::process()`, point d'entrée unique) : laisser, masquer ou supprimer le contenu, avertir, suspendre (24 h, 3 jours, 7 jours, 1 mois, définitif), note interne ; validation unique « Traiter » après récapitulatif ; rien n'est appliqué si une partie est invalide. L'auteur reçoit une notification et un e-mail.
+- **Sanctions** depuis la fiche d'un membre ; une suspension expirée cesse d'elle-même. Code couleur : rouge banni, orange suspendu, jaune contenu retiré.
+- **Pendant une sanction** : connexion refusée et session fermée ; la page de connexion affiche le motif tant que la sanction dure (cookie signé).
+- **Réclamations** : un bouton sous le motif ouvre un formulaire (lien signé 2 heures, une réclamation par sanction) ; l'équipe lève ou maintient la sanction et répond par e-mail.
+- **Membre banni définitivement** (`App\Moderation\BannedMembers`) : masqué partout (fil, classement, suggestions, recherche, carrousels, Explorer) ; son profil ne montre que photo, pseudo et « Banni » ; ses messages du forum et des groupes restent visibles avec la mention « Banni ».
+- **Limites anti-spam** (`App\Security\SubmissionThrottle`, `config/packages/rate_limiter.yaml`) : inscription 3/heure, mot de passe oublié 5/heure, renvoi du lien de confirmation 3/heure, message privé 20/minute, sujet 5/heure, réponse 6/minute, commentaire 6/minute, signalement 10/heure.
 
-- **Son de notification** : joué à chaque nouvelle notification ou message privé (hors conversation ouverte). 6 sons originaux **synthétisés dans le navigateur** (`assets/lib/sounds.js`, aucun fichier audio) : Auspex (défaut), Enclume, Jet de dés, Cor de guerre, Cristal psychique, Servo-crâne, ou aucun son. Choix et écoute dans les paramètres du profil (`User::notificationSound`). Un seul son même avec plusieurs onglets ouverts (Web Locks), une seule fois par rafale. Le navigateur n'autorise le son qu'après une première interaction avec la page.
-
-### 3.12 Présence (utilisateurs en ligne)
-- **Signal de présence :** envoyé toutes les **30 s** par le contrôleur Stimulus `heartbeat`, et suspendu quand l'onglet est caché.
-- **Écriture en base :** au plus une fois toutes les 25 s.
-- **Statut en ligne :** un membre est considéré en ligne s'il a donné signe de vie depuis moins de **90 s**.
-- **Affichage :** dans la carte « Utilisateurs actifs » du tableau de bord admin, avec un **rond vert**.
-- **Activité quotidienne** (`MemberDailyActivity`) : le premier signal de chaque jour enregistre une ligne par membre et par jour, base des futures statistiques (actifs quotidiens, rétention).
-
-### 3.13 Recherche
-- **Barre de recherche** dans l'en-tête, résultats instantanés (`/search/api`) : membres, groupes publics, **sections du forum** (catégories et sous-catégories, avec leur parent) et **sujets** (avec leur catégorie).
-
-### 3.14 Modération
-- **Signaler :** bouton « Signaler » (drapeau) sur les sujets, réponses, photos, commentaires de photo, messages privés reçus, profils (menu « … »), groupes et messages de groupe. Formulaire `/signaler/{type}/{id}` : motif (spam, harcèlement, propos haineux, contenu choquant, arnaque, autre) et précisions facultatives. On ne signale ni son propre contenu ni un contenu qu'on ne peut pas voir ; un seul signalement en attente par membre et par contenu.
-- **Signalement** (`Report`) : l'extrait du contenu, son auteur et son lien sont enregistrés au moment du signalement, pour garder un historique lisible même après modification ou suppression.
-- **Décision combinée** (`App\Moderation\ModerationService::process()`, point d'entrée unique ; `ModerationDecision`) : sur la fiche d'un signalement, le modérateur prépare toutes les actions puis les valide ensemble avec **« Traiter »**, après une fenêtre de confirmation qui les récapitule :
-  - **sort du contenu** : laisser en ligne, **masquer** (réponse, sujet, photo : les membres voient « masqué par la modération », l'équipe de modération voit toujours le contenu ; un sujet masqué a son message d'ouverture masqué et est fermé ; une photo masquée n'est plus visible que par son propriétaire, qui ne peut pas la réafficher) ou **supprimer** (tous les contenus sauf un profil, définitif ; supprimer le message d'ouverture supprime tout le sujet) ;
-  - **avertir** l'auteur avec un message ;
-  - **suspendre** l'auteur : 24 heures, 3 jours, 7 jours, 1 mois ou définitivement, avec un motif (« suspendu temporairement » ou « banni définitivement ») ;
-  - une **note interne** ;
-  - sans aucune action, le signalement est **classé sans suite** ;
-  - la décision est vérifiée entièrement avant d'être appliquée : rien n'est fait si une partie est invalide (motif de suspension manquant, contenu disparu, membre de l'équipe…) ;
-  - toutes les décisions sont enregistrées (`Report::resolutions`, la plus grave dans `Report::resolution`) et affichées avec leur code couleur ; l'avertissement, la suspension et la note sont gardés dans l'historique ;
-  - **Rétablir le contenu** reste possible après un masquage.
-- Une décision clôt tous les signalements en attente du même contenu. L'auteur reçoit **une seule** notification et un e-mail réunissant le sort du contenu et l'avertissement ; une suspension a son propre e-mail.
-- **Sanctions :** depuis la fiche d'un membre (`/admin/moderation/member/{id}`, action « Sanctions » de la liste des utilisateurs) : suspendre ou lever la sanction. Une suspension temporaire expirée ne compte plus, sans tâche planifiée (`User::isSuspended()`). La liste des utilisateurs affiche la sanction avec le code couleur (rouge : banni définitivement, orange : suspendu).
-- **Réclamations** (`Appeal`, `ModerationService::submitAppeal()` / `decideAppeal()`) :
-  - sous le motif affiché à la connexion, un membre suspendu (définitivement ou non) a un bouton **« Réclamation »** : lien signé valable 2 heures (`App\Moderation\AppealLink`), puisqu'il ne peut pas se connecter ; une seule réclamation par sanction ;
-  - la réclamation garde le motif et la fin de la sanction au moment de l'envoi ;
-  - EasyAdmin : menu **Réclamations** (badge du nombre en attente), une page par réclamation avec le message, la sanction contestée et l'**historique des signalements** visant le membre (chaque entrée ouvre sa fiche et le contenu signalé) ;
-  - décision : **Lever la sanction** ou **Maintenir la sanction**, avec une réponse envoyée par e-mail au membre.
-- **Membre banni définitivement** (`App\Moderation\BannedMembers`, critère unique ; `MemberContentVoter`) :
-  - **masqué** : fil d'actualité, classement, suggestions d'amis, de groupes et de mentions, recherche, carrousels de photos, explorateur et classements de listes d'armée ; ses photos, albums, listes d'armée publiques et sa liste d'amis ne s'ouvrent plus ; son profil ne montre que sa photo, son pseudo et la mention **BANNI** ;
-  - **conservé** : ses sujets et réponses du forum, ses messages de groupe, ses tâches et assignations, avec la mention « Banni » à côté de son pseudo ;
-  - l'équipe de modération voit toujours tout ; rien n'est supprimé, tout réapparaît si la sanction est levée ; une suspension temporaire ne masque rien.
-
-### 3.15 Limites anti-spam
-Chaque envoi passe par `App\Security\SubmissionThrottle` (`config/packages/rate_limiter.yaml`, fenêtre glissante) :
-
-| Action | Limite | Clé |
-|---|---|---|
-| Inscription | 3 par heure | adresse IP |
-| Demande de mot de passe oublié | 5 par heure | adresse IP |
-| Renvoi du lien de confirmation | 3 par heure | membre |
-| Message privé | 20 par minute | membre |
-| Nouveau sujet | 5 par heure | membre |
-| Réponse au forum | 6 par minute | membre |
-| Commentaire de photo | 6 par minute | membre |
-| Signalement | 10 par heure | membre |
-
-Au-delà, le formulaire affiche un message d'erreur et conserve le texte saisi.
-
-### 3.16 Compte, données personnelles et pages légales
-- **Pages légales** (`LegalController`, `templates/legal/`) : mentions légales (`/mentions-legales`), confidentialité et cookies (`/confidentialite`), conditions d'utilisation (`/conditions-utilisation`), liées depuis le pied de page et l'inscription. Éditeur, hébergeur, sous-traitants, âge minimum (15 ans) et durées de conservation sont réunis dans `config/packages/legal.yaml` (variable Twig globale `legal`) : c'est le seul fichier à modifier quand ces informations changent.
-- **Cookies :** uniquement des cookies strictement nécessaires ou demandés (session, « Se souvenir de moi », jeton CSRF, thème, motif de suspension) : pas de bandeau de consentement. Les statistiques du tableau de bord sont calculées sur le serveur, sans traceur.
-- **Mot de passe** (`App\Security\PasswordPolicy`, règle unique pour l'inscription, le changement et la réinitialisation) : 8 caractères minimum avec majuscule, minuscule, chiffre et symbole (recommandation CNIL avec limitation des tentatives de connexion).
+### 3.14 Données personnelles et pages légales
+- **Pages légales** (`templates/legal/`) : mentions légales, confidentialité et cookies, conditions d'utilisation. Toutes les informations variables sont dans `config/packages/legal.yaml`.
+- **Cookies** : uniquement des cookies nécessaires ou demandés (session, « Se souvenir de moi », CSRF, thème, motif de suspension) : pas de bandeau. Aucune bibliothèque chargée depuis un site tiers.
 - **Suppression du compte** (`App\Account\AccountDeleter`, point d'entrée unique) :
-  - par le membre : Paramètres › « Supprimer mon compte » (`POST /profil/settings/delete`), mot de passe et case de confirmation ; un administrateur ne supprime pas son propre compte ;
-  - par un administrateur : fiche Sanctions du membre, en recopiant son pseudo ; jamais un membre de l'équipe ;
-  - sujets, réponses du forum, messages et tâches de groupe passent au compte technique **« Membre supprimé »** (`UserRepository::deletedMemberAccount()`, créé au premier besoin, suspendu définitivement, connexion impossible, profil introuvable, sans mention « Banni ») ;
-  - un groupe possédé passe à son plus ancien administrateur, sinon à son plus ancien membre ; sans autre membre, il est supprimé ;
-  - tout le reste est effacé (profil et images, galerie, listes d'armée, conversations privées, amis, invitations, adhésions, tâches personnelles ; badges, notifications, votes… par `ON DELETE CASCADE`) ; un e-mail confirme la suppression.
-- **Comptes inactifs** (`App\Account\InactiveAccountPurger`, commande `app:accounts:purge-inactive`) : sans activité depuis 3 ans (dernière activité, sinon date d'inscription), un e-mail de prévenance annonce la suppression 30 jours plus tard (`User::inactivityWarnedAt`) ; toute activité annule la prévenance (`PresenceService::touch()`). L'équipe n'est jamais concernée.
-- **Signalements et réclamations** (`App\Moderation\ModerationRecordPurger`, commande `app:moderation:purge`) : supprimés 12 mois après la décision, sauf tant que le membre visé est encore suspendu ou banni.
+  - par le membre (Paramètres, mot de passe et case de confirmation ; un administrateur ne peut pas supprimer son propre compte) ou par un administrateur (fiche Sanctions, en recopiant le pseudo ; jamais un membre de l'équipe) ;
+  - les sujets, réponses, messages et tâches de groupe passent au compte technique **« Membre supprimé »** (créé au premier besoin, sans connexion possible, profil introuvable) ;
+  - un groupe possédé passe à son plus ancien admin, sinon à son plus ancien membre, sinon il est supprimé ;
+  - tout le reste est effacé ; un e-mail confirme la suppression.
+- **Comptes inactifs** : après 3 ans sans activité, e-mail de prévenance puis suppression 30 jours plus tard ; toute activité annule la procédure. L'équipe n'est jamais concernée.
+- **Conservation de la modération** : signalements et réclamations supprimés 12 mois après la décision, sauf tant que le membre visé est sanctionné.
 
 ---
 
-## 4. Administration (EasyAdmin)
+## 4. Administration
 
-**Accès :** `ROLE_ADMIN` pour tout le back-office ; `ROLE_MODERATOR` voit uniquement la section Modération (voir 7).
+**Accès** : `ROLE_ADMIN` voit tout ; `ROLE_MODERATOR` voit uniquement la modération (signalements, réclamations, sanctions).
 
-**Tableau de bord** (`/admin`, `ROLE_ADMIN`), de ce qui demande une action vers l'historique (couleurs du site, mode clair ou sombre d'EasyAdmin, styles dans `assets/styles/admin.css`) :
-1. **À traiter :** signalements et réclamations en attente (en rouge ou orange s'il y en a), membres connectés en ce moment.
-2. **Chiffres clés :** membres (et nouveaux sur 7 jours), actifs sur 7 jours, réponses et messages sur 30 jours.
-3. **Graphiques en bâtons sur 30 jours** (`App\Statistics\DailyActivityHistory`, table `member_daily_activity` et date d'inscription) : membres actifs par jour, nouvelles inscriptions, **rétention d'un jour sur l'autre** (part des membres actifs la veille revenus ce jour-là). Valeur du jour au survol ou au clavier, tableau des valeurs dans « Voir le tableau » (`templates/admin/_bar_chart.html.twig`, `App\Statistics\BarChart`).
-4. **Modération** (`App\Moderation\ModerationStatistics`) : temps moyen de traitement des signalements (30 derniers jours et depuis le début), motifs les plus fréquents, contenus les plus signalés, décisions prises (chaque décision d'un traitement combiné compte), avec le code couleur des sanctions.
-5. **Activité par période** (`AdminStatsService`, `RetentionService`) : un tableau 24 h / 7 jours / 30 jours / total (nouveaux membres, actifs, réponses, messages privés et de groupe, groupes, listes d'armée, rétention) ; **contenu du site** (compteurs cliquables).
+**Tableau de bord** (`assets/styles/admin.css`, thème clair ou sombre d'EasyAdmin) :
+1. **À traiter** : signalements et réclamations en attente, membres connectés ;
+2. **Chiffres clés** : membres, actifs sur 7 jours, réponses et messages sur 30 jours ;
+3. **Graphiques sur 30 jours** : membres actifs, inscriptions, rétention d'un jour sur l'autre (`App\Statistics`) ;
+4. **Modération** : temps moyen de traitement, motifs fréquents, contenus les plus signalés, décisions ;
+5. **Activité par période** (24 h, 7 jours, 30 jours, total) et contenu du site ;
 6. **Derniers inscrits** et **sujets récents**.
-- **Accès rapides** (en-tête) : nouvelle catégorie, badges, voir le site.
 
-**Menu :**
-- Modération : Signalements (badge rouge du nombre en attente) ;
-- Site : Utilisateurs (colonne « Sanction », action « Sanctions »), Amitiés, Badges ;
-- Forum : Catégories, Sujets, Réponses ;
-- Organisation : Tâches.
+**Menus** : Modération (Signalements, Réclamations, avec compteurs), Site (Utilisateurs avec colonne « Sanction » et actions Modifier / Sanctions, Amitiés, Badges), Forum (Catégories, Sujets, Réponses), Organisation (Tâches).
 
-**Particularités :**
-- Catégories : choix du parent, affichage du chemin complet (« Warhammer › 40k › Space Marines »), options de création de sujets et de lecture seule, icône.
-- Sujets : on ne peut choisir qu'une catégorie qui autorise les sujets.
-- Badges : **lecture seule**. La source de vérité est `App\Gamification\BadgeCatalog`, synchronisé par `app:gamification:sync-badges`.
-- Signalements : **lecture seule**, filtres par statut, type, motif et décision ; un clic sur la ligne ouvre la page de décision (voir 3.14), qui liste aussi l'**historique des signalements visant l'auteur**, chacun cliquable.
-- **Code couleur des sanctions** (`ReportResolution::severity()`, `assets/styles/admin.css`) : rouge = bannissement définitif, orange = suspension temporaire, jaune = contenu supprimé ou masqué sans bannissement.
+**Particularités** :
+- les badges sont en lecture seule : leur source est `App\Gamification\BadgeCatalog` ;
+- les signalements sont en lecture seule : un clic ouvre la page de décision, avec l'historique des signalements visant l'auteur ;
+- un compte ne se supprime pas depuis la liste des utilisateurs, seulement depuis sa fiche Sanctions (anonymisation, transmission des groupes, e-mail).
 
 ---
 
-## 5. Architecture technique
+## 5. Architecture
+
+### 5.1 Technologies
 
 | Couche | Technologie |
 |---|---|
-| Framework | Symfony 7.4, PHP ≥ 8.2 |
+| Framework | Symfony 7.4, PHP 8.2 ou plus |
 | Base de données | MariaDB, Doctrine ORM 3, migrations écrites à la main |
-| Gabarits | Twig, thème de formulaire global `templates/form/theme.html.twig` |
-| Styles | Tailwind CSS v4 (`symfonycasts/tailwind-bundle`), design system documenté dans `docs/design-system.md` |
-| JavaScript | AssetMapper et importmap (sans Node), Stimulus, Turbo Drive, Alpine (déclaratif uniquement). Toutes les bibliothèques, Alpine et Pusher compris, sont servies par le site (`importmap:install`) : aucun CDN |
-| Temps réel | Pusher (canaux privés, `pusher/pusher-php-server`) |
+| Gabarits | Twig ; thème de formulaire global `templates/form/theme.html.twig` |
+| Styles | Tailwind CSS v4 (`symfonycasts/tailwind-bundle`), jetons et composants dans `assets/styles/app.css` |
+| JavaScript | AssetMapper et importmap (sans Node) : Turbo Drive, Stimulus, Alpine.js (constructeur de listes), driver.js, Cropper.js, pusher-js ; **toutes servies par le site** (`importmap:install`) |
+| Temps réel | Pusher (canaux privés) |
 | Administration | EasyAdmin 5 |
-| Pagination | KnpPaginator |
-| Images | `ImageOptimizerService` (redimensionnement et compression) |
-| E-mails | Symfony Mailer + Mailjet (`symfony/mailjet-mailer`), envoi synchrone |
-| Anti-abus | `symfony/rate-limiter` (connexion et envois), `symfonycasts/reset-password-bundle`, `symfonycasts/verify-email-bundle` |
-| Tests | PHPUnit 11, tests fonctionnels `WebTestCase` (`tests/Functional/`) |
+| E-mails | Symfony Mailer + Mailjet, envoi synchrone (pas de worker sur l'offre gratuite) |
+| Sécurité | `symfony/rate-limiter`, `symfonycasts/reset-password-bundle`, `symfonycasts/verify-email-bundle` |
+| Tests | PHPUnit 11 (`tests/Functional`, `tests/Unit`) |
 
-**Contrôleurs Stimulus** (`assets/controllers/`) :
+### 5.2 Parcours d'une requête
 
-| Contrôleur | Rôle |
-|---|---|
-| `army_form` | Constructeur de listes d'armée |
-| `profile_image` | Photo de profil et bannière : recadrage (Cropper.js) et aperçu |
-| `chat` | Salons de groupe |
-| `messenger` | Messagerie flottante |
-| `notifications` | Menu des notifications |
-| `todo` | Tâches |
-| `pinned` | Messages épinglés |
-| `like` | Likes des photos |
-| `profile_gallery` | Galerie du profil |
-| `tabs` | Onglets |
-| `heartbeat` | Signal de présence |
-| `confirm` | Confirmation des actions destructrices |
-| `counter` | Compteur de caractères |
-| `field_rules` | Règles des champs de formulaire |
-| `flash` | Messages flash |
-| `password_visibility` | Afficher ou masquer le mot de passe |
-| `csrf_protection` | Jetons CSRF |
-| `modal` | Ouverture et fermeture des fenêtres `<dialog class="modal">` |
-| `clipboard` | Copie dans le presse-papiers (export texte, lien de partage) |
-| `print` | Fenêtre d'impression du navigateur (version imprimable) |
-| `photo_viewer` | Page photo : agrandissement, flèches du clavier |
-| `share` | Partage d'une page (feuille de partage du système ou copie du lien) |
-| `theme` | Choix du thème clair, automatique ou sombre |
-| `markdown_editor` | Éditeur Markdown du forum |
-| `mention_suggest` | Suggestions de mention `@pseudo` |
-| `emoji_picker` | Sélecteur d'émoticônes |
-| `image_lightbox` | Agrandissement des images du forum |
-| `carousel` | Carrousels de photos de l'accueil |
-| `conversation_list` | Conversations remontées en direct |
-| `sortable` | Listes réordonnables (glisser-déposer et flèches) |
-| `sound_preview` | Écoute des sons de notification |
-| `tour` | Visites guidées du didacticiel (driver.js) |
+```
+Navigateur ──(Turbo Drive : seul le <body> est remplacé)──▶ public/index.php
+  └─▶ EventSubscribers (suspension, gamification, présence…)
+      └─▶ Contrôleur (src/Controller) : lit la requête, vérifie les droits (Voters), appelle les services
+          └─▶ Services métier (src/Service, src/<Domaine>) : règles, calculs, envois
+              └─▶ Repositories (src/Repository) ─▶ Entités Doctrine (src/Entity) ─▶ MariaDB
+          └─▶ Twig (templates/) ─▶ HTML
+Navigateur : Stimulus connecte les contrôleurs (assets/controllers) aux attributs data-controller du HTML
+Temps réel : un service publie sur Pusher ─▶ assets/lib/realtime.js reçoit et distribue aux contrôleurs
+```
 
-`assets/lib/realtime.js` centralise la connexion Pusher (bibliothèque `pusher-js` de l'importmap). Il lit sa configuration dans les balises `<meta name="hf-…">` de `base.html.twig`.
+- **Contrôleurs minces** : la logique métier vit dans les services, un service par règle critique (un seul point d'entrée pour la modération, la suppression de compte, l'envoi d'e-mails, l'XP, les invitations de groupe…).
+- **Droits** : les Voters (`src/Security/Voter`) décident ; les contrôleurs et templates appellent `isGranted`.
+- **Pas de JavaScript dans les templates** : tout comportement passe par un contrôleur Stimulus déclaré en attribut `data-controller`, chargé seulement quand la page en a besoin (contrôleurs « lazy »).
 
----
-
-## 6. Modèle de données
-
-| Domaine | Entités |
-|---|---|
-| Comptes | `User` (XP, série, onboarding, titre, bannière, dernière activité, son de notification, suspension), `ResetPasswordRequest` (liens de mot de passe oublié), `MemberDailyActivity` (jours d'activité) |
-| Forum | `Category` (arbre `parent`/`children`, `allowThreads`, `readOnly`, icône), `Thread` (`solutionPost`), `Post` (Markdown, masquage par la modération), `PostVote` (positive / helpful), `ThreadSubscription` (suivi des sujets), `ForumImage` (images des messages) |
-| Social | `Friendship` (en attente, acceptée), `UserBlock` (blocage entre membres), `PrivateConversation`, `PrivateMessage` |
-| Galerie | `GalleryAlbum` (albums), `GalleryPhoto` (album, description, visibilité, masquage par la modération), `GalleryPhotoLike`, `GalleryPhotoComment` |
-| Groupes | `Group` (public, `inviteRole`, `todoWriteRole`, `todoViewRole`, `assignmentRole`, `maxAssigneesPerTask`, `pinRole`), `GroupMember` (rôle, position, sourdine), `GroupChannel` (`canRead`/`canWrite`), `GroupMessage` (épinglé), `GroupInvitation` |
-| Tâches | `TodoNode` (arbre projet, catégorie, tâche ; progression ; personnel ou de groupe), `TodoAssignment` (membre assigné à une tâche : en attente ou accepté) |
-| Armées | `ArmyList` (format officiel ou liste libre, compteurs de vues, d'exports et de duplications), `ArmyUnit` (taille, Seigneur de guerre, amélioration), `FactionUnit` (unités BSData), `FactionDetachement`, `FactionEnhancement` (améliorations des détachements), `FactionSyncState` (suivi de synchronisation par faction) |
-| Gamification | `Badge`, `UserBadge`, `ExperienceAward` (grand livre d'XP), `GamificationActivity` (visites pour les badges d'exploration) |
-| Notifications | `Notification` (type, données, auteurs regroupés, lue) |
-| Modération | `Appeal` (réclamation d'un membre sanctionné : message, sanction contestée, décision et réponse), `Report` (signalement : cible polymorphe type + id, motif, extrait, statut, décisions : la plus grave et la liste complète) |
-
-Le schéma de la base correspond exactement aux entités (plus aucune table orpheline).
-
----
-
-## 7. Sécurité et droits
-
-- **Rôles globaux :**
-  - `ROLE_USER` : tout membre ;
-  - `ROLE_MODERATOR` : accès à la modération seulement (file des signalements, décisions, sanctions des membres). `/admin` le redirige vers la file ; les autres CRUD lui répondent 403 ;
-  - `ROLE_ADMIN` : tout le back-office, et hérite de `ROLE_MODERATOR` (`role_hierarchy`).
-- **Sanctions** (`MemberSanctionVoter`) : un modérateur sanctionne les membres ordinaires, un administrateur sanctionne aussi les modérateurs ; personne ne sanctionne un administrateur ni soi-même.
-- **Connexion :** `App\Security\UserChecker` refuse les comptes suspendus (formulaire et cookie « Se souvenir de moi », `SuspendedAccountException`) ; `App\EventSubscriber\SuspensionSubscriber` ferme la session d'un membre suspendu pendant qu'il est connecté. Chacun de ces cas laisse un cookie signé (`App\Moderation\SuspensionNoticeCookie`) : la page de connexion affiche le motif de la sanction à chaque visite tant qu'elle dure, puis retire le cookie ; une connexion réussie le retire aussi. 5 échecs de connexion par minute au maximum.
-- **Anti-spam :** limites d'envoi centralisées (voir 3.15).
-- **Voters** (`src/Security/Voter/`) : ils centralisent les règles d'accès, au lieu de vérifications répétées dans les contrôleurs.
-  - `GroupVoter` : `VIEW`, `MEMBER`, `MANAGE`, `OWNER`, `INVITE`, `JOIN`, `TODO_WRITE`, `TODO_VIEW_ALL` ;
-  - `MemberContentVoter` : `MEMBER_CONTENT_VIEW` (contenu d'un membre banni réservé à l'équipe de modération) ;
-  - `TodoNodeVoter` : `TODO_VIEW`, `TODO_EDIT`, `TODO_DELETE`, `TODO_PROGRESS`, `TODO_ASSIGN`, `TODO_REQUEST_ASSIGNMENT`, `TODO_WITHDRAW_REQUEST`, `TODO_CREATE_CHILD` ;
-  - `GroupMembershipResolver` met en cache les adhésions pendant la requête.
-- **CSRF** sur **toutes** les actions POST, formulaires et AJAX.
-- **Canaux Pusher privés :** chaque abonnement est autorisé côté serveur par `/pusher/auth`, qui vérifie l'appartenance à la conversation ou au groupe.
-- **Messages privés :** réservés aux amis ; le blocage est respecté (voir 3.6).
-- **Envois de fichiers :** type et taille vérifiés, noms de fichiers générés. `public/uploads` n'est pas versionné.
-- **Secrets :**
-  - dans `.env.local`, jamais commité (le `.env` du dépôt a des secrets vides) ;
-  - en production, dans le `.env.local` du serveur, absent du code exporté et donc conservé lors des mises à jour.
-
----
-
-## 8. Temps réel
+### 5.3 Temps réel
 
 | Canal | Événements | Utilisation |
 |---|---|---|
@@ -628,160 +293,171 @@ Le schéma de la base correspond exactement aux entités (plus aucune table orph
 | `private-conversation-{id}` | `new-message` | Conversation privée ouverte |
 | `private-group-channel-{id}` | `new-message`, `message-pinned`, `message-unpinned` | Salons de groupe |
 
-`PusherService` n'interrompt jamais une action si Pusher est indisponible : l'erreur est journalisée et l'action continue.
+Chaque abonnement est autorisé par `/pusher/auth`. `PusherService` n'interrompt jamais une action si Pusher est indisponible.
 
----
+### 5.4 Sécurité
+- Rôles : `ROLE_USER`, `ROLE_MODERATOR`, `ROLE_ADMIN` (hérite de modérateur). Sanctions : un modérateur sanctionne les membres, un administrateur aussi les modérateurs ; personne ne sanctionne un administrateur ni soi-même (`MemberSanctionVoter`).
+- Connexion refusée aux comptes suspendus et au compte « Membre supprimé » (`App\Security\UserChecker`).
+- CSRF sur toutes les actions `POST`, formulaires et AJAX.
+- Fichiers envoyés : type et taille vérifiés, images ré-encodées en WebP (métadonnées EXIF retirées), noms générés.
+- Secrets uniquement dans `.env.local` (jamais versionné).
 
-## 9. Commandes console
+### 5.5 Modèle de données
 
-| Commande | Rôle |
+| Domaine | Entités |
 |---|---|
-| `army:sync-bsdata [--force]` | Synchronise factions, unités, armes, aptitudes, détachements et améliorations depuis BSData. Un seul appel à l'API GitHub, cache par empreinte de fichier ; `--force` retraite tout. |
-| `army:audit-bsdata` | Audit par faction : nombre d'unités, Legends, unités sans figurine, arme, aptitude ou points |
-| `army:inspect-unit` | Détail extrait pour une unité ; `--tree` affiche l'arbre brut BSData |
-| `app:forum:seed-categories [--dry-run]` | Crée les catégories de référence manquantes. Ne modifie jamais l'existant et peut être relancée sans risque. |
-| `app:gamification:sync-badges` | Aligne la table `badge` sur `BadgeCatalog` |
-| `app:gamification:recompute [--resum]` | Réévalue badges et XP (rattrapage) ; `--resum` recalcule l'XP à partir du grand livre |
-| `app:notifications:purge` | Supprime les notifications lues de plus de N jours (90 par défaut) |
-| `app:accounts:purge-inactive` | Prévient puis supprime les comptes inactifs (durées de `config/packages/legal.yaml`) |
-| `app:moderation:purge` | Supprime les signalements et réclamations dont la durée de conservation est écoulée |
+| Comptes | `User`, `ResetPasswordRequest`, `MemberDailyActivity` |
+| Forum | `Category`, `Thread`, `Post`, `PostVote`, `ThreadSubscription`, `ForumImage` |
+| Social | `Friendship`, `UserBlock`, `PrivateConversation`, `PrivateMessage` |
+| Galerie | `GalleryAlbum`, `GalleryPhoto`, `GalleryPhotoLike`, `GalleryPhotoComment` |
+| Groupes | `Group`, `GroupMember`, `GroupChannel`, `GroupMessage`, `GroupInvitation` |
+| Tâches | `TodoNode` (arbre, personnel ou de groupe), `TodoAssignment` |
+| Armées | `ArmyList`, `ArmyUnit`, `FactionUnit`, `FactionDetachement`, `FactionEnhancement`, `FactionSyncState` |
+| Gamification | `Badge`, `UserBadge`, `ExperienceAward`, `GamificationActivity` |
+| Notifications | `Notification` |
+| Modération | `Report`, `Appeal` |
 
-Les liens de mot de passe oublié expirés sont supprimés automatiquement à chaque nouvelle demande (pas de commande à planifier).
-
----
-
-## 10. Arborescence du code
+### 5.6 Arborescence du code
 
 ```
-HighlightForge/
-├── assets/
-│   ├── controllers/        Contrôleurs Stimulus (voir §5)
-│   ├── lib/realtime.js     Connexion Pusher partagée
-│   ├── styles/app.css      Tailwind v4 : @theme (jetons) + @layer components (.btn, .card, .field…)
-│   └── app.js              Point d'entrée importmap
-├── bin/console
-├── config/                 Paquets Symfony (security, twig, doctrine, tailwind…)
-├── docs/
-│   ├── design-system.md    Guide de l'interface
-│   ├── roadmap.md          Évolutions prévues
-│   └── recapitulatif.md    Ce document
-├── migrations/             Migrations Doctrine écrites à la main
-├── public/
-│   ├── index.php
-│   ├── images/             Logo et visuels
-│   └── uploads/            avatars/ et gallery/ (non versionnés)
-├── src/
-│   ├── Army/               UnitCategory (classement des unités), ArmyListComposer, ArmyListRules, ArmyListTextFormat, BattleSize
-│   ├── BsData/             CatalogueGraph, ConditionEvaluator, EvalContext, UnitExtractor
-│   ├── Command/            Commandes console (§9)
-│   ├── Controller/
-│   │   ├── Admin/          Dashboard et CRUD EasyAdmin
-│   │   ├── Dev/            Styleguide (développement uniquement)
-│   │   └── *.php           Un contrôleur par rubrique (Forum, Thread, Group, GroupTodo, ArmyList, Profil…)
-│   ├── Entity/             Entités Doctrine (§6)
-│   ├── EventSubscriber/    Connexion quotidienne (XP), déconnexion (présence), membres suspendus…
-│   ├── Feed/               FeedService, FeedItem (fil d'actualité)
-│   ├── Form/               Types de formulaires
-│   ├── Gamification/       BadgeCatalog
-│   ├── Group/              GroupDirectory (mes groupes, tri, suggestions), GroupInvitationSender
-│   ├── Http/               SafeReferer (retour à la page précédente du site)
-│   ├── Image/              ImageCrop (cadre de recadrage des avatars et bannières)
-│   ├── Mailer/             TransactionalMailer (envoi de tous les e-mails)
-│   ├── Moderation/         ModerationService, ModerationDecision, ModerationStatistics, ReportTargetResolver, énumérations (types, motifs, décisions, durées)
-│   ├── Repository/
-│   ├── Statistics/         DailyActivityHistory, BarChart (graphiques du tableau de bord)
-│   ├── Text/               MentionResolver (mentions @pseudo)
-│   ├── Todo/               TodoAssignmentManager (demandes et décisions d'assignation)
-│   ├── Tour/               TourCatalog, TourLauncher (visites guidées du didacticiel)
-│   ├── Security/           Voters, EmailVerifier, UserChecker, SubmissionThrottle, GroupMembershipResolver
-│   └── Service/            Gamification, Leaderboard, Notification(Renderer), Presence, Pusher, MemberBlocker,
-│                           AdminStats, Retention, Onboarding, BsDataFetcher, uploaders, ImageOptimizer
-├── templates/
-│   ├── _macros/ui.html.twig     Macros d'interface (icon, avatar…)
-│   ├── _partials/shell/         En-tête, barre du bas, pied de page, recherche, toasts, messagerie
-│   ├── form/theme.html.twig     Thème de formulaire global
-│   ├── email/                   Modèles d'e-mails (gabarit commun layout.html.twig)
-│   ├── admin/ army/ forum/ friendship/ gallery/ gamification/ group/
-│   ├── group_todo/ home/ leaderboard/ legal/ notification/ onboarding/ private_message/
-│   ├── profil/ registration/ report/ reset_password/ security/ styleguide/ thread/ todo/
-│   └── base.html.twig           Gabarit principal
-├── tests/Functional/        Tests fonctionnels (comptes, blocage, modération, rôle modérateur)
-├── tests/Unit/              Tests unitaires (droits de sanction)
-├── translations/
-├── var/                    Cache, journaux, tailwind/app.built.css (non versionné)
-└── vendor/                 Dépendances Composer (non versionnées)
+assets/
+├── app.js                  Point d'entrée : Alpine, suivi de navigation, Stimulus, styles
+├── controllers/            Contrôleurs Stimulus (un fichier = un data-controller)
+├── lib/                    Modules partagés : realtime (Pusher), alpine, http, sounds, icon, skeleton, emoji…
+└── styles/                 app.css (site : jetons @theme, composants), admin.css (EasyAdmin)
+config/packages/            Configuration Symfony ; legal.yaml = informations légales
+docs/                       Ce document, design system, roadmap, workflow/
+migrations/                 Migrations Doctrine écrites à la main
+public/                     index.php, favicon, images/ (logos, fond d'accueil), uploads/ (non versionné)
+src/
+├── Account/                Suppression de compte, purge des comptes inactifs
+├── Army/                   Listes d'armée : composition, règles, format texte, formats, catégories, statistiques
+├── BsData/                 Extraction des fichiers BSData
+├── Command/                Commandes console (§7)
+├── Controller/             Un contrôleur par rubrique ; Admin/ (EasyAdmin), Dev/ (styleguide)
+├── Entity/, Repository/    Modèle de données
+├── EventSubscriber/        Suspension, gamification, présence, en-têtes
+├── Feed/                   Fil d'actualité
+├── Form/                   Formulaires
+├── Forum/                  Rendu Markdown
+├── Gamification/           Catalogue, rareté et historique des badges et de l'XP
+├── Group/                  Annuaire des groupes, invitations
+├── Http/, Navigation/      Page précédente sûre, liens « Retour »
+├── Image/                  Recadrage
+├── Mailer/                 Envoi de tous les e-mails
+├── Moderation/             Décisions, sanctions, réclamations, statistiques, conservation
+├── Notification/           Sons de notification
+├── Profile/                Images de profil
+├── Security/               Voters, politique de mot de passe, limites anti-spam, vérification d'e-mail
+├── Service/                Gamification, notifications, présence, Pusher, uploads, statistiques, BSData…
+├── Statistics/             Graphiques du tableau de bord
+├── Text/                   Mentions @pseudo
+├── Todo/                   Assignations de tâches
+├── Tour/                   Visites guidées
+└── Twig/                   Fonctions et filtres Twig
+templates/                  Un dossier par rubrique ; _partials/ et _macros/ partagés ; email/ ; base.html.twig
+tests/                      Functional/ (parcours complets), Unit/
 ```
 
 ---
 
-## 11. Déploiement et exploitation
+## 6. Modifier le contenu du site
 
-### Environnements
-| | Développement | Production |
+Après toute modification : vider le cache (`php bin/console cache:clear`) ; après une modification de CSS ou d'une classe Tailwind dans un template : `php bin/console tailwind:build`. Les textes des pages sont directement dans les templates Twig indiqués.
+
+### Informations et textes
+
+| Je veux modifier… | Fichier | Remarque |
 |---|---|---|
-| Hébergement | XAMPP (Windows) | alwaysdata, offre gratuite |
-| `APP_ENV` | `dev` | `prod` |
-| Secrets | `.env.local` | `.env.local` du serveur (`APP_ENV=prod`, jamais présent dans le code exporté) |
-| E-mails | `MAILER_DSN=mailjet+api://CLE_API:CLE_SECRETE@default` | idem, dans le `.env.local` du serveur |
+| Éditeur, SIRET, adresse, téléphone, e-mail de contact, hébergeur, sous-traitants, âge minimum, durées de conservation, date de mise à jour des pages légales | `config/packages/legal.yaml` | Utilisé par les pages légales, l'inscription, les e-mails et les purges |
+| Textes des mentions légales, confidentialité, conditions | `templates/legal/notice.html.twig`, `privacy.html.twig`, `terms.html.twig` | Mettre à jour `updated_at` dans `legal.yaml` |
+| Page d'accueil (visiteur et membre) | `templates/home/index.html.twig`, `_first_steps.html.twig` | Image de fond : `public/images/bgHome.png` |
+| En-tête, barre du bas, menu du compte, bouton « Publier », pied de page | `templates/_partials/shell/_header.html.twig`, `_bottom_bar.html.twig`, `_account_items.html.twig`, `_publish_items.html.twig`, `_footer.html.twig` | |
+| Titre des onglets du navigateur, balises du `<head>`, favicon | `templates/base.html.twig` | Icônes : `public/images/SprueHub-*-1-min.ico`, `public/favicon.ico` |
+| Logo de l'en-tête | `public/images/SprueHub-W-0.png` | |
+| Présentation guidée (4 étapes) | `templates/onboarding/step1.html.twig` à `step4.html.twig` | Logique : `src/Service/OnboardingService.php` |
+| Visites guidées du didacticiel | `src/Tour/TourCatalog.php` | Textes, étapes et éléments ciblés |
+| E-mails | `templates/email/*.html.twig` (gabarit commun `layout.html.twig`) | Expéditeur : `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME` dans `.env.local` |
+| Textes des notifications | `src/Service/NotificationRenderer.php` | Icône et couleur par type au même endroit |
+| Messages d'erreur des formulaires | `src/Form/*.php` | Règle du mot de passe : `src/Security/PasswordPolicy.php` |
 
-Le `.env` du dépôt ne contient que des valeurs de développement sans secret (`APP_ENV=dev`, e-mails désactivés) : il peut être envoyé sur le serveur sans risque, le `.env.local` du serveur le surcharge. Un serveur sans `.env.local` démarre en `dev` et répond par une erreur 500 (paquets de développement absents avec `composer install --no-dev`).
+### Règles et valeurs
 
-**Variables e-mail** (à définir dans les deux environnements) :
-- `MAILER_DSN` : clés API Mailjet (compte Mailjet > Paramètres du compte > Clés API REST). `null://null` n'envoie rien ;
-- `MAILER_FROM_ADDRESS` : adresse d'expédition, **validée dans Mailjet** (Paramètres du compte > Adresses d'expédition), sinon Mailjet refuse l'envoi ;
-- `MAILER_FROM_NAME` : nom affiché (SprueHub par défaut).
-- Les liens des e-mails reprennent l'adresse du site de la requête en cours : rien à configurer.
-
-### Procédure de mise à jour (FileZilla et SSH)
-1. **Sur le PC :**
-   - exporter le code propre (sans `.env.local`, `vendor`, `var`, `uploads`) ;
-   - construire le CSS avec `php bin/console tailwind:build --minify`.
-2. **Envoyer** le dossier exporté dans `~/sprue-deploy` sur le serveur.
-3. **Sauvegarder la base :**
-```bash
-mysqldump --no-tablespaces -h mysql-hforge.alwaysdata.net -u hforge -p hforge_prod > ~/backup-db-$(date +%F).sql
-```
-4. **Mettre l'ancien code de côté** dans `~/ancien`, puis copier la nouvelle version :
-```bash
-cp -a ~/sprue-deploy/. . && rm -rf var/cache/*
-```
-5. **Installer les dépendances :**
-```bash
-composer install --no-dev --optimize-autoloader
-```
-6. **Mettre à jour la base :**
-```bash
-php bin/console doctrine:migrations:migrate --no-interaction
-```
-7. **Envoyer `var/tailwind/app.built.css`** construit sur le PC. ⚠️ `tailwind:build` est interrompu sur le serveur (manque de mémoire de l'offre gratuite).
-8. **Installer les bibliothèques JavaScript, compiler les assets et vider le cache :**
-```bash
-php bin/console importmap:install && php bin/console asset-map:compile && php bin/console cache:clear
-```
-9. **Selon les changements :** `app:gamification:sync-badges`, `app:gamification:recompute --resum`, `app:forum:seed-categories`, `army:sync-bsdata --force` (obligatoire après la migration `Version20261003100000` : remplit les améliorations des détachements).
-
-**Retour en arrière :** remettre `~/ancien` en place, relancer `composer install` et vider le cache. Si besoin, restaurer la sauvegarde SQL.
-
-### Maintenance régulière (à planifier)
-| Tâche | Fréquence conseillée |
+| Je veux modifier… | Fichier |
 |---|---|
-| `army:sync-bsdata` | Chaque semaine, ou après une mise à jour des règles |
-| `app:notifications:purge` | Chaque nuit |
-| `app:accounts:purge-inactive` | Chaque nuit |
-| `app:moderation:purge` | Chaque nuit |
-| Sauvegarde de la base (`mysqldump`) | Chaque nuit, en gardant 7 jours |
+| Badges (nom, description, seuils, XP, icône) | `src/Gamification/BadgeCatalog.php`, puis `app:gamification:sync-badges` |
+| XP quotidienne, bonus de série, XP d'une solution | `src/Service/GamificationService.php` (constantes en tête) |
+| Filtres et taille du classement | `src/Service/LeaderboardService.php` |
+| Icônes de l'interface et des badges | `templates/_partials/_icon.html.twig` |
+| Sons de notification (liste) | `src/Notification/NotificationSound.php` ; synthèse : `assets/lib/sounds.js` |
+| Catégories de référence du forum | `src/Command/SeedForumCategoriesCommand.php`, puis `app:forum:seed-categories` ; au quotidien, dans l'administration |
+| Factions proposées (profil, listes d'armée) | `src/Service/BsDataFetcher.php` (`FACTION_GROUPS`) |
+| Formats de listes officielles | `src/Army/BattleSize.php` |
+| Règles des listes officielles | `src/Army/ArmyListRules.php` |
+| Catégories et ordre des unités | `src/Army/UnitCategory.php` |
+| Motifs de signalement | `src/Moderation/ReportReason.php` |
+| Durées de suspension | `src/Moderation/SuspensionDuration.php` |
+| Limites anti-spam | `config/packages/rate_limiter.yaml` |
+| Nombre de photos, taille maximale | `src/Service/GalleryPhotoUploader.php` ; albums : `src/Entity/GalleryAlbum.php` |
+| Taille des pages du fil | `src/Feed/FeedService.php` (`PER_PAGE`) |
+| Délais de présence (en ligne, signal) | `src/Service/PresenceService.php` |
+| Ancienneté d'un sujet « ancien » | `src/Entity/Thread.php` (`STALE_AFTER`) |
+
+### Apparence
+
+| Je veux modifier… | Fichier |
+|---|---|
+| Couleurs, polices, rayons, ombres (clair et sombre) | `assets/styles/app.css`, bloc `@theme` et variables `light-dark()` |
+| Composants (boutons, cartes, champs, onglets…) | `assets/styles/app.css`, `@layer components` ; documentés dans `docs/design-system.md` |
+| Macros d'interface (icône, avatar, badge…) | `templates/_macros/ui.html.twig` |
+| Formulaires (rendu commun) | `templates/form/theme.html.twig` |
+| Administration | `assets/styles/admin.css`, `src/Controller/Admin/` |
 
 ---
 
-## 12. Conventions de développement
+## 7. Commandes console et tâches planifiées
 
-- **Aucun JavaScript dans les templates :** pas de `<script>` en ligne ni d'attribut `on…=` ; tout passe par des contrôleurs Stimulus.
-- **Migrations écrites à la main :** `doctrine:migrations:diff` peut servir de brouillon (le schéma correspond aux entités), mais chaque migration est relue et nommée à la main, avec un bloc de description en tête. L'historique des migrations ne se rejoue pas sur une base vide : pour une base neuve, utiliser `doctrine:schema:create` puis `doctrine:migrations:version --add --all`.
-- **CSRF sur chaque POST**, et vérification des droits par les **Voters** (`isGranted` / `denyAccessUnlessGranted`).
-- **Interface :** utiliser les classes du design system (`.btn`, `.card`, `.field`, `.input`…) et les macros `ui.icon` / `ui.avatar`. Voir `docs/design-system.md` et `/_styleguide` en développement.
-- **Vocabulaire de l'interface :** Salon (channel), Propriétaire (owner), Tâches (todo), Sujet (thread), Réponse (post), Liste d'armée.
-- **Commits thématiques** préfixés `AJOUT -`, `MODIF -` ou `SÉCURITÉ -`.
-- **Vérifications avant commit :**
-  - `php bin/console lint:twig templates` et `php bin/console lint:container` ;
-  - `php bin/console doctrine:schema:validate` (aucun écart attendu) ;
-  - `php bin/phpunit` : tests fonctionnels sur la base `highlightforge_test`, à créer une fois avec `php bin/console doctrine:database:create --env=test` et `php bin/console doctrine:schema:create --env=test` (connexion dans `.env.test.local`).
+| Commande | Rôle | Planification |
+|---|---|---|
+| `army:sync-bsdata [--force]` | Synchronise factions, unités, détachements et améliorations depuis BSData | Chaque semaine |
+| `army:audit-bsdata` | Contrôle des données extraites par faction | À la demande |
+| `army:inspect-unit` | Détail d'une unité (`--tree` : arbre brut BSData) | À la demande |
+| `app:forum:seed-categories [--dry-run]` | Crée les catégories de référence manquantes, sans toucher à l'existant | À la demande |
+| `app:gamification:sync-badges` | Aligne la table des badges sur `BadgeCatalog` | Après modification des badges |
+| `app:gamification:recompute [--resum]` | Réévalue badges et XP ; `--resum` recalcule l'XP depuis le grand livre | À la demande |
+| `app:notifications:purge` | Supprime les notifications lues depuis 90 jours | Chaque nuit |
+| `app:accounts:purge-inactive` | Prévient puis supprime les comptes inactifs | Chaque nuit |
+| `app:moderation:purge` | Supprime les signalements et réclamations dont la conservation est écoulée | Chaque nuit |
+
+La mise en place des tâches planifiées sur alwaysdata est décrite dans [workflow/03-mise-en-production.md](workflow/03-mise-en-production.md).
+
+---
+
+## 8. Environnements
+
+| | Développement | Test | Production |
+|---|---|---|---|
+| Machine | PC Windows, XAMPP | PC (PHPUnit) | alwaysdata |
+| `APP_ENV` | `dev` | `test` | `prod` |
+| Base | `highlightforge` | `highlightforge_test` | `hforge_prod` |
+| Secrets | `.env.local` | `.env.test.local` | `.env.local` du serveur |
+
+- Le `.env` du dépôt ne contient aucun secret (valeurs de développement, e-mails désactivés).
+- **E-mails** : `MAILER_DSN=mailjet+api://CLE_API:CLE_SECRETE@default` ; `MAILER_FROM_ADDRESS` doit être une adresse validée dans Mailjet ; `null://null` n'envoie rien.
+- **Temps réel** : `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER`.
+- Récupération, envoi et mise en production : [workflow/](workflow/README.md).
+
+---
+
+## 9. Conventions de développement
+
+- **Code et commentaires en anglais**, textes de l'interface en français. Les commentaires décrivent le fonctionnement, jamais l'historique des modifications.
+- **Aucun JavaScript dans les templates** : pas de `<script>` en ligne ni d'attribut `on…=`.
+- **Événements plutôt que minuteries** : pas d'attente arbitraire ; un minuteur n'existe que pour un besoin réellement temporel (signal de présence, anti-rebond de la saisie).
+- **Logique critique centralisée** : un service par règle, réutilisé partout (voir 5.2) ; on refactorise plutôt que de dupliquer.
+- **Migrations écrites à la main**, relues et décrites en tête de fichier.
+- **CSRF sur chaque POST** et droits vérifiés par les Voters.
+- **Interface** : classes du design system et macros `ui.*` (voir `docs/design-system.md` et `/_styleguide` en développement).
+- **Vocabulaire** : Salon (channel), Propriétaire (owner), Tâches (todo), Sujet (thread), Réponse (post), Liste d'armée.
+- **Commits** thématiques en français, préfixés `AJOUT -`, `MODIF -` ou `SÉCURITÉ -`.
+- **Avant chaque commit** : `lint:twig`, `lint:container`, `doctrine:schema:validate`, `phpunit` (détails dans [workflow/02-envoyer-vers-git.md](workflow/02-envoyer-vers-git.md)).
