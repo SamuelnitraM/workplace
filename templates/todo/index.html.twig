@@ -131,7 +131,7 @@
                                                  {{ stimulus_action('todo', 'rename:stop', 'dblclick', {url: path('app_todo_rename', {id: item.id})}) }}>
                                                 <p data-todo-title class="text-small font-medium {{ isItemDone ? 'line-through text-muted' : 'text-fg' }}"
                                                    :class="{ 'truncate': !expanded, 'break-words whitespace-normal': expanded }"
-                                                   title="Cliquez pour afficher/masquer le texte complet">{{ item.title }}</p>
+                                                   title="Clique pour afficher/masquer le texte complet">{{ item.title }}</p>
                                             </div>
                                             {{ _self.rename_button(path('app_todo_rename', {id: item.id}), 'rename-item-' ~ item.id, item.title) }}
                                             <span class="chip {{ isItemDone ? 'chip-success' : '' }} shrink-0 tabular-nums" id="item-badge-{{ item.id }}">{{ itemProgress }}%</span>
@@ -199,7 +199,7 @@
             {{ include('_partials/_empty_state.html.twig', {
                 icon: 'clipboard-list',
                 title: 'Aucun projet pour l\'instant',
-                text: 'Suivez vos chantiers de peinture et de montage : un projet, des catégories (montage, sous-couche, détails…), puis des tâches à faire avancer par paliers de 25 %.',
+                text: 'Suis tes chantiers de peinture et de montage : un projet, des catégories (montage, sous-couche, détails…), puis des tâches à faire avancer par paliers de 25 %.',
                 cta: {label: 'Créer mon premier projet', for: 'new-todo-project', icon: 'plus'},
             }) }}
         {% endfor %}

@@ -9,7 +9,7 @@
     <header class="page-header">
         <div>
             <h1 class="page-header-title">Mes amis</h1>
-            <p class="page-header-subtitle">Entre amis, vous pouvez échanger des messages privés.</p>
+            <p class="page-header-subtitle">Entre amis, tu peux échanger des messages privés.</p>
         </div>
         <div class="page-header-actions">
             <a href="{{ path('app_leaderboard') }}" class="btn btn-secondary">{{ ui.icon('trophy') }}Trouver des joueurs</a>
@@ -110,10 +110,10 @@
                         icon: 'user-plus',
                         title: pendingReceived is not empty or pendingSent is not empty
                             ? 'Pas encore d\'ami confirmé'
-                            : 'Vous n\'avez pas encore d\'amis',
+                            : 'Tu n\'as pas encore d\'amis',
                         text: pendingReceived is not empty
-                            ? 'Des demandes vous attendent ci-dessus : acceptez-les pour pouvoir échanger des messages privés.'
-                            : 'Trouvez des joueurs dans le classement ou les groupes, puis cliquez sur « Ajouter en ami » depuis leur profil. Entre amis, vous pourrez échanger des messages privés.',
+                            ? 'Des demandes t\'attendent ci-dessus : accepte-les pour pouvoir échanger des messages privés.'
+                            : 'Trouve des joueurs dans le classement ou les groupes, puis clique sur « Ajouter en ami » depuis leur profil. Entre amis, tu pourras échanger des messages privés.',
                         cta: {label: 'Trouver des joueurs', url: path('app_leaderboard'), icon: 'trophy'},
                         secondary: {label: 'Parcourir les groupes', url: path('app_group_index'), icon: 'users'},
                         variant: 'plain',
@@ -153,7 +153,7 @@
                     {{ include('_partials/_empty_state.html.twig', {
                         icon: 'shield',
                         title: 'Aucun utilisateur bloqué',
-                        text: 'Les membres que vous bloquez ne peuvent plus vous contacter.',
+                        text: 'Les membres que tu bloques ne peuvent plus te contacter.',
                         variant: 'plain',
                         compact: true,
                     }) }}
@@ -188,7 +188,7 @@
             <h2 id="suggestions-title" class="flex items-center gap-2 text-h3">{{ ui.icon('user-plus', 'size-5 text-muted') }}Suggestions</h2>
         </div>
         {% if suggestions is empty %}
-            <p class="card-body text-small text-muted">Les amis de vos amis apparaîtront ici. Ajoutez quelques amis pour recevoir des suggestions.</p>
+            <p class="card-body text-small text-muted">Les amis de tes amis apparaîtront ici. Ajoute quelques amis pour recevoir des suggestions.</p>
         {% else %}
             <ul role="list">
                 {% for suggestion in suggestions %}

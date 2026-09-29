@@ -36,7 +36,7 @@
                         data-tooltip="{{ tool.label }} : {{ tool.syntax }}{% if tool.shortcut is defined %} · {{ tool.shortcut }}{% endif %}">{{ ui.icon(tool.icon, 'size-4') }}</button>
             {% endfor %}
             <button type="button" class="md-editor-tool" data-action="markdown-editor#pickImage" aria-label="Ajouter une image"
-                    data-tooltip="Image : bouton, ou collez / glissez-la dans le texte">{{ ui.icon('image-plus', 'size-4') }}</button>
+                    data-tooltip="Image : bouton, ou colle / glisse-la dans le texte">{{ ui.icon('image-plus', 'size-4') }}</button>
             <div data-controller="emoji-picker" data-emoji-picker-input-value="{{ input_id }}" data-emoji-picker-placement-value="down"></div>
         </div>
     </div>

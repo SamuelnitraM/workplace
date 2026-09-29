@@ -25,11 +25,11 @@
             <h1 class="page-header-title">Tâches du groupe</h1>
             <div class="mt-2">
                 {% if is_granted('TODO_WRITE', group) %}
-                    <span class="chip chip-primary">{{ ui.icon('pencil', 'size-4') }}Vous pouvez modifier les tâches</span>
+                    <span class="chip chip-primary">{{ ui.icon('pencil', 'size-4') }}Tu peux modifier les tâches</span>
                 {% elseif is_granted('TODO_VIEW_ALL', group) %}
                     <span class="chip">{{ ui.icon('eye', 'size-4') }}Lecture seule</span>
                 {% else %}
-                    <span class="chip">{{ ui.icon('user-check', 'size-4') }}Vos tâches assignées</span>
+                    <span class="chip">{{ ui.icon('user-check', 'size-4') }}Tes tâches assignées</span>
                 {% endif %}
             </div>
         </div>
@@ -184,7 +184,7 @@
                                                  {% if is_granted('TODO_EDIT', item) %}{{ stimulus_action('todo', 'rename:stop', 'dblclick', {url: path('app_group_todo_rename', {slug: group.slug, id: item.id})}) }}{% endif %}>
                                                 <p data-todo-title class="text-small font-medium {{ isItemDone ? 'line-through text-muted' : 'text-fg' }}"
                                                    :class="{ 'truncate': !expanded, 'break-words whitespace-normal': expanded }"
-                                                   title="Cliquez pour afficher/masquer le texte complet">{{ item.title }}</p>
+                                                   title="Clique pour afficher/masquer le texte complet">{{ item.title }}</p>
                                             </div>
                                             {% if is_granted('TODO_EDIT', item) %}
                                                 {{ _self.rename_button(path('app_group_todo_rename', {slug: group.slug, id: item.id}), 'rename-item-' ~ item.id, item.title) }}
@@ -270,14 +270,14 @@
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'clipboard-list',
                     title: 'Aucune liste de tâches pour le moment',
-                    text: 'Organisez les projets du groupe : une liste par projet (armée, tournoi, décors), des catégories, puis des tâches à assigner aux membres.',
+                    text: 'Organise les projets du groupe : une liste par projet (armée, tournoi, décors), des catégories, puis des tâches à assigner aux membres.',
                     cta: {label: 'Créer la première liste', for: 'new-group-todo-list', icon: 'plus'},
                 }) }}
             {% elseif not is_granted('TODO_VIEW_ALL', group) %}
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'clipboard-list',
-                    title: 'Aucune tâche ne vous est assignée',
-                    text: 'Les tâches qu\'on vous assigne apparaîtront ici. En attendant, passez discuter avec le groupe.',
+                    title: 'Aucune tâche ne t\'est assignée',
+                    text: 'Les tâches qu\'on t\'assigne apparaîtront ici. En attendant, passe discuter avec le groupe.',
                     cta: {label: 'Retour au groupe', url: path('app_group_show', {slug: group.slug}), icon: 'message-circle'},
                 }) }}
             {% else %}

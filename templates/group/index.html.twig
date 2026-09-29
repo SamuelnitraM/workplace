@@ -13,7 +13,7 @@
     <header class="page-header">
         <div>
             <h1 class="page-header-title">Groupes</h1>
-            <p class="page-header-subtitle">Votre club, votre table de jeu ou votre projet d'armée : discutez dans des salons et suivez vos tâches ensemble.</p>
+            <p class="page-header-subtitle">Ton club, ta table de jeu ou ton projet d'armée : discute dans des salons et suis tes tâches ensemble.</p>
         </div>
         <div class="page-header-actions">
             {% if app.user %}<a href="{{ path('app_group_new') }}" class="btn btn-primary" data-tour="group-create">{{ ui.icon('plus') }}Créer un groupe</a>{% endif %}
@@ -24,8 +24,8 @@
         {% if publicGroups is empty %}
             {{ include('_partials/_empty_state.html.twig', {
                 icon: 'users',
-                title: 'Rejoignez la communauté',
-                text: 'Inscrivez-vous pour créer le premier groupe de la communauté.',
+                title: 'Rejoins la communauté',
+                text: 'Inscris-toi pour créer le premier groupe de la communauté.',
                 cta: {label: 'Créer mon compte', url: path('app_register')},
                 secondary: {label: 'Se connecter', url: path('app_login')},
             }) }}
@@ -92,15 +92,15 @@
             {% if myGroups is empty %}
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'users',
-                    title: 'Vous n\'avez pas encore de groupe',
-                    text: 'Créez un groupe pour votre club, votre table de jeu ou votre projet de peinture, ou rejoignez l\'un des groupes suggérés.',
+                    title: 'Tu n\'as pas encore de groupe',
+                    text: 'Crée un groupe pour ton club, ta table de jeu ou ton projet de peinture, ou rejoins l\'un des groupes suggérés.',
                     cta: {label: 'Créer un groupe', url: path('app_group_new'), icon: 'plus'},
                     secondary: {label: 'Voir les groupes publics', url: path('app_group_public')},
                     compact: true,
                 }) }}
             {% else %}
                 {% set custom_order = sortMode == 'custom' %}
-                {% if custom_order %}<p class="mb-2 text-caption text-muted">Glissez vos groupes (ou utilisez les flèches) pour les ranger.</p>{% endif %}
+                {% if custom_order %}<p class="mb-2 text-caption text-muted">Glisse tes groupes (ou utilise les flèches) pour les ranger.</p>{% endif %}
                 <ul role="list" class="card overflow-hidden"
                     {% if custom_order %}{{ stimulus_controller('sortable', {url: path('app_group_order'), token: csrf_token('group')}) }}{% endif %}>
                     {% for entry in myGroups %}
@@ -114,7 +114,7 @@
                             <div class="list-row-main">
                                 <p class="flex items-center gap-1.5 font-semibold text-fg">
                                     <a href="{{ path('app_group_show', {slug: group.slug}) }}" class="truncate hover:text-primary-text after:absolute after:inset-0 after:content-['']">{{ group.name }}</a>
-                                    {% if entry.membership.role == 'owner' %}<span class="group-owner-crown" title="Vous êtes propriétaire">{{ ui.icon('crown', 'size-4') }}<span class="sr-only">Propriétaire</span></span>{% endif %}
+                                    {% if entry.membership.role == 'owner' %}<span class="group-owner-crown" title="Tu es propriétaire">{{ ui.icon('crown', 'size-4') }}<span class="sr-only">Propriétaire</span></span>{% endif %}
                                     {% if entry.membership.muted %}<span class="text-muted" title="Groupe en sourdine">{{ ui.icon('bell-off', 'size-4') }}<span class="sr-only">En sourdine</span></span>{% endif %}
                                 </p>
                                 <p class="text-caption text-muted">

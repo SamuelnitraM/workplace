@@ -107,12 +107,12 @@
             {# MEMBER MANAGEMENT (owner only) #}
             {% if isOwner %}
                 <section id="membres" class="card scroll-mt-24" aria-labelledby="membres-title">
-                    {{ _self.section_header('membres', 'users', 'Membres', 'Nommez des admins pour vous aider à gérer les salons, ou excluez un membre.') }}
+                    {{ _self.section_header('membres', 'users', 'Membres', 'Nomme des admins pour t\'aider à gérer les salons, ou exclus un membre.') }}
                     {% if group.members|filter(m => m.role != 'owner') is empty %}
                         {{ include('_partials/_empty_state.html.twig', {
                             icon: 'mail',
-                            title: 'Vous êtes seul dans ce groupe',
-                            text: 'Invitez vos amis depuis leur profil (bouton « Inviter dans un groupe »)' ~ (group.isPublic and group.isJoinable ? ', ou partagez le lien du groupe : il est ouvert aux demandes.' : '.'),
+                            title: 'Tu es seul dans ce groupe',
+                            text: 'Invite tes amis depuis leur profil (bouton « Inviter dans un groupe »)' ~ (group.isPublic and group.isJoinable ? ', ou partage le lien du groupe : il est ouvert aux demandes.' : '.'),
                             cta: {label: 'Voir mes amis', url: path('app_friendship_list'), icon: 'users'},
                             variant: 'plain',
                             compact: true,
@@ -164,7 +164,7 @@
 
             {# CHANNEL MANAGEMENT (owner/admin) #}
             <section id="salons" class="card scroll-mt-24" aria-labelledby="salons-title">
-                {{ _self.section_header('salons', 'messages-square', 'Salons', 'Choisissez qui peut lire et écrire dans chaque salon.') }}
+                {{ _self.section_header('salons', 'messages-square', 'Salons', 'Choisis qui peut lire et écrire dans chaque salon.') }}
 
                 {% if group.channels is empty %}
                     <p class="px-4 py-5 text-small text-muted sm:px-5">Aucun salon pour le moment.{{ isOwner ? ' Créez-en un ci-dessous pour ouvrir la discussion.' : '' }}</p>

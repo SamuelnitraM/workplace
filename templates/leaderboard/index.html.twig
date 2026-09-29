@@ -73,14 +73,14 @@
             <div>
                 {% if streakStatus.streak > 0 %}
                     <p>
-                        Votre série : <strong class="font-semibold text-fg">{{ streakStatus.streak }} jour{{ streakStatus.streak > 1 ? 's' }}</strong>
+                        Ta série : <strong class="font-semibold text-fg">{{ streakStatus.streak }} jour{{ streakStatus.streak > 1 ? 's' }}</strong>
                         — prochain bonus de {{ streakStatus.bonusXp }} XP dans {{ streakStatus.nextBonusIn }} jour{{ streakStatus.nextBonusIn > 1 ? 's' }} de connexion.
                     </p>
                     {% if streakStatus.atRisk %}
                         <p class="mt-1">Protection de série en cours : {{ streakStatus.missedDays }} jour{{ streakStatus.missedDays > 1 ? 's' }} d'absence.</p>
                     {% endif %}
                 {% else %}
-                    <p>Vous n'avez pas de série en cours. Connectez-vous chaque jour pour en démarrer une (jusqu'à 3 jours d'absence tolérés).</p>
+                    <p>Tu n'as pas de série en cours. Connecte-toi chaque jour pour en démarrer une (jusqu'à 3 jours d'absence tolérés).</p>
                 {% endif %}
             </div>
         </div>
@@ -89,25 +89,25 @@
     {% if board.rows is empty %}
         {% if not app.user %}
             {% set emptyCta = {label: 'Créer mon compte', url: path('app_register'), icon: 'user-plus'} %}
-            {% set emptyText = 'Inscrivez-vous et soyez le premier à y figurer.' %}
+            {% set emptyText = 'Inscris-toi et sois le premier à y figurer.' %}
         {% elseif sort == 'sujets' %}
             {% set emptyCta = {label: 'Publier un sujet', url: path('app_forum_index'), icon: 'pencil'} %}
-            {% set emptyText = 'Aucun sujet n\'a encore été publié : ouvrez le bal sur le forum.' %}
+            {% set emptyText = 'Aucun sujet n\'a encore été publié : ouvre le bal sur le forum.' %}
         {% elseif sort == 'votes' %}
             {% set emptyCta = {label: 'Répondre sur le forum', url: path('app_forum_index'), icon: 'message-circle'} %}
-            {% set emptyText = 'Aucune réponse n\'a encore reçu de vote : partagez vos conseils sur le forum.' %}
+            {% set emptyText = 'Aucune réponse n\'a encore reçu de vote : partage tes conseils sur le forum.' %}
         {% elseif sort == 'serie' %}
             {% set emptyCta = null %}
-            {% set emptyText = 'Aucune série de connexions en cours : revenez demain pour démarrer la vôtre.' %}
+            {% set emptyText = 'Aucune série de connexions en cours : reviens demain pour démarrer la tienne.' %}
         {% else %}
             {% set emptyCta = {label: 'Participer au forum', url: path('app_forum_index'), icon: 'message-circle'} %}
-            {% set emptyText = 'Participez à la vie du site pour gagner de l\'XP et des badges.' %}
+            {% set emptyText = 'Participe à la vie du site pour gagner de l\'XP et des badges.' %}
         {% endif %}
         {{ include('_partials/_empty_state.html.twig', {
             icon: sortIcons[sort] ?? 'trophy',
             title: 'Personne n\'apparaît encore dans ce classement',
             text: emptyText,
-            hint: sort == 'sujets' and (not app.user or app.user.threads is empty) ? 'Votre premier sujet débloque le badge Pionnier I (+50 XP).' : null,
+            hint: sort == 'sujets' and (not app.user or app.user.threads is empty) ? 'Ton premier sujet débloque le badge Pionnier I (+50 XP).' : null,
             cta: emptyCta,
             secondary: app.user ? null : {label: 'Se connecter', url: path('app_login')},
         }, with_context = false) }}
@@ -149,7 +149,7 @@
                     <div class="list-row-main">
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <a href="{{ path('app_profil_show', {username: u.username}) }}" class="max-w-full truncate font-semibold text-fg hover:text-primary-text">{{ u.username }}</a>
-                            {% if mine %}<span class="chip chip-primary">Vous</span>{% endif %}
+                            {% if mine %}<span class="chip chip-primary">Toi</span>{% endif %}
                             {% if u.titleBadge is defined %}{% include 'gamification/_user_title.html.twig' ignore missing with {user: u} %}{% endif %}
                         </div>
                         <div class="mt-1">{{ lb.level(u) }}</div>
@@ -185,11 +185,11 @@
             <div class="flex items-center gap-3 rounded-card border border-primary-text/50 bg-overlay/95 px-4 py-3 shadow-overlay backdrop-blur">
                 {{ ui.avatar(app.user, 'sm') }}
                 {% if board.me %}
-                    <span class="font-semibold text-fg">Votre position : <span class="text-primary-text">#{{ board.me.rank }}</span></span>
+                    <span class="font-semibold text-fg">Ta position : <span class="text-primary-text">#{{ board.me.rank }}</span></span>
                     <span class="flex-1"></span>
                     <span class="inline-flex shrink-0 items-center gap-1 text-small font-semibold text-primary-text">{% if metricIcon %}{{ ui.icon(metricIcon, 'size-4') }}{% endif %}{{ lb.metric(sort, board.me.metric) }}</span>
                 {% else %}
-                    <span class="text-small text-fg-secondary">Vous n'apparaissez pas encore dans ce classement.</span>
+                    <span class="text-small text-fg-secondary">Tu n'apparais pas encore dans ce classement.</span>
                 {% endif %}
             </div>
         </div>

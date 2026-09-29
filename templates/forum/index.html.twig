@@ -7,7 +7,7 @@
 <header class="page-header">
     <div>
         <h1 class="page-header-title">Forum</h1>
-        <p class="page-header-subtitle">Techniques de peinture, listes d'armée, rapports de bataille : posez vos questions et partagez votre expérience.</p>
+        <p class="page-header-subtitle">Techniques de peinture, listes d'armée, rapports de bataille : pose tes questions et partage ton expérience.</p>
     </div>
 </header>
 
@@ -15,7 +15,7 @@
     {{ include('_partials/_empty_state.html.twig', {
         icon: 'messages-square',
         title: 'Le forum se prépare',
-        text: 'Aucune catégorie n\'est encore ouverte. En attendant, retrouvez les autres passionnés dans les groupes.',
+        text: 'Aucune catégorie n\'est encore ouverte. En attendant, retrouve les autres passionnés dans les groupes.',
         cta: app.user
             ? {label: 'Découvrir les groupes', url: path('app_group_index'), icon: 'users'}
             : {label: 'Créer mon compte', url: path('app_register')},

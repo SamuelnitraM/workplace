@@ -9,7 +9,7 @@
     <header class="page-header">
         <div>
             <h1 class="page-header-title">Mes listes d'armée</h1>
-            <p class="page-header-subtitle">Composez vos listes, suivez vos points et partagez les publiques sur votre profil.</p>
+            <p class="page-header-subtitle">Compose tes listes, suis tes points et partage les publiques sur ton profil.</p>
         </div>
         <div class="page-header-actions">
             <a href="{{ path('app_army_explorer') }}" class="btn btn-ghost" data-tour="army-explorer">{{ ui.icon('compass') }}Explorer</a>
@@ -26,7 +26,7 @@
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'swords',
                     title: 'Aucune liste d\'armée pour le moment',
-                    text: 'Choisissez une faction et un détachement, ajoutez vos unités : le total de points se calcule tout seul. Rendez la liste publique pour l\'afficher sur votre profil.',
+                    text: 'Choisis une faction et un détachement, ajoute tes unités : le total de points se calcule tout seul. Rends la liste publique pour l\'afficher sur ton profil.',
                     cta: {label: 'Créer ma première liste', url: path('app_army_new'), icon: 'plus'},
                 }) }}
             {% else %}

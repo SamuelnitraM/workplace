@@ -35,7 +35,7 @@
         {# Managers of the assignments and free mode: direct assignment; otherwise a request to approve #}
         {% set direct = group.freeAssignment or can_manage %}
         <button type="button" class="btn btn-ghost btn-sm" {{ stimulus_action('todo', 'assignment', 'click', {url: path('app_group_todo_assignment_request', {slug: group.slug, id: item.id})}) }}
-                title="{{ direct ? 'Vous assigner à cette tâche' : 'Votre demande sera validée par ' ~ (group.assignmentManagerRole == 'owner' ? 'le propriétaire' : 'un administrateur') }}">
+                title="{{ direct ? 'T\'assigner à cette tâche' : 'Ta demande sera validée par ' ~ (group.assignmentManagerRole == 'owner' ? 'le propriétaire' : 'un administrateur') }}">
             {{- ui.icon('user-plus', 'size-4') }}{{ direct ? 'M\'assigner' : 'Demander' -}}
         </button>
     {% endif %}

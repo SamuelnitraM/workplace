@@ -88,7 +88,7 @@
                     {% if activeChannel %}<input type="hidden" name="channel" value="{{ activeChannel.id }}">{% endif %}
                     <span id="group-mute-label" class="inline-flex items-center gap-1">{{ ui.icon('bell-off', 'size-4') }}Sourdine</span>
                     <button type="submit" role="switch" aria-checked="{{ currentMember.muted ? 'true' : 'false' }}" aria-labelledby="group-mute-label" class="switch"
-                            title="{{ currentMember.muted ? 'Réactiver les notifications du groupe' : 'Ne plus être notifié des messages (sauf si l\'on vous mentionne)' }}"><span class="switch-thumb"></span></button>
+                            title="{{ currentMember.muted ? 'Réactiver les notifications du groupe' : 'Ne plus être notifié des messages (sauf si l\'on te mentionne)' }}"><span class="switch-thumb"></span></button>
                 </form>
                 <a href="{{ path('app_group_todo_index', {slug: group.slug}) }}" class="btn btn-secondary">
                     {{ ui.icon('list-checks') }}Tâches
@@ -247,7 +247,7 @@
                                     icon: 'message-circle',
                                     title: 'Aucun message dans #' ~ activeChannel.name,
                                     text: currentMember and is_granted('CHANNEL_WRITE', activeChannel)
-                                        ? 'Brisez la glace : présentez-vous ou partagez votre dernière figurine peinte.'
+                                        ? 'Brise la glace : présente-toi ou partage ta dernière figurine peinte.'
                                         : 'Les messages de ce salon apparaîtront ici.',
                                     cta: currentMember and is_granted('CHANNEL_WRITE', activeChannel)
                                         ? {label: 'Écrire le premier message', for: 'message-input', icon: 'pencil'}
@@ -282,7 +282,7 @@
                                             <span class="inline-flex flex-wrap items-center gap-1">{{ message.author.username }}{{ include('gamification/_user_title.html.twig', {user: message.author}) }} — <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('d/m H:i') }}</time></span>
                                             <span data-pin-indicator class="{{ message.pinned ? '' : 'hidden' }} text-accent-text" title="Message épinglé">{{ ui.icon('pin', 'size-3.5', 'Épinglé') }}</span>
                                             {% if not _own %}
-                                                <a href="{{ path('app_report', {type: 'message-groupe', id: message.id}) }}" class="reveal-on-hover inline-flex text-muted hover:text-danger-text" rel="nofollow"
+                                                <a href="{{ path('app_report', {type: 'message-groupe', id: message.id}) }}" class="reveal-on-hover -my-1.5 inline-flex size-7 items-center justify-center rounded-control text-muted hover:bg-surface-raised hover:text-danger-text pointer-coarse:-my-2.5 pointer-coarse:size-11" rel="nofollow"
                                                    aria-label="Signaler ce message" title="Signaler ce message">{{ ui.icon('flag', 'size-3.5') }}</a>
                                             {% endif %}
                                             {% if is_granted('GROUP_MESSAGE_PIN', message) %}
@@ -361,7 +361,7 @@
                                 {{ include('_partials/_empty_state.html.twig', {
                                     icon: 'message-square',
                                     title: 'Aucun salon disponible',
-                                    text: 'Le propriétaire du groupe n\'a pas encore ouvert de salon accessible. En attendant, consultez les tâches du groupe.',
+                                    text: 'Le propriétaire du groupe n\'a pas encore ouvert de salon accessible. En attendant, consulte les tâches du groupe.',
                                     cta: {label: 'Voir les tâches', url: path('app_group_todo_index', {slug: group.slug}), icon: 'list-checks'},
                                     variant: 'plain',
                                 }) }}
@@ -370,14 +370,14 @@
                             {{ include('_partials/_empty_state.html.twig', {
                                 icon: 'lock',
                                 title: 'Salons réservés aux membres',
-                                text: 'Rejoignez le groupe avec le bouton « Rejoindre » ci-dessus pour accéder à ses salons.',
+                                text: 'Rejoins le groupe avec le bouton « Rejoindre » ci-dessus pour accéder à ses salons.',
                                 variant: 'plain',
                             }) }}
                         {% elseif app.user %}
                             {{ include('_partials/_empty_state.html.twig', {
                                 icon: 'lock',
                                 title: 'Salons réservés aux membres',
-                                text: 'Ce groupe fonctionne sur invitation. Découvrez d\'autres groupes ouverts ou créez le vôtre.',
+                                text: 'Ce groupe fonctionne sur invitation. Découvre d\'autres groupes ouverts ou crée le tien.',
                                 cta: {label: 'Voir les groupes', url: path('app_group_index'), icon: 'users'},
                                 variant: 'plain',
                             }) }}
@@ -385,7 +385,7 @@
                             {{ include('_partials/_empty_state.html.twig', {
                                 icon: 'lock',
                                 title: 'Salons réservés aux membres',
-                                text: 'Inscrivez-vous pour rejoindre ce groupe et discuter dans ses salons.',
+                                text: 'Inscris-toi pour rejoindre ce groupe et discuter dans ses salons.',
                                 cta: {label: 'Créer mon compte', url: path('app_register')},
                                 secondary: {label: 'Se connecter', url: path('app_login')},
                                 variant: 'plain',
@@ -431,7 +431,7 @@
                 </div>
                 <div class="modal-body group-invite-list">
                     {% if inviteCandidates is empty %}
-                        <p class="text-small text-muted">Tous vos amis font déjà partie du groupe ou sont déjà invités. Vous pouvez aussi inviter un membre depuis son profil.</p>
+                        <p class="text-small text-muted">Tous tes amis font déjà partie du groupe ou sont déjà invités. Tu peux aussi inviter un membre depuis son profil.</p>
                     {% else %}
                         <ul role="list" class="space-y-1">
                             {% for friend in inviteCandidates %}

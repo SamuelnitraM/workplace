@@ -9,7 +9,7 @@
     <header class="page-header">
         <div>
             <h1 class="page-header-title">Messages</h1>
-            <p class="page-header-subtitle">Vos conversations privées avec vos amis.</p>
+            <p class="page-header-subtitle">Tes conversations privées avec tes amis.</p>
         </div>
         {% if conversations is not empty %}
             <div class="page-header-actions">
@@ -22,7 +22,7 @@
         {{ include('_partials/_empty_state.html.twig', {
             icon: 'mail',
             title: 'Aucune conversation pour le moment',
-            text: 'Les messages privés s\'échangent entre amis : ouvrez le profil d\'un ami et cliquez sur « Envoyer un message ».',
+            text: 'Les messages privés s\'échangent entre amis : ouvre le profil d\'un ami et clique sur « Envoyer un message ».',
             cta: {label: 'Mes amis', url: path('app_friendship_list'), icon: 'users'},
             secondary: {label: 'Trouver des joueurs', url: path('app_leaderboard'), icon: 'trophy'},
         }) }}
@@ -49,7 +49,7 @@
                             <span class="mt-0.5 flex items-center justify-between gap-3">
                                 <span class="truncate text-small {{ unread > 0 ? 'text-fg' : 'text-fg-secondary' }}" data-conversation-preview>
                                     {%- if lastMessage -%}
-                                        {%- if lastMessage.author == app.user %}<span class="text-muted">Vous : </span>{% endif -%}
+                                        {%- if lastMessage.author == app.user %}<span class="text-muted">Toi : </span>{% endif -%}
                                         {{- lastMessage.content -}}
                                     {%- else -%}
                                         <span class="text-muted">Aucun message</span>

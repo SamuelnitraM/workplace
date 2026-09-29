@@ -24,8 +24,8 @@
             {% elseif feed.filter != 'communaute' and not hasNetwork %}
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'users',
-                    title: 'Votre fil est encore vide',
-                    text: 'Ajoutez des amis ou rejoignez des groupes : leurs photos, discussions, listes d\'armée et badges apparaîtront ici.',
+                    title: 'Ton fil est encore vide',
+                    text: 'Ajoute des amis ou rejoins des groupes : leurs photos, discussions, listes d\'armée et badges apparaîtront ici.',
                     cta: {label: 'Découvrir les groupes', url: path('app_group_index'), icon: 'users'},
                     secondary: {label: 'Voir l\'activité de la communauté', url: path('app_home', {fil: 'communaute'})},
                 }, with_context = false) }}
@@ -34,8 +34,8 @@
                     icon: 'rss',
                     title: 'Rien de neuf pour l\'instant',
                     text: feed.filter == 'communaute'
-                        ? 'La communauté n\'a encore rien partagé. Soyez le premier : une photo, une discussion ou une liste d\'armée !'
-                        : 'Aucune activité récente dans ce filtre. Revenez plus tard ou regardez ce que partage la communauté.',
+                        ? 'La communauté n\'a encore rien partagé. Sois le premier : une photo, une discussion ou une liste d\'armée !'
+                        : 'Aucune activité récente dans ce filtre. Reviens plus tard ou regarde ce que partage la communauté.',
                     cta: feed.filter == 'communaute'
                         ? {label: 'Partager une photo', url: path('app_profil_show', {username: app.user.username}) ~ '#gallery', icon: 'image-plus'}
                         : {label: 'Voir la communauté', url: path('app_home', {fil: 'communaute'})},

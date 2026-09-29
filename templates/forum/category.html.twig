@@ -73,16 +73,16 @@
             {{ include('_partials/_empty_state.html.twig', {
                 icon: 'message-square',
                 title: 'Aucun sujet pour l\'instant',
-                text: 'Lancez la discussion : une question, un schéma de peinture, une liste à faire relire…',
-                hint: app.user.threads is empty ? 'Votre premier sujet débloque le badge Pionnier I (+50 XP).' : null,
+                text: 'Lance la discussion : une question, un schéma de peinture, une liste à faire relire…',
+                hint: app.user.threads is empty ? 'Ton premier sujet débloque le badge Pionnier I (+50 XP).' : null,
                 cta: {label: 'Créer le premier sujet', url: path('app_thread_new', {slug: category.slug}), icon: 'pencil'},
             }) }}
         {% else %}
             {{ include('_partials/_empty_state.html.twig', {
                 icon: 'message-square',
                 title: 'Aucun sujet pour l\'instant',
-                text: 'Inscrivez-vous pour lancer la première discussion de cette catégorie.',
-                hint: 'Votre premier sujet débloque le badge Pionnier I (+50 XP).',
+                text: 'Inscris-toi pour lancer la première discussion de cette catégorie.',
+                hint: 'Ton premier sujet débloque le badge Pionnier I (+50 XP).',
                 cta: {label: 'Créer mon compte', url: path('app_register')},
                 secondary: {label: 'J\'ai déjà un compte', url: path('app_login')},
             }) }}

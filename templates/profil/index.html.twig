@@ -97,7 +97,7 @@
                             </button>
                             <div class="menu" x-show="open" x-cloak @click.outside="open = false" x-transition.opacity>
                                 <form method="post" action="{{ path(blockedByMe ? 'app_friendship_unblock' : 'app_friendship_block', {username: user.username}) }}"
-                                      {% if not blockedByMe %}{{ stimulus_controller('confirm', {message: 'Bloquer ' ~ user.username ~ ' ? Vos liens d\'amitié et demandes en cours seront supprimés.'})|stimulus_action('confirm', 'ask', 'submit') }}{% endif %}>
+                                      {% if not blockedByMe %}{{ stimulus_controller('confirm', {message: 'Bloquer ' ~ user.username ~ ' ? Tes liens d\'amitié et demandes en cours seront supprimés.'})|stimulus_action('confirm', 'ask', 'submit') }}{% endif %}>
                                     <input type="hidden" name="_token" value="{{ csrf_token('friendship') }}">
                                     <button type="submit" class="menu-item w-full {{ blockedByMe ? '' : 'menu-item-danger' }}">
                                         {{- ui.icon(blockedByMe ? 'lock' : 'ban') }}{{ blockedByMe ? 'Débloquer' : 'Bloquer' -}}
@@ -203,7 +203,7 @@
                     <label for="profile-photo-upload" class="upload-zone-label{% if gallery_full %} pointer-events-none{% endif %}" data-profile-gallery-target="label">
                         {{ ui.icon(gallery_full ? 'lock' : 'image-plus', 'upload-zone-icon') }}
                         <span class="upload-zone-text">{% if gallery_full %}Limite de 10 photos atteinte{% else %}Ajouter une photo{% endif %}</span>
-                        {% if not gallery_full %}<small class="upload-zone-hint">ou glissez-la ici · JPG, PNG, WebP</small>{% endif %}
+                        {% if not gallery_full %}<small class="upload-zone-hint">ou glisse-la ici · JPG, PNG, WebP</small>{% endif %}
                     </label>
                     <button type="submit" data-profile-gallery-target="submit" data-action="profile-gallery#submitClick" class="btn btn-primary btn-sm absolute bottom-3 left-1/2 z-20 -translate-x-1/2 {% if gallery_full %}hidden{% endif %}">Publier</button>
                     <div class="upload-zone-preview opacity-0" data-profile-gallery-target="preview"></div>
@@ -225,12 +225,12 @@
         {% if isOwner and not gallery_full %}
             <div class="field mt-4 max-w-reading" data-profile-gallery-target="description">
                 <label for="gallery-upload-description" class="label">Description de la photo <span class="label-hint">(facultatif)</span></label>
-                <textarea id="gallery-upload-description" name="description" form="gallery-upload-form" rows="2" maxlength="{{ galleryDescriptionMaxLength }}" placeholder="Quelques mots sur votre figurine, votre peinture, votre table…" class="textarea" aria-describedby="gallery-upload-description-help"></textarea>
-                <p id="gallery-upload-description-help" class="help">{{ galleryDescriptionMaxLength }} caractères maximum — choisissez d'abord la photo, puis « Publier ».</p>
+                <textarea id="gallery-upload-description" name="description" form="gallery-upload-form" rows="2" maxlength="{{ galleryDescriptionMaxLength }}" placeholder="Quelques mots sur ta figurine, ta peinture, ta table…" class="textarea" aria-describedby="gallery-upload-description-help"></textarea>
+                <p id="gallery-upload-description-help" class="help">{{ galleryDescriptionMaxLength }} caractères maximum — choisis d'abord la photo, puis « Publier ».</p>
             </div>
         {% endif %}
         {% if isOwner and gallery_full %}
-            <p class="mt-4 inline-flex items-center gap-2 text-small text-muted">{{ ui.icon('info', 'size-4') }}Limite de 10 photos atteinte : supprimez-en une pour en publier une nouvelle.</p>
+            <p class="mt-4 inline-flex items-center gap-2 text-small text-muted">{{ ui.icon('info', 'size-4') }}Limite de 10 photos atteinte : supprimes-en une pour en publier une nouvelle.</p>
         {% endif %}
 
         {% if galleryPhotos is empty %}
@@ -238,8 +238,8 @@
                 {% if isOwner %}
                     {{ include('_partials/_empty_state.html.twig', {
                         icon: 'camera',
-                        title: 'Votre galerie est vide',
-                        text: 'Montrez vos figurines, vos schémas de peinture ou votre table de jeu : jusqu\'à 10 photos, que la communauté peut aimer et commenter.',
+                        title: 'Ta galerie est vide',
+                        text: 'Montre tes figurines, tes schémas de peinture ou ta table de jeu : jusqu\'à 10 photos, que la communauté peut aimer et commenter.',
                         cta: {label: 'Ajouter ma première photo', for: 'profile-photo-upload', icon: 'image-plus'},
                         compact: true,
                     }) }}
@@ -247,7 +247,7 @@
                     {{ include('_partials/_empty_state.html.twig', {
                         icon: 'camera',
                         title: user.username ~ ' n\'a pas encore partagé de photo',
-                        text: 'Revenez plus tard… ou montrez l\'exemple en ajoutant vos propres photos.',
+                        text: 'Reviens plus tard… ou montre l\'exemple en ajoutant tes propres photos.',
                         cta: {label: 'Ma galerie', url: path('app_profil_show', {username: app.user.username}), icon: 'camera'},
                         compact: true,
                     }) }}
@@ -255,7 +255,7 @@
                     {{ include('_partials/_empty_state.html.twig', {
                         icon: 'camera',
                         title: user.username ~ ' n\'a pas encore partagé de photo',
-                        text: 'Inscrivez-vous pour partager vos propres figurines avec la communauté.',
+                        text: 'Inscris-toi pour partager tes propres figurines avec la communauté.',
                         cta: {label: 'Créer mon compte', url: path('app_register')},
                         secondary: {label: 'Se connecter', url: path('app_login')},
                         compact: true,
@@ -337,7 +337,7 @@
                     icon: 'medal',
                     title: 'Aucun badge obtenu pour l\'instant',
                     text: 'Les badges ci-dessous se débloquent en participant à la vie du site : forum, galerie, groupes, listes d\'armée…',
-                    hint: user.threads is empty ? 'Le plus rapide : publiez votre premier sujet pour débloquer Pionnier I (+50 XP).' : null,
+                    hint: user.threads is empty ? 'Le plus rapide : publie ton premier sujet pour débloquer Pionnier I (+50 XP).' : null,
                     cta: {label: 'Publier sur le forum', url: path('app_forum_index'), icon: 'pencil'},
                     compact: true,
                 }) }}
@@ -420,7 +420,7 @@
                     <span class="flex min-w-0 items-center gap-2 font-semibold text-fg">
                         {{ ui.icon('chevron-right', 'xp-history-chevron size-5 text-muted') }}
                         {{ ui.icon('bar-chart', 'size-5 text-accent-text') }}
-                        <span>Historique d'XP <span class="block text-caption font-normal text-muted sm:inline">(visible par vous uniquement)</span></span>
+                        <span>Historique d'XP <span class="block text-caption font-normal text-muted sm:inline">(visible par toi uniquement)</span></span>
                     </span>
                     <span class="shrink-0 text-small text-muted"><strong class="text-accent-text">{{ xpHistory.total }} XP</strong> · {{ xpHistory.count }} gain{{ xpHistory.count > 1 ? 's' }}</span>
                 </summary>
@@ -444,7 +444,7 @@
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'swords',
                     title: 'Aucune liste d\'armée publique',
-                    text: 'Créez une liste et cochez « publique » pour la présenter ici aux visiteurs de votre profil.',
+                    text: 'Crée une liste et coche « publique » pour la présenter ici aux visiteurs de ton profil.',
                     cta: {label: 'Créer une liste d\'armée', url: path('app_army_new'), icon: 'plus'},
                     secondary: {label: 'Mes listes d\'armée', url: path('app_army_index')},
                     compact: true,
@@ -453,7 +453,7 @@
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'swords',
                     title: user.username ~ ' n\'a pas encore de liste d\'armée publique',
-                    text: 'Et vous, quelle armée alignez-vous ? Composez votre liste en quelques clics.',
+                    text: 'Et toi, quelle armée alignes-tu ? Compose ta liste en quelques clics.',
                     cta: {label: 'Créer ma liste d\'armée', url: path('app_army_new'), icon: 'plus'},
                     compact: true,
                 }) }}
@@ -461,7 +461,7 @@
                 {{ include('_partials/_empty_state.html.twig', {
                     icon: 'swords',
                     title: user.username ~ ' n\'a pas encore de liste d\'armée publique',
-                    text: 'Inscrivez-vous pour composer et partager vos propres listes d\'armée.',
+                    text: 'Inscris-toi pour composer et partager tes propres listes d\'armée.',
                     cta: {label: 'Créer mon compte', url: path('app_register')},
                     secondary: {label: 'Se connecter', url: path('app_login')},
                     compact: true,
@@ -470,7 +470,7 @@
         {% else %}
             {% if isOwner %}
                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <p class="text-small text-muted">Vos listes publiques, visibles par les visiteurs de votre profil.</p>
+                    <p class="text-small text-muted">Tes listes publiques, visibles par les visiteurs de ton profil.</p>
                     <div class="flex gap-2">
                         <a href="{{ path('app_army_index') }}" class="btn btn-ghost btn-sm">Toutes mes listes</a>
                         <a href="{{ path('app_army_new') }}" class="btn btn-secondary btn-sm">{{ ui.icon('plus') }}Nouvelle liste</a>
@@ -494,7 +494,7 @@
                     {{ include('_partials/_empty_state.html.twig', {
                         icon: 'clock',
                         title: 'Aucune activité récente',
-                        text: 'Vos sujets, réponses, listes d\'armée publiques, photos, amitiés et groupes publics apparaîtront ici.',
+                        text: 'Tes sujets, réponses, listes d\'armée publiques, photos, amitiés et groupes publics apparaîtront ici.',
                         cta: {label: 'Participer au forum', url: path('app_forum_index'), icon: 'message-circle'},
                         secondary: {label: 'Rejoindre un groupe', url: path('app_group_index'), icon: 'users'},
                         variant: 'plain',

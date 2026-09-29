@@ -121,7 +121,7 @@
         {{ include('_partials/_empty_state.html.twig', {
             icon: 'swords',
             title: 'Aucune unité dans cette liste',
-            text: can_edit ? 'Ajoutez des unités depuis le catalogue de votre faction : le total de points se met à jour automatiquement.' : null,
+            text: can_edit ? 'Ajoute des unités depuis le catalogue de ta faction : le total de points se met à jour automatiquement.' : null,
             cta: can_edit ? {label: 'Ajouter des unités', url: path('app_army_edit', {id: armyList.id}), icon: 'plus'} : null,
         }) }}
     {% else %}

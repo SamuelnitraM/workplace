@@ -66,8 +66,8 @@
                             <option :value="det.nameEn" x-text="det.name" :selected="det.nameEn === selectedDetachment"></option>
                         </template>
                     </select>
-                    {% if not is_edit %}<p class="help" x-show="!selectedFaction">Choisissez d'abord une faction.</p>{% endif %}
-                    <p class="help" x-show="selectedDetachment" x-text="detachmentEnhancements.length ? detachmentEnhancements.length + ' amélioration(s) disponible(s) pour vos personnages.' : 'Aucune amélioration connue pour ce détachement.'"></p>
+                    {% if not is_edit %}<p class="help" x-show="!selectedFaction">Choisis d'abord une faction.</p>{% endif %}
+                    <p class="help" x-show="selectedDetachment" x-text="detachmentEnhancements.length ? detachmentEnhancements.length + ' amélioration(s) disponible(s) pour tes personnages.' : 'Aucune amélioration connue pour ce détachement.'"></p>
                 </div>
 
                 <div class="field content-end">

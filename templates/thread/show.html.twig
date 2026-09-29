@@ -45,7 +45,7 @@
                             <input type="hidden" name="subscribe" value="{{ isSubscribed ? '0' : '1' }}">
                             <input type="hidden" name="page" value="{{ posts.currentPageNumber }}">
                             <button type="submit" class="btn btn-sm btn-toggle" aria-pressed="{{ isSubscribed ? 'true' : 'false' }}"
-                                    title="{{ isSubscribed ? 'Vous êtes notifié des nouvelles réponses. Cliquez pour ne plus suivre ce sujet.' : 'Être notifié de chaque nouvelle réponse' }}">
+                                    title="{{ isSubscribed ? 'Tu es notifié des nouvelles réponses. Clique pour ne plus suivre ce sujet.' : 'Être notifié de chaque nouvelle réponse' }}">
                                 {{- ui.icon(isSubscribed ? 'bell' : 'bell-off') }}{{ isSubscribed ? 'Suivi' : 'Suivre' -}}
                             </button>
                         </form>
@@ -146,7 +146,7 @@
                         <span class="chip reaction reaction-positive" title="Votes « Positif »">{{ ui.icon('thumbs-up') }}<span class="sr-only">Votes positifs :</span>{{ positive }}</span>
                         <span class="chip reaction reaction-helpful" title="Votes « Aide »">{{ ui.icon('heart') }}<span class="sr-only">Votes « aide » :</span>{{ helpful }}</span>
                         {% if not app.user and loop.first %}
-                            <a href="{{ path('app_login') }}" class="btn btn-link btn-sm ml-auto">Connectez-vous pour voter</a>
+                            <a href="{{ path('app_login') }}" class="btn btn-link btn-sm ml-auto">Connecte-toi pour voter</a>
                         {% endif %}
                     {% endif %}
 
@@ -183,8 +183,8 @@
                 icon: 'message-circle',
                 title: 'Aucune réponse pour l\'instant',
                 text: app.user.id == thread.author.id
-                    ? 'Votre sujet attend ses premières réponses. Vous pouvez compléter votre propos ci-dessous.'
-                    : 'Partagez votre avis ou votre expérience : soyez le premier à répondre.',
+                    ? 'Ton sujet attend ses premières réponses. Tu peux compléter ton propos ci-dessous.'
+                    : 'Partage ton avis ou ton expérience : sois le premier à répondre.',
                 cta: {label: 'Écrire une réponse', for: form.content.vars.id, icon: 'pencil'},
                 compact: true,
             }) }}
@@ -196,8 +196,8 @@
         <section id="reply" class="card forum-post" aria-labelledby="reply-title">
             <div class="card-header">
                 <h2 id="reply-title" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-h3">
-                    {{- ui.icon('message-circle', 'size-5 text-muted') }}Votre réponse
-                    <span class="text-caption font-normal text-muted">· Restez courtois et constructif</span>
+                    {{- ui.icon('message-circle', 'size-5 text-muted') }}Ta réponse
+                    <span class="text-caption font-normal text-muted">· Reste courtois et constructif</span>
                 </h2>
             </div>
             {{ form_start(form) }}
@@ -205,11 +205,11 @@
                     {% if thread.stale %}
                         <div class="alert alert-info mb-4" role="note">
                             {{ ui.icon('clock') }}
-                            <p>Ce sujet est inactif depuis plus de 6 mois (dernière activité le {{ thread.lastActivityAt|date('d/m/Y') }}) : votre réponse le fera remonter en tête des discussions.</p>
+                            <p>Ce sujet est inactif depuis plus de 6 mois (dernière activité le {{ thread.lastActivityAt|date('d/m/Y') }}) : ta réponse le fera remonter en tête des discussions.</p>
                         </div>
                     {% endif %}
                     {{ form_errors(form) }}
-                    {{ include('forum/_editor.html.twig', {field: form.content, label: 'Votre réponse'}) }}
+                    {{ include('forum/_editor.html.twig', {field: form.content, label: 'Ta réponse'}) }}
                     {{ form_errors(form.content) }}
                 </div>
                 <div class="card-footer">
@@ -220,8 +220,8 @@
     {% elseif not app.user %}
         {{ include('_partials/_empty_state.html.twig', {
             icon: 'message-circle',
-            title: total_posts <= 1 ? 'Soyez le premier à répondre' : 'Envie de participer ?',
-            text: 'Connectez-vous ou créez un compte pour répondre à ce sujet.',
+            title: total_posts <= 1 ? 'Sois le premier à répondre' : 'Envie de participer ?',
+            text: 'Connecte-toi ou crée un compte pour répondre à ce sujet.',
             cta: {label: 'Créer mon compte', url: path('app_register')},
             secondary: {label: 'Se connecter', url: path('app_login')},
             compact: true,

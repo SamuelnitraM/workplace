@@ -47,7 +47,7 @@
                 <div id="chat-empty" data-chat-target="empty" class="my-auto">
                     {{ include('_partials/_empty_state.html.twig', {
                         icon: 'sparkles',
-                        title: 'Commencez la conversation avec ' ~ targetUser.username,
+                        title: 'Commence la conversation avec ' ~ targetUser.username,
                         text: canSend ? 'Un bonjour, une question sur ses figurines, une idée de partie…' : null,
                         cta: canSend ? {label: 'Écrire le premier message', for: 'message-input', icon: 'pencil'} : null,
                         variant: 'plain',
@@ -71,7 +71,7 @@
                         {% if not _own %}{{ ui.avatar(message.author, 'sm') }}{% endif %}
                         <div class="chat-msg-body">
                             <div class="chat-meta">
-                                {%- if _own %}<span class="sr-only">Vous, </span>{% else %}<span class="sr-only">{{ message.author.username }}, </span>{% endif -%}
+                                {%- if _own %}<span class="sr-only">Toi, </span>{% else %}<span class="sr-only">{{ message.author.username }}, </span>{% endif -%}
                                 <time datetime="{{ message.createdAt|date('c') }}" title="{{ message.createdAt|date('d/m/Y à H:i') }}">{{ message.createdAt|date('H:i') }}</time>
                                 {%- if not _own %} <a href="{{ path('app_report', {type: 'message', id: message.id}) }}" class="link text-muted" rel="nofollow" aria-label="Signaler ce message" title="Signaler ce message">{{ ui.icon('flag', 'size-3.5') }}</a>{% endif -%}
                             </div>
@@ -99,7 +99,7 @@
                   method="post"
                   class="chat-composer">
                 <input type="hidden" name="_token" value="{{ csrf_token('private_message') }}">
-                <label for="message-input" class="sr-only">Votre message à {{ targetUser.username }}</label>
+                <label for="message-input" class="sr-only">Ton message à {{ targetUser.username }}</label>
                 <div class="flex-1" data-controller="mention-suggest">
                     <input type="text" name="content" id="message-input" data-chat-target="input" data-mention-suggest-target="input"
                            data-action="keydown->mention-suggest#onKeydown input->mention-suggest#onInput blur->mention-suggest#close"
@@ -118,7 +118,7 @@
         {% else %}
             <div class="chat-composer justify-center text-center text-small text-fg-secondary" role="status">
                 {{ ui.icon('lock', 'size-4 shrink-0 text-muted') }}
-                <p>Vous n'êtes plus amis avec {{ targetUser.username }} : la conversation est en lecture seule.</p>
+                <p>Tu n'es plus ami avec {{ targetUser.username }} : la conversation est en lecture seule.</p>
             </div>
         {% endif %}
 

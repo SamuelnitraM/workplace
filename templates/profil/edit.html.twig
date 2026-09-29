@@ -17,14 +17,14 @@
     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data', 'class': 'space-y-6'}}) }}
         {{ form_errors(form) }}
 
-        {# ─── Profil ─── #}
+        {# ─── Profile ─── #}
         <section class="card" aria-labelledby="settings-profile">
             <div class="card-header">
                 <h2 id="settings-profile" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('user') }}</span>Profil</h2>
             </div>
             <div class="card-body space-y-6">
 
-                {# Photo de profil (assets/controllers/profile_image_controller.js) #}
+                {# Profile picture (assets/controllers/profile_image_controller.js) #}
                 <div class="flex flex-col items-center gap-5 sm:flex-row sm:items-center" data-controller="profile-image"
                      data-profile-image-aspect-ratio-value="{{ constant('App\\Profile\\ProfileImage::Avatar').aspectRatio }}">
                     <input type="hidden" name="delete_avatar" id="delete-avatar" value="0" data-profile-image-target="deleteInput">
@@ -43,7 +43,7 @@
                                 {{ ui.icon('camera', 'size-7') }}
                             </div>
                         </div>
-                        {# Champ fichier masqué, ouvert par la photo ou le bouton « Changer la photo » #}
+                        {# Hidden file input, opened by the picture or the « Changer la photo » button #}
                         <div class="absolute inset-0">
                             {{ form_widget(form.avatarFile, {'attr': {'class': 'sr-only', 'data-action': 'change->profile-image#chooseFile', 'data-profile-image-target': 'fileInput'}, 'id': 'avatar-upload-input'}) }}
                             <label for="avatar-upload-input" class="absolute inset-0 cursor-pointer rounded-pill"><span class="sr-only">Choisir une nouvelle photo de profil</span></label>
@@ -122,7 +122,7 @@
             </div>
         </section>
 
-        {# ─── Notifications : son joué à la réception (synthétisé par assets/lib/sounds.js) ─── #}
+        {# ─── Notifications: sound played on arrival (synthesized by assets/lib/sounds.js) ─── #}
         {% set sounds = constant('App\\Notification\\NotificationSound::SOUNDS') %}
         <section class="card" aria-labelledby="settings-notifications">
             <div class="card-header">
@@ -156,7 +156,7 @@
             </div>
         </section>
 
-        {# ─── Confidentialité ─── #}
+        {# ─── Privacy ─── #}
         <section class="card" aria-labelledby="settings-privacy">
             <div class="card-header">
                 <h2 id="settings-privacy" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('eye') }}</span>Confidentialité</h2>
@@ -175,7 +175,7 @@
             </div>
         </section>
 
-        {# ─── Sécurité ─── #}
+        {# ─── Security ─── #}
         <section class="card" aria-labelledby="settings-security">
             <div class="card-header">
                 <h2 id="settings-security" class="flex items-center gap-2 text-h3 text-fg"><span class="text-muted">{{ ui.icon('shield') }}</span>Sécurité</h2>
@@ -189,7 +189,7 @@
             </div>
         </section>
 
-        {# ─── Barre d'enregistrement (collante en bas de l'écran) ─── #}
+        {# ─── Save bar (sticky at the bottom of the screen) ─── #}
         <div class="sticky bottom-[calc(var(--bottom-bar-h)+env(safe-area-inset-bottom))] z-(--z-sticky) -mx-4 flex items-center justify-end gap-2 border-t border-line bg-canvas/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-card sm:border md:bottom-4">
             <a href="{{ path('app_profil_show', {username: app.user.username}) }}" class="btn btn-ghost">Annuler</a>
             <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}Enregistrer</button>
@@ -197,7 +197,7 @@
 
     {{ form_end(form) }}
 
-    {# ─── Suppression du compte (formulaire séparé, confirmé par le mot de passe) ─── #}
+    {# ─── Account deletion (separate form, confirmed with the password) ─── #}
     <section id="suppression" class="card mt-6 border-danger/40" aria-labelledby="settings-delete">
         <div class="card-header">
             <h2 id="settings-delete" class="flex items-center gap-2 text-h3 text-danger">{{ ui.icon('trash-2') }}Supprimer mon compte</h2>
@@ -213,8 +213,8 @@
                         <label class="label" for="delete-password">Mot de passe actuel</label>
                         <input type="password" id="delete-password" name="password" class="input sm:max-w-sm" autocomplete="current-password" required>
                     </div>
-                    <label class="check"><input type="checkbox" name="confirm" value="1" required><span>Je comprends que mon compte sera supprimé définitivement.</span></label>
-                    <div><button type="submit" class="btn btn-danger">{{ ui.icon('trash-2') }}Supprimer définitivement mon compte</button></div>
+                    <label class="check"><input type="checkbox" class="checkbox" name="confirm" value="1" required><span>Je comprends que mon compte sera supprimé définitivement.</span></label>
+                    <div><button type="submit" class="btn btn-danger w-full whitespace-normal sm:w-auto">{{ ui.icon('trash-2') }}Supprimer définitivement mon compte</button></div>
                 </form>
             {% endif %}
         </div>

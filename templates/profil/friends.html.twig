@@ -33,7 +33,7 @@
                         {{ include('gamification/_user_title.html.twig', {user: friend}) }}
                     </div>
                     {% if app.user and friend.id == app.user.id %}
-                        <span class="chip chip-primary shrink-0">Vous</span>
+                        <span class="chip chip-primary shrink-0">Toi</span>
                     {% elseif friend.id in viewerFriendIds %}
                         <span class="chip chip-success shrink-0">{{ ui.icon('user-check') }}Ami en commun</span>
                     {% endif %}

@@ -17,7 +17,7 @@
     {% else %}
         <turbo-frame id="feed-page-{{ cursor }}" class="block space-y-4" target="_top">
             {% if feed.items is empty %}
-                <p class="py-4 text-center text-small text-muted">Vous êtes à jour : il n'y a pas d'activité plus ancienne.</p>
+                <p class="py-4 text-center text-small text-muted">Tu es à jour : il n'y a pas d'activité plus ancienne.</p>
             {% endif %}
             {{ include('feed/_items.html.twig', {feed: feed}, with_context = false) }}
         </turbo-frame>

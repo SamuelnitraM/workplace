@@ -16,7 +16,7 @@
 
     {% if app.user and app.user.threads is empty %}
         <p class="mb-4 flex items-start gap-2 rounded-card border border-accent/30 bg-accent-soft px-3 py-2 text-small font-medium text-accent-text">
-            {{- ui.icon('trophy', 'size-4 mt-0.5 shrink-0') }}<span>Votre premier sujet débloque le badge Pionnier I (+50 XP).</span>
+            {{- ui.icon('trophy', 'size-4 mt-0.5 shrink-0') }}<span>Ton premier sujet débloque le badge Pionnier I (+50 XP).</span>
         </p>
     {% endif %}
 
@@ -26,12 +26,12 @@
                 {{ form_errors(form) }}
                 {{ form_row(form.title, {
                     attr: form.title.vars.attr|merge({maxlength: 255, autofocus: true}),
-                    help: 'Entre 5 et 255 caractères. Soyez précis : « Schéma de peinture pour Ultramarines » plutôt que « Besoin d\'aide ».',
+                    help: 'Entre 5 et 255 caractères. Sois précis : « Schéma de peinture pour Ultramarines » plutôt que « Besoin d\'aide ».',
                 }) }}
                 <div class="field">
                     {{ form_label(form.content) }}
                     {{ include('forum/_editor.html.twig', {field: form.content}) }}
-                    <p class="help">10 caractères minimum. Détaillez votre question : figurines, peintures utilisées, ce que vous avez déjà essayé… Ajoutez des photos pour illustrer.</p>
+                    <p class="help">10 caractères minimum. Détaille ta question : figurines, peintures utilisées, ce que tu as déjà essayé… Ajoute des photos pour illustrer.</p>
                     {{ form_errors(form.content) }}
                 </div>
             </div>
@@ -49,8 +49,8 @@
         <h2 id="thread-tips-title" class="mb-2 flex items-center gap-2 text-small font-semibold text-fg">{{ ui.icon('info', 'size-4 text-info-text') }}Pour obtenir de bonnes réponses</h2>
         <ul class="list-disc space-y-1 pl-5 text-small text-fg-secondary">
             <li>Un sujet = une question ou un projet.</li>
-            <li>Précisez l'armée, l'édition ou la gamme concernée.</li>
-            <li>Restez courtois : la communauté est là pour s'entraider.</li>
+            <li>Précise l'armée, l'édition ou la gamme concernée.</li>
+            <li>Reste courtois : la communauté est là pour s'entraider.</li>
         </ul>
     </aside>
 

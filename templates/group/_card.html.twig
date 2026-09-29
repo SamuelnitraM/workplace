@@ -9,7 +9,7 @@
         <div class="min-w-0 flex-1">
             <h3 class="flex items-center gap-1.5 text-h3 text-fg group-hover:text-primary-text">
                 <span class="truncate">{{ group.name }}</span>
-                {% if is_owner ?? false %}<span class="group-owner-crown" title="Vous êtes propriétaire">{{ ui.icon('crown', 'size-4') }}<span class="sr-only">Propriétaire</span></span>{% endif %}
+                {% if is_owner ?? false %}<span class="group-owner-crown" title="Tu es propriétaire">{{ ui.icon('crown', 'size-4') }}<span class="sr-only">Propriétaire</span></span>{% endif %}
             </h3>
             <p class="truncate text-caption text-muted">Par {{ group.creator.username }}</p>
         </div>

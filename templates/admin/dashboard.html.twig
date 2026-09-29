@@ -83,7 +83,7 @@
 
     {# 3. GRAPHIQUES #}
     <section class="hf-dash-section" aria-labelledby="daily-charts-title">
-        <h2 id="daily-charts-title" class="hf-dash-section-title">Les 30 derniers jours <span class="hf-dash-hint">Survolez une barre pour lire la valeur du jour.</span></h2>
+        <h2 id="daily-charts-title" class="hf-dash-section-title">Les 30 derniers jours <span class="hf-dash-hint">Survole une barre pour lire la valeur du jour.</span></h2>
         <div class="hf-dash-grid hf-dash-grid-3">
             {% for chart in charts %}
                 {{ include('admin/_bar_chart.html.twig', {chart: chart}) }}
