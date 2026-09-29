@@ -105,6 +105,9 @@ git archive --format=zip --output=..\sprue-deploy.zip main
 ```bash
 cd ~/www
 
+# 0. Contrôle : le serveur doit tourner en production (doit afficher « prod » et « false »)
+php bin/console about | grep -E "Environment|Debug"
+
 # 1. Sauvegarde de la base et du code en place
 mysqldump --no-tablespaces -h mysql-hforge.alwaysdata.net -u hforge -p hforge_prod > ~/backup-db-$(date +%F).sql
 rm -rf ~/ancien && mkdir ~/ancien && rsync -a --exclude=var/ --exclude=public/uploads/ ./ ~/ancien/
@@ -128,6 +131,7 @@ php bin/console cache:clear
 rm -rf ~/sprue-deploy ~/sprue-deploy.zip
 ```
 
+- Si le contrôle 0 affiche `dev` (ou si une commande échoue sur `Attempted to load class "DebugBundle"`), **s'arrêter** : `.env.local` est absent, ou ne contient pas `APP_ENV=prod`. Voir [Dépannage](#dépannage).
 - `rsync --delete` rend `www` identique à `main`, sauf les exclusions (secrets, dépendances, cache, photos des membres, CSS construit, `.htaccess` propre au serveur). Si d'autres fichiers ont été créés à la main dans `www`, ajouter une ligne `--exclude=` pour chacun.
 - `importmap:install` télécharge les bibliothèques JavaScript (Turbo, Stimulus, Alpine, Pusher…) : sans elle, le site s'affiche sans aucune interactivité.
 
@@ -231,6 +235,17 @@ Ces commandes demandent SSH (`cd ~/www` d'abord), ou une tâche planifiée ponct
 - en cas de page d'erreur : lire la fin de `~/www/var/log/prod.log` (FileZilla : télécharger le fichier ; SSH : `tail -n 50 var/log/prod.log`).
 
 Une erreur 500 dès l'accueil vient presque toujours d'un `.env.local` absent ou sans `APP_ENV=prod`, ou d'un fichier supprimé du dépôt resté sur le serveur.
+
+## Dépannage
+
+| Symptôme | Cause | Solution |
+|---|---|---|
+| `Attempted to load class "DebugBundle"` (ou `WebProfilerBundle`, `MakerBundle`) pendant `composer install` ou une commande | Le serveur démarre en `dev` alors que les outils de développement ne sont pas installés | Vérifier `~/www/.env.local` : il doit exister et contenir `APP_ENV=prod` et `APP_DEBUG=0` ; un fichier `.env.local.php` éventuel passe avant lui (le supprimer ou le régénérer). Contrôle : `php bin/console about` affiche `prod`. Puis relancer toutes les commandes de A3 à partir de `composer install` |
+| Erreur 500 sur tout le site | Même cause, ou fichier supprimé du dépôt resté sur le serveur | Même contrôle, puis `tail -n 50 var/log/prod.log` |
+| Site sans mise en forme ni interactivité | `importmap:install` ou `asset-map:compile` non lancés, ou CSS Tailwind absent | Envoyer `var/tailwind/app.built.css`, relancer les deux commandes et `cache:clear` |
+| Administration sans mise en forme | `public/bundles` absent | `php bin/console assets:install public` |
+
+`.env.local` perdu : le recréer dans `~/www` avec `APP_ENV=prod`, `APP_DEBUG=0`, `APP_SECRET` (nouveau : `php -r 'echo bin2hex(random_bytes(16)), PHP_EOL;'`, les membres devront se reconnecter), `DATABASE_URL`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER`, `MAILER_DSN`, `MAILER_FROM_ADDRESS`, `MAILER_FROM_NAME`. En garder une copie hors du serveur (gestionnaire de mots de passe), jamais dans Git.
 
 ## Marquer la version publiée
 
