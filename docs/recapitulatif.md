@@ -2,7 +2,7 @@
 
 > Réseau social francophone du hobby de la figurine : Warhammer, autres wargames, peinture et maquettes.
 > Ce document explique comment le site fonctionne, comment il est construit, quelles pages il contient et **quel fichier modifier** pour changer son contenu.
-> Voir aussi : [design-system.md](design-system.md) (interface), [roadmap.md](roadmap.md) (suite du projet), [workflow/](workflow/README.md) (Git et mise en production).
+> Voir aussi : [design-system.md](design-system.md) (interface), [roadmap.md](roadmap.md) (suite du projet), [changelog.md](changelog.md) (historique des évolutions), [workflow/](workflow/README.md) (Git et mise en production).
 
 ---
 
