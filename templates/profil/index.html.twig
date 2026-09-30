@@ -6,7 +6,7 @@
 {% block body %}
 {% set photo_count = galleryPhotos|length %}
 {% set gallery_full = photo_count >= 10 %}
-<div class="profile max-w-5xl mx-auto" data-controller="tabs">
+<div class="profile" data-controller="tabs">
 
     {# ================= EN-TÊTE DU PROFIL ================= #}
     <header class="card profile-hero">
@@ -352,7 +352,7 @@
                 <h3 class="eyebrow">{{ category }}</h3>
                 <span class="text-caption text-muted tabular-nums">{{ cat_unlocked }}/{{ badges|length }}</span>
             </div>
-            <div class="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {% for badge in badges %}
                     {% set is_current = isOwner and badge.code == current_title_code %}
                     <article class="badge-card badge-tier-{{ badge.tier }}{% if not badge.unlocked %} badge-locked{% endif %}{% if is_current %} is-current-title{% endif %}" data-badge="{{ badge.code }}" aria-label="{{ badge.name }} — {{ badge.unlocked ? 'obtenu' : 'verrouillé' }}{% if is_current %} — titre actuel{% endif %}">

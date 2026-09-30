@@ -72,7 +72,7 @@ Police : `Inter` si installée, sinon police système (aucun téléchargement).
 
 - Rayons : `rounded-control` (8 px : boutons, champs), `rounded-card` (12 px : cartes, menus, toasts), `rounded-pill`.
 - Ombres : `shadow-raised` (cartes), `shadow-overlay` (menus, toasts), `shadow-modal` (feuilles).
-- Largeurs : `max-w-form` (32 rem), `max-w-reading` (48 rem), `max-w-app` (80 rem) ; `container-app` = max-w-app centré + gouttière (déjà appliqué à `<main>`).
+- Largeurs, trois paliers seulement : `max-w-form` (32 rem, formulaires isolés), `max-w-reading` (56 rem, pages en une colonne : sujet, messages, paramètres, classement, liste d'armée), `max-w-app` (96 rem, pages à plusieurs colonnes ou à grilles) ; `container-app` = max-w-app centré + gouttière (déjà appliqué à `<main>`), `container-reading` / `container-form` à l'intérieur. Pas de largeur arbitraire (`max-w-5xl`…) sur une page.
 - Z-index (variables, pas de valeur en dur) : `--z-sticky` 20, `--z-header`/`--z-bottom-bar` 40, `--z-messenger` 45, `--z-dropdown` 50, `--z-toast` 60, `--z-modal` 70 → `class="z-(--z-dropdown)"`.
 - Mouvement : `--duration-fast` 120 ms, `--duration-base` 180 ms, `--duration-slow` 300 ms, `ease-standard` ; tout est neutralisé par `prefers-reduced-motion`.
 - Shell : `--header-h` (56/64 px), `--bottom-bar-h` (60 px).

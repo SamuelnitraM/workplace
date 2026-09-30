@@ -7,7 +7,7 @@
 {% set can_edit = is_granted('ARMY_EDIT', armyList) %}
 {% set model_count = armyList.units|reduce((carry, u) => carry + u.quantity, 0) %}
 {% set battle_size = armyList.battleSize %}
-<div class="max-w-4xl mx-auto" data-controller="modal">
+<div class="container-reading" data-controller="modal">
 
     <header class="page-header">
         <div class="min-w-0">

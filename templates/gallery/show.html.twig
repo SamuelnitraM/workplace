@@ -5,7 +5,7 @@
 
 {% block body %}
 {% set isPhotoOwner = is_granted('GALLERY_PHOTO_EDIT', photo) %}
-<div class="max-w-6xl mx-auto">
+<div>
 
     {% set photo_alt = 'Photo de ' ~ owner.username ~ (photo.description ? ' : ' ~ (photo.description|length > 120 ? photo.description|slice(0, 120) ~ '…' : photo.description) : '') %}
     {% set previous_url = previousPhoto ? path('app_gallery_photo_show', {username: owner.username, id: previousPhoto.id}) : '' %}
